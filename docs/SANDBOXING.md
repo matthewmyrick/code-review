@@ -11,7 +11,10 @@ enforced**:
 - The run context tells the agent it must not post to GitHub — nothing
   _prevents_ a malicious/buggy agent from doing so.
 - `AgentSpec.network_allowlist` is collected in the UI **but not
-  enforced** in v1. It exists so specs are already sandbox-shaped.
+  enforced** in v1. It exists so specs are already sandbox-shaped. New
+  agents are pre-seeded with their runner's provider endpoints (claude →
+  `api.anthropic.com` + `claude.ai`; codex → `api.openai.com` +
+  `chatgpt.com` + `auth.openai.com`) so most users never edit it.
 - Mitigations available today: claude's `--allowedTools` allowlist,
   per-run working directories, and hard timeouts.
 

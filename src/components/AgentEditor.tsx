@@ -34,6 +34,27 @@ const MODEL_OPTIONS: Record<"claude_headless" | "codex_headless", [string, strin
 
 const CUSTOM_MODEL = "__custom__";
 
+// Default egress allowlists per runner — what the v2 Docker+squid
+// sandbox will permit. api.* is the model provider; the second entry
+// covers CLI-session auth (token refresh). Unenforced in v1.
+const DEFAULT_ALLOWLIST: Record<string, string[]> = {
+  claude_headless: ["https://api.anthropic.com", "https://claude.ai"],
+  codex_headless: ["https://api.openai.com", "https://chatgpt.com", "https://auth.openai.com"],
+  custom: [],
+};
+
+function defaultAllowlist(kind: string): string[] {
+  return DEFAULT_ALLOWLIST[kind] ?? [];
+}
+
+function isDefaultAllowlist(list: string[]): boolean {
+  const sorted = [...list].sort().join(",");
+  return (
+    list.length === 0 ||
+    Object.values(DEFAULT_ALLOWLIST).some((d) => [...d].sort().join(",") === sorted)
+  );
+}
+
 function newSpec(): AgentSpec {
   return {
     name: "claude-reviewer",
@@ -46,7 +67,7 @@ function newSpec(): AgentSpec {
     append_system_prompt: null,
     prompt: DEFAULT_PROMPT,
     env: {},
-    network_allowlist: [],
+    network_allowlist: defaultAllowlist("claude_headless"),
     timeout_minutes: 15,
   };
 }
@@ -198,7 +219,13 @@ function SpecForm(props: {
         : kind === "codex_headless"
           ? { kind: "codex_headless" }
           : { kind: "claude_headless" };
-    patch({ runner });
+    // Follow the runner with its default allowlist unless the user has
+    // customized it.
+    patch(
+      isDefaultAllowlist(spec.network_allowlist)
+        ? { runner, network_allowlist: defaultAllowlist(kind) }
+        : { runner },
+    );
   };
 
   return (
@@ -289,8 +316,8 @@ function SpecForm(props: {
 
       <label className="flex flex-col gap-1">
         <span className="text-muted">
-          network allowlist (one URL per line — enforced by the v2 Docker+squid sandbox, see
-          docs/SANDBOXING.md)
+          network allowlist (one URL per line — pre-filled with your runner's provider endpoints;
+          enforced by the v2 Docker+squid sandbox, see docs/SANDBOXING.md)
         </span>
         <textarea
           value={spec.network_allowlist.join("\n")}
