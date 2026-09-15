@@ -1,17 +1,18 @@
-// Collapsible side pane with a persistent slim rail (never fully gone).
-// Unpinned: hovering the rail slides the pane out as an overlay; the pin
-// button freezes it back into the layout. The rail also hosts status
-// icons (e.g. a pulsing dot while an agent runs).
+// Collapsible side pane. Expanded: just the pane, with a round handle
+// on its inner edge to collapse. Collapsed: a slim rail with status
+// icons that never fully disappears; hovering it slides the pane out as
+// an overlay, and the overlay's pin handle freezes it open again.
 
-import { Pin, PinOff } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Pin } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
 interface SidePaneProps {
   side: "left" | "right";
+  /** true = expanded (pane visible), false = collapsed to the rail. */
   pinned: boolean;
   onTogglePin: () => void;
-  /** Icons shown on the rail (status indicators, counts). */
+  /** Icons shown on the collapsed rail (status indicators, counts). */
   rail: ReactNode;
   /** Tailwind width class for the pane, e.g. "w-72". */
   widthClass: string;
@@ -22,25 +23,12 @@ export function SidePane(props: SidePaneProps) {
   const [hovering, setHovering] = useState(false);
   const isLeft = props.side === "left";
   const borderClass = isLeft ? "border-r border-edge" : "border-l border-edge";
+  const CollapseIcon = isLeft ? ChevronsLeft : ChevronsRight;
+  const ExpandIcon = isLeft ? ChevronsRight : ChevronsLeft;
 
-  const rail = (
-    <div
-      onMouseEnter={() => {
-        setHovering(true);
-      }}
-      className={`flex h-full w-9 shrink-0 flex-col items-center gap-3 bg-panel py-3 ${borderClass}`}
-    >
-      <div className="flex flex-col items-center gap-3 text-muted">{props.rail}</div>
-      <button
-        type="button"
-        onClick={props.onTogglePin}
-        title={props.pinned ? "unpin — pane shows on hover" : "pin pane open"}
-        className="mt-auto inline-flex size-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-cream"
-      >
-        {props.pinned ? <PinOff size={13} /> : <Pin size={13} />}
-      </button>
-    </div>
-  );
+  const handleClass = `absolute top-1/2 z-40 -translate-y-1/2 ${
+    isLeft ? "-right-3" : "-left-3"
+  } flex size-6 items-center justify-center rounded-full border border-edge bg-panel text-muted shadow-md transition-colors hover:border-sky hover:text-cream`;
 
   const pane = (
     <div className={`h-full overflow-hidden bg-panel ${props.widthClass} ${borderClass}`}>
@@ -50,9 +38,16 @@ export function SidePane(props: SidePaneProps) {
 
   if (props.pinned) {
     return (
-      <div className={`flex h-full shrink-0 ${isLeft ? "" : "flex-row-reverse"}`}>
-        {rail}
+      <div className="relative h-full shrink-0">
         {pane}
+        <button
+          type="button"
+          onClick={props.onTogglePin}
+          title="collapse pane"
+          className={handleClass}
+        >
+          <CollapseIcon size={13} />
+        </button>
       </div>
     );
   }
@@ -64,14 +59,43 @@ export function SidePane(props: SidePaneProps) {
         setHovering(false);
       }}
     >
-      {rail}
+      <div
+        onMouseEnter={() => {
+          setHovering(true);
+        }}
+        className={`flex h-full w-9 flex-col items-center gap-3 bg-panel py-3 ${borderClass}`}
+      >
+        <div className="flex flex-col items-center gap-3 text-muted">{props.rail}</div>
+        <button
+          type="button"
+          onClick={props.onTogglePin}
+          title="expand pane"
+          className="mt-auto inline-flex size-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-cream"
+        >
+          <ExpandIcon size={14} />
+        </button>
+      </div>
+
       {hovering ? (
         <div
-          className={`animate-fade-in absolute top-0 z-30 h-full shadow-2xl ${
+          className={`animate-fade-in absolute top-0 z-30 h-full ${
             isLeft ? "left-full" : "right-full"
           }`}
         >
-          {pane}
+          <div className="relative h-full shadow-2xl">
+            {pane}
+            <button
+              type="button"
+              onClick={() => {
+                props.onTogglePin();
+                setHovering(false);
+              }}
+              title="pin pane open"
+              className={handleClass}
+            >
+              <Pin size={12} />
+            </button>
+          </div>
         </div>
       ) : null}
     </div>
