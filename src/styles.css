@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* Appa theme — sky-bison palette: warm dark ground, cream fur, sky-blue
+   accents. Exposed as Tailwind colors (bg-bison, text-cream, ...). */
+@theme {
+  --color-ground: #14161b;
+  --color-panel: #1b1e25;
+  --color-panel-2: #22262f;
+  --color-edge: #2d323d;
+  --color-cream: #ece5d8;
+  --color-fur: #b8aa90;
+  --color-muted: #8a92a3;
+  --color-sky: #6cb1e0;
+  --color-sky-deep: #3f7fb0;
+  --color-moss: #64b878;
+  --color-ember: #e0716c;
+  --color-amber: #dfb36a;
+
+  --font-sans: "Avenir Next", "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-cream);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Diff rendering */
+.diff-line {
+  display: grid;
+  grid-template-columns: 3.2rem 3.2rem 1fr;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.diff-line-num {
+  text-align: right;
+  padding-right: 0.6rem;
+  color: var(--color-muted);
+  user-select: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.diff-line-num:hover {
+  color: var(--color-sky);
+  opacity: 1;
+}
+
+.diff-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding-left: 0.75rem;
+}
+
+.diff-added {
+  background: color-mix(in srgb, var(--color-moss) 12%, transparent);
+}
+.diff-added .diff-content {
+  background: color-mix(in srgb, var(--color-moss) 8%, transparent);
+}
+.diff-removed {
+  background: color-mix(in srgb, var(--color-ember) 12%, transparent);
+}
+.diff-removed .diff-content {
+  background: color-mix(in srgb, var(--color-ember) 8%, transparent);
+}
+
+/* Scrollbars that match the theme */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-edge);
+  border-radius: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
