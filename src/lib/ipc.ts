@@ -45,6 +45,8 @@ export const ipc = {
   startAgentReview: (agentName: string, repo: string, number: number) =>
     invoke<string>("start_agent_review", { agentName, repo, number }),
   cancelAgentRun: (runId: string) => invoke<null>("cancel_agent_run", { runId }),
+  replyToComment: (agentName: string, commentId: string, body: string) =>
+    invoke<string>("reply_to_comment", { agentName, commentId, body }),
 
   // settings
   getSettings: () => invoke<Settings>("get_settings"),

@@ -23,7 +23,12 @@ export type Theme = "dark" | "light";
 const THEME_KEY = "appa-theme";
 
 function loadTheme(): Theme {
-  return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  // Light is the default; dark only when explicitly chosen.
+  return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
+}
+
+function loadPinned(key: string): boolean {
+  return localStorage.getItem(key) !== "false";
 }
 
 function applyTheme(theme: Theme) {
@@ -38,6 +43,8 @@ let initStarted = false;
 interface AppStore {
   view: View;
   theme: Theme;
+  leftPinned: boolean;
+  rightPinned: boolean;
   settings: Settings | null;
   selectedRepo: string | null;
   prs: PullRequest[];
@@ -52,6 +59,9 @@ interface AppStore {
   init: () => Promise<void>;
   setView: (view: View) => void;
   toggleTheme: () => void;
+  goHome: () => void;
+  togglePinned: (side: "left" | "right") => void;
+  replyToComment: (commentId: string, body: string, agentName: string) => Promise<void>;
   selectRepo: (slug: string) => Promise<void>;
   selectPr: (number: number) => Promise<void>;
   refreshPrs: () => Promise<void>;
@@ -88,6 +98,8 @@ export const useAppStore = create<AppStore>((set, get) => {
   return {
     view: "review",
     theme: loadTheme(),
+    leftPinned: loadPinned("appa-pin-left"),
+    rightPinned: loadPinned("appa-pin-right"),
     settings: null,
     selectedRepo: null,
     prs: [],
@@ -139,6 +151,27 @@ export const useAppStore = create<AppStore>((set, get) => {
       const theme = get().theme === "dark" ? "light" : "dark";
       applyTheme(theme);
       set({ theme });
+    },
+
+    goHome: () => {
+      set({ view: "review", selectedPr: null, bundle: null });
+    },
+
+    togglePinned: (side) => {
+      const key = side === "left" ? "leftPinned" : "rightPinned";
+      const value = !get()[key];
+      localStorage.setItem(side === "left" ? "appa-pin-left" : "appa-pin-right", String(value));
+      set({ [key]: value } as Partial<AppStore>);
+    },
+
+    replyToComment: async (commentId, body, agentName) => {
+      try {
+        await ipc.replyToComment(agentName, commentId, body);
+        await reloadComments();
+        await reloadRuns();
+      } catch (e) {
+        fail(e);
+      }
     },
 
     selectRepo: async (slug) => {

@@ -24,6 +24,8 @@ pub enum CommentStatus {
     Rejected,
     /// Addressed / no longer relevant.
     Resolved,
+    /// Kept for the record but hidden from the active review.
+    Archived,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +65,9 @@ pub struct LocalComment {
     pub status: CommentStatus,
     /// Agent run that produced this comment, if any.
     pub run_id: Option<String>,
+    /// Root comment this replies to; None for top-level comments.
+    #[serde(default)]
+    pub parent_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -82,4 +87,6 @@ pub struct NewLocalComment {
     pub author_name: String,
     pub severity: CommentSeverity,
     pub run_id: Option<String>,
+    #[serde(default)]
+    pub parent_id: Option<String>,
 }

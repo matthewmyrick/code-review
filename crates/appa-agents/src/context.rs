@@ -61,6 +61,77 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
     )
 }
 
+/// One message of a review-comment thread, oldest first.
+#[derive(Debug, Clone)]
+pub struct ThreadMessage {
+    /// "you" for the human, otherwise the agent name.
+    pub author: String,
+    pub body: String,
+}
+
+/// Everything a reply run needs to continue a comment thread.
+#[derive(Debug, Clone)]
+pub struct ReplyContext {
+    pub run_id: String,
+    pub comments_file: String,
+    /// Root comment id — the agent's reply must carry this as parent_id.
+    pub parent_id: String,
+    pub path: String,
+    pub side: String,
+    pub line: u64,
+    /// Diff excerpt for the file under discussion.
+    pub diff_text: String,
+}
+
+/// Prompt for continuing a discussion on an existing local comment.
+pub fn build_reply_prompt(
+    ctx: &ReplyContext,
+    pr: &PullRequest,
+    thread: &[ThreadMessage],
+    instructions: &str,
+) -> String {
+    let mut rendered_thread = String::new();
+    for msg in thread {
+        rendered_thread.push_str(&format!("### {}\n{}\n\n", msg.author, msg.body));
+    }
+    format!(
+        "# Appa review thread\n\
+         You are running inside Appa, a local code-review app, continuing \
+         a discussion about one review comment. Your reply stays LOCAL — \
+         never attempt to post to GitHub or call `gh`.\n\n\
+         - run id: {run_id}\n\
+         - repository: {repo}\n\
+         - pull request: #{number} — {title}\n\
+         - comment anchor: {path}:{line} (side: {side})\n\n\
+         ## The thread so far (oldest first)\n\
+         {thread}\
+         ## How to reply\n\
+         Respond to the latest message. Emit EXACTLY ONE JSON object on \
+         its own line in your final response (no code fences):\n\n\
+         {{\"type\":\"appa_comment\",\"path\":\"{path}\",\"side\":\"{side}\",\
+         \"line\":{line},\"severity\":\"info\",\
+         \"parent_id\":\"{parent_id}\",\"body\":\"<your reply, markdown>\"}}\n\n\
+         Keep the reply focused and conversational — you are talking with \
+         the reviewer. Acknowledge if they are right; push back with \
+         evidence if not.\n\n\
+         ## Original review instructions\n\
+         {instructions}\n\n\
+         ## Diff context for {path}\n\
+         ```diff\n{diff}\n```\n",
+        run_id = ctx.run_id,
+        repo = pr.repo.slug(),
+        number = pr.number,
+        title = pr.title,
+        path = ctx.path,
+        side = ctx.side,
+        line = ctx.line,
+        parent_id = ctx.parent_id,
+        thread = rendered_thread,
+        instructions = instructions,
+        diff = ctx.diff_text,
+    )
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {

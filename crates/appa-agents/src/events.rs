@@ -21,6 +21,9 @@ pub struct AgentComment {
     #[serde(default = "default_severity")]
     pub severity: String,
     pub body: String,
+    /// Set when the comment is a reply within an existing thread.
+    #[serde(default)]
+    pub parent_id: Option<String>,
 }
 
 fn default_side() -> String {
@@ -70,6 +73,7 @@ impl AgentComment {
             "line": self.line,
             "severity": self.severity,
             "body": self.body,
+            "parent_id": self.parent_id,
         })
         .to_string()
     }
@@ -77,7 +81,14 @@ impl AgentComment {
     /// Key for de-duplicating the same comment arriving via multiple
     /// channels (stdout line, embedded assistant text, comments file).
     pub fn dedupe_key(&self) -> String {
-        format!("{}|{}|{}|{}", self.path, self.side, self.line, self.body)
+        format!(
+            "{}|{}|{}|{}|{}",
+            self.path,
+            self.side,
+            self.line,
+            self.body,
+            self.parent_id.as_deref().unwrap_or("")
+        )
     }
 }
 

@@ -1,15 +1,22 @@
-// The differ: renders structured FileDiffs with per-line commenting.
-// Hover a line and hit the ＋ (or click a line number) to attach a local
-// comment — never posted to GitHub.
+// The differ: renders structured FileDiffs with syntax highlighting and
+// per-line commenting. Hover a line and hit + (or click a line number)
+// to attach a local comment — never posted to GitHub.
 
 import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
-import type { FileDiff, LocalComment } from "../lib/types";
-import { CommentCard, InlineCommentForm } from "./comments";
+import { highlightLine, languageForPath } from "../lib/highlight";
+import type { FileDiff, GithubComment, LocalComment } from "../lib/types";
+import { CommentThread, GithubCommentCard, groupThreads, InlineCommentForm } from "./comments";
 import { Pill } from "./ui";
 
-export function DiffViewer({ diff, comments }: { diff: FileDiff[]; comments: LocalComment[] }) {
+interface DiffViewerProps {
+  diff: FileDiff[];
+  comments: LocalComment[];
+  githubComments: GithubComment[];
+}
+
+export function DiffViewer({ diff, comments, githubComments }: DiffViewerProps) {
   if (diff.length === 0) {
     return <div className="p-6 text-center text-xs text-muted">diff not loaded yet</div>;
   }
@@ -20,6 +27,9 @@ export function DiffViewer({ diff, comments }: { diff: FileDiff[]; comments: Loc
           key={`${file.old_path}:${file.new_path}`}
           file={file}
           comments={comments.filter((c) => c.path === file.new_path || c.path === file.old_path)}
+          githubComments={githubComments.filter(
+            (c) => c.path === file.new_path || c.path === file.old_path,
+          )}
         />
       ))}
     </div>
@@ -39,9 +49,17 @@ function statusPill(file: FileDiff) {
   }
 }
 
-function FileCard({ file, comments }: { file: FileDiff; comments: LocalComment[] }) {
+interface FileCardProps {
+  file: FileDiff;
+  comments: LocalComment[];
+  githubComments: GithubComment[];
+}
+
+function FileCard({ file, comments, githubComments }: FileCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const displayPath = file.status === "removed" ? file.old_path : file.new_path;
+  const language = languageForPath(displayPath);
+  const commentCount = comments.length + githubComments.length;
 
   return (
     <section className="animate-fade-up overflow-hidden rounded-xl border border-edge bg-panel shadow-sm">
@@ -62,9 +80,9 @@ function FileCard({ file, comments }: { file: FileDiff; comments: LocalComment[]
           </span>
         ) : null}
         {statusPill(file)}
-        {comments.length > 0 ? (
+        {commentCount > 0 ? (
           <Pill tone="sky">
-            <MessageSquare size={11} /> {comments.length}
+            <MessageSquare size={11} /> {commentCount}
           </Pill>
         ) : null}
         <span className="ml-auto shrink-0 text-[11px]">
@@ -77,7 +95,14 @@ function FileCard({ file, comments }: { file: FileDiff; comments: LocalComment[]
         <div className="px-3 py-4 text-center text-xs text-muted">binary file</div>
       ) : (
         file.hunks.map((hunk, i) => (
-          <HunkView key={i} path={displayPath} hunk={hunk} comments={comments} />
+          <HunkView
+            key={i}
+            path={displayPath}
+            language={language}
+            hunk={hunk}
+            comments={comments}
+            githubComments={githubComments}
+          />
         ))
       )}
     </section>
@@ -86,11 +111,13 @@ function FileCard({ file, comments }: { file: FileDiff; comments: LocalComment[]
 
 interface HunkProps {
   path: string;
+  language: string | null;
   hunk: FileDiff["hunks"][number];
   comments: LocalComment[];
+  githubComments: GithubComment[];
 }
 
-function HunkView({ path, hunk, comments }: HunkProps) {
+function HunkView({ path, language, hunk, comments, githubComments }: HunkProps) {
   const [commentAt, setCommentAt] = useState<{ line: number; side: "old" | "new" } | null>(null);
 
   return (
@@ -101,7 +128,14 @@ function HunkView({ path, hunk, comments }: HunkProps) {
       {hunk.lines.map((line, i) => {
         const anchorSide = line.kind === "removed" ? "old" : "new";
         const anchorLine = line.kind === "removed" ? line.old_line : line.new_line;
-        const lineComments = comments.filter((c) => c.side === anchorSide && c.line === anchorLine);
+        const threads = groupThreads(
+          comments.filter(
+            (c) => c.side === anchorSide && c.line === anchorLine && c.status !== "archived",
+          ),
+        );
+        const ghAtLine = githubComments.filter(
+          (c) => anchorSide === "new" && c.line === anchorLine,
+        );
         const rowClass =
           line.kind === "added" ? "diff-added" : line.kind === "removed" ? "diff-removed" : "";
         const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "−" : " ";
@@ -130,14 +164,19 @@ function HunkView({ path, hunk, comments }: HunkProps) {
                 </button>
                 <div className="diff-content">
                   <span className="select-none pr-1 text-muted">{marker}</span>
-                  {line.content}
+                  <LineContent content={line.content} language={language} />
                 </div>
               </div>
             </div>
 
-            {lineComments.map((comment) => (
-              <div key={comment.id} className="border-y border-edge/60 bg-panel-2/70 px-4 py-2">
-                <CommentCard comment={comment} />
+            {threads.map((thread) => (
+              <div key={thread.root.id} className="border-y border-edge/60 bg-panel-2/70 px-4 py-2">
+                <CommentThread root={thread.root} replies={thread.replies} />
+              </div>
+            ))}
+            {ghAtLine.map((c) => (
+              <div key={c.id} className="border-y border-edge/60 bg-panel-2/40 px-4 py-2">
+                <GithubCommentCard comment={c} />
               </div>
             ))}
 
@@ -160,4 +199,11 @@ function HunkView({ path, hunk, comments }: HunkProps) {
       })}
     </div>
   );
+}
+
+function LineContent({ content, language }: { content: string; language: string | null }) {
+  const html = language ? highlightLine(content, language) : null;
+  if (html === null) return <>{content}</>;
+  // hljs escapes its output, so this only injects highlight spans.
+  return <span dangerouslySetInnerHTML={{ __html: html }} />;
 }

@@ -102,7 +102,7 @@ export interface FileDiff {
 // ---- local review ----------------------------------------------------------
 
 export type CommentAuthorKind = "human" | "agent";
-export type CommentStatus = "open" | "accepted" | "rejected" | "resolved";
+export type CommentStatus = "open" | "accepted" | "rejected" | "resolved" | "archived";
 export type CommentSeverity = "info" | "suggestion" | "issue" | "blocker";
 export type DiffSide = "old" | "new";
 
@@ -120,6 +120,7 @@ export interface LocalComment {
   severity: CommentSeverity;
   status: CommentStatus;
   run_id: string | null;
+  parent_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -136,6 +137,7 @@ export interface NewLocalComment {
   author_name: string;
   severity: CommentSeverity;
   run_id: string | null;
+  parent_id: string | null;
 }
 
 // ---- agents ---------------------------------------------------------------

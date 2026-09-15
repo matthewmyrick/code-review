@@ -187,6 +187,80 @@ body {
   transform: translateY(0) scale(1.15);
 }
 
+/* ---- syntax highlighting (highlight.js tokens, theme-aware) ---------- */
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-tag {
+  color: var(--color-sky);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+  color: var(--color-moss);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-type,
+.hljs-class,
+.hljs-attr,
+.hljs-attribute {
+  color: var(--color-amber);
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-deletion {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.hljs-title,
+.hljs-function,
+.hljs-name,
+.hljs-section {
+  color: var(--color-fur);
+}
+
+.hljs-meta,
+.hljs-doctag,
+.hljs-symbol,
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--color-ember);
+}
+
+/* pulsing "agent running" dot on the pane rail */
+.run-dot {
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-moss);
+}
+
+.run-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--color-moss);
+  animation: run-ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes run-ping {
+  75%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
 /* ---- scrollbars -------------------------------------------------------- */
 
 *::-webkit-scrollbar {

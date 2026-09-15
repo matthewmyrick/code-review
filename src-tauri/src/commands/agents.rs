@@ -79,17 +79,37 @@ pub async fn start_agent_review(
         (spec, detail.pull_request, raw)
     };
 
+    let instructions = spec.prompt.clone();
+    let pr_for_prompt = pr.clone();
+    launch_run(app, &state, spec, repo, pr, move |run_id, comments_file| {
+        let ctx = ReviewContext {
+            run_id: run_id.to_owned(),
+            comments_file: comments_file.to_owned(),
+            diff_text: raw_diff,
+        };
+        build_prompt(&ctx, &pr_for_prompt, &instructions)
+    })
+    .await
+}
+
+/// Shared launch path for every agent run (fresh review or thread
+/// reply): create the run dir, spawn the process, persist the run row,
+/// stash the cancel handle, and start the event pump.
+pub(crate) async fn launch_run(
+    app: AppHandle,
+    state: &AppState,
+    spec: AgentSpec,
+    repo: RepoRef,
+    pr: appa_core::github::PullRequest,
+    build_prompt_fn: impl FnOnce(&str, &str) -> String,
+) -> Result<String, AppaError> {
     let run_id = uuid::Uuid::new_v4().to_string();
     let run_dir = state.dirs.runs_dir.join(&run_id);
-    let ctx = ReviewContext {
-        run_id: run_id.clone(),
-        comments_file: run_dir
-            .join("comments.jsonl")
-            .to_string_lossy()
-            .into_owned(),
-        diff_text: raw_diff,
-    };
-    let prompt = build_prompt(&ctx, &pr, &spec.prompt);
+    let comments_file = run_dir
+        .join("comments.jsonl")
+        .to_string_lossy()
+        .into_owned();
+    let prompt = build_prompt_fn(&run_id, &comments_file);
 
     let request = RunRequest {
         spec: spec.clone(),
@@ -106,7 +126,7 @@ pub async fn start_agent_review(
         run_id: run_id.clone(),
         agent_name: spec.name.clone(),
         repo_slug: repo.slug(),
-        pr_number: number,
+        pr_number: pr.number,
         head_sha: pr.head_sha.clone(),
         status: RunStatus::Starting,
         started_at: Utc::now(),
@@ -120,7 +140,8 @@ pub async fn start_agent_review(
     }
     state.runs.lock().await.insert(run_id.clone(), cancel);
 
-    tokio::spawn(pump_events(app, events, run, spec, repo, pr.head_sha));
+    let head_sha = pr.head_sha.clone();
+    tokio::spawn(pump_events(app, events, run, spec, repo, head_sha));
     Ok(run_id)
 }
 
@@ -193,6 +214,7 @@ async fn handle_comment(
         author_name: spec.name.clone(),
         severity: parse_severity(&parsed.severity),
         run_id: Some(run.run_id.clone()),
+        parent_id: parsed.parent_id.clone(),
     };
     let state = app.state::<AppState>();
     let result = { state.cache.lock().await.add_comment(new) };

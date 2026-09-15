@@ -16,6 +16,7 @@ use crate::Cache;
 /// [`Cache`] so everything shares one database file.
 pub trait ReviewStore {
     fn add_comment(&self, new: NewLocalComment) -> Result<LocalComment>;
+    fn get_comment(&self, id: &str) -> Result<Option<LocalComment>>;
     fn list_comments(&self, repo: &RepoRef, pr_number: u64) -> Result<Vec<LocalComment>>;
     fn set_comment_status(&self, id: &str, status: CommentStatus) -> Result<()>;
     fn update_comment_body(&self, id: &str, body: &str) -> Result<()>;
@@ -46,6 +47,7 @@ impl ReviewStore for Cache {
             severity: new.severity,
             status: CommentStatus::Open,
             run_id: new.run_id,
+            parent_id: new.parent_id,
             created_at: now,
             updated_at: now,
         };
@@ -63,6 +65,22 @@ impl ReviewStore for Cache {
             )
             .map_err(cache_err)?;
         Ok(comment)
+    }
+
+    fn get_comment(&self, id: &str) -> Result<Option<LocalComment>> {
+        let json: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT json FROM local_comments WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(cache_err)?;
+        match json {
+            None => Ok(None),
+            Some(j) => Ok(Some(serde_json::from_str(&j)?)),
+        }
     }
 
     fn list_comments(&self, repo: &RepoRef, pr_number: u64) -> Result<Vec<LocalComment>> {
@@ -220,6 +238,7 @@ mod tests {
             author_name: "claude".into(),
             severity: CommentSeverity::Suggestion,
             run_id: Some("run-1".into()),
+            parent_id: None,
         }
     }
 

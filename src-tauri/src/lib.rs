@@ -4,7 +4,7 @@ mod commands;
 mod settings;
 mod state;
 
-use commands::{agents, prs, review, settings_cmd};
+use commands::{agents, prs, review, settings_cmd, threads};
 use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -40,6 +40,7 @@ pub fn run() {
             agents::list_agent_runs,
             agents::start_agent_review,
             agents::cancel_agent_run,
+            threads::reply_to_comment,
             settings_cmd::get_settings,
             settings_cmd::update_settings,
         ])

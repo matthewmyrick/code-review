@@ -4,6 +4,7 @@ pub mod agents;
 pub mod prs;
 pub mod review;
 pub mod settings_cmd;
+pub mod threads;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};

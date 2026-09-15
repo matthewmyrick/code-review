@@ -108,7 +108,8 @@ function runnerLines(payload: string): LogLine[] {
   if (!obj) return [];
   switch (str(obj.type) ?? "") {
     case "system":
-      return []; // init/thinking-token telemetry — noise
+    case "rate_limit_event":
+      return []; // init / thinking-token / rate-limit telemetry — noise
     case "assistant":
       return assistantLines(obj);
     case "user":

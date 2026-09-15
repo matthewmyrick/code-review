@@ -16,7 +16,7 @@ export function Sidebar() {
   const repoSyncing = selectedRepo ? (syncing[`prs:${selectedRepo}`] ?? false) : false;
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-r border-edge bg-panel">
+    <div className="flex h-full w-full flex-col">
       <div className="border-b border-edge p-3">
         <select
           className="h-9 w-full rounded-lg border border-edge bg-panel-2 px-2 text-sm text-cream transition-colors focus:border-sky"
@@ -52,7 +52,7 @@ export function Sidebar() {
           </div>
         ) : null}
       </div>
-    </aside>
+    </div>
   );
 }
 
