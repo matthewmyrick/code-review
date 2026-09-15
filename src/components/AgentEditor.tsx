@@ -1,6 +1,7 @@
 // Configure "bring your own AI" reviewers: runner, model, prompt, tools,
 // and (for the v2 sandbox) the network allowlist.
 
+import { Bot, Plus } from "lucide-react";
 import { useState } from "react";
 
 import type { AgentSpec, RunnerKind } from "../lib/types";
@@ -93,7 +94,7 @@ export function AgentEditor() {
             setEditing(newSpec());
           }}
         >
-          + new agent
+          <Plus size={12} /> new agent
         </Button>
       </div>
 
@@ -103,7 +104,9 @@ export function AgentEditor() {
             key={spec.name}
             className="flex items-center gap-2 rounded-md bg-panel-2 px-2 py-1.5 text-xs"
           >
-            <span className="font-medium text-cream">🤖 {spec.name}</span>
+            <span className="inline-flex items-center gap-1.5 font-medium text-cream">
+              <Bot size={13} /> {spec.name}
+            </span>
             <span className="text-muted">{spec.runner.kind}</span>
             {spec.model ? <span className="font-mono text-muted">{spec.model}</span> : null}
             <div className="ml-auto flex gap-1.5">

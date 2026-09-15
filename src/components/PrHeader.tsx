@@ -1,6 +1,8 @@
 // PR title bar: branches, checks, reviews/approvers, labels — everything
 // pulled from GitHub, read-only.
 
+import { Check, RefreshCw, X } from "lucide-react";
+
 import { shortSha } from "../lib/format";
 import type { PrDetail } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -43,7 +45,7 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
             }}
             title="Re-fetch from GitHub"
           >
-            ⟳ refresh
+            <RefreshCw size={12} /> refresh
           </Button>
         </div>
       </div>
@@ -56,12 +58,12 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
         ) : null}
         {approvals.map((r) => (
           <Pill key={r.author.login} tone="moss">
-            ✓ {r.author.login}
+            <Check size={11} /> {r.author.login}
           </Pill>
         ))}
         {changesRequested.map((r) => (
           <Pill key={r.author.login} tone="ember">
-            ✗ {r.author.login}
+            <X size={11} /> {r.author.login}
           </Pill>
         ))}
         {pr.labels.map((label) => (

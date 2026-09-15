@@ -2,13 +2,46 @@
 // watch a human-readable feed of what it's doing. Comments it emits land
 // in the diff as local comments.
 
+import {
+  Bot,
+  Brain,
+  Check,
+  Clock,
+  CornerDownLeft,
+  Dot,
+  Flag,
+  Loader,
+  MessageCircle,
+  MessageSquare,
+  Play,
+  Square,
+  Wrench,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import type { LogIcon } from "../lib/agentEvents";
 import { summarizeEvent } from "../lib/agentEvents";
 import { relativeTime } from "../lib/format";
 import type { RunEvent } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Button, Pill, runTone, Spinner } from "./ui";
+
+const LOG_ICONS: Record<LogIcon, typeof Check> = {
+  loader: Loader,
+  play: Play,
+  check: Check,
+  x: X,
+  stop: Square,
+  clock: Clock,
+  comment: MessageSquare,
+  chat: MessageCircle,
+  brain: Brain,
+  wrench: Wrench,
+  reply: CornerDownLeft,
+  flag: Flag,
+  dot: Dot,
+};
 
 export function AgentPanel() {
   const specs = useAppStore((s) => s.agentSpecs);
@@ -25,7 +58,7 @@ export function AgentPanel() {
   if (specs.length === 0) {
     return (
       <div className="animate-fade-up flex flex-col items-center gap-3 p-6 text-center">
-        <div className="text-2xl">🤖</div>
+        <Bot size={26} strokeWidth={1.5} className="text-muted" />
         <div className="text-xs leading-relaxed text-muted">
           no agents configured yet — add one in settings (claude, codex, or any custom command)
         </div>
@@ -64,7 +97,7 @@ export function AgentPanel() {
               void cancelRun(activeRun.run_id);
             }}
           >
-            cancel
+            <Square size={11} /> cancel
           </Button>
         ) : (
           <Button
@@ -74,7 +107,7 @@ export function AgentPanel() {
               void startAgentReview(agentName);
             }}
           >
-            ▶ review
+            <Play size={11} /> review
           </Button>
         )}
       </div>
@@ -84,7 +117,9 @@ export function AgentPanel() {
           <div className="animate-fade-in flex items-center gap-2 border-b border-edge/60 px-3 py-2.5">
             <Spinner label={`${activeRun.agent_name} is reviewing…`} />
             <span className="ml-auto">
-              <Pill tone="sky">💬 {activeRun.comment_count}</Pill>
+              <Pill tone="sky">
+                <MessageSquare size={11} /> {activeRun.comment_count}
+              </Pill>
             </span>
           </div>
         ) : null}
@@ -104,7 +139,9 @@ export function AgentPanel() {
             >
               <span className="truncate text-cream">{run.agent_name}</span>
               <Pill tone={runTone(run.status)}>{run.status.replace("_", " ")}</Pill>
-              <Pill tone="muted">💬 {run.comment_count}</Pill>
+              <Pill tone="muted">
+                <MessageSquare size={11} /> {run.comment_count}
+              </Pill>
               <span className="ml-auto shrink-0 text-[11px] text-muted">
                 {relativeTime(run.started_at)}
               </span>
@@ -136,12 +173,18 @@ function EventLog({ events }: { events: RunEvent[] }) {
       ref={scrollRef}
       className="max-h-72 overflow-y-auto border-b border-edge/60 bg-ground/70 px-3 py-2 font-mono text-[11px] leading-relaxed"
     >
-      {lines.slice(-150).map((line) => (
-        <div key={line.key} className={`animate-fade-in flex gap-2 py-px ${line.cls}`}>
-          <span className="w-4 shrink-0 text-center opacity-80">{line.icon}</span>
-          <span className="min-w-0 break-words">{line.text}</span>
-        </div>
-      ))}
+      {lines.slice(-150).map((line) => {
+        const Icon = LOG_ICONS[line.icon];
+        return (
+          <div
+            key={line.key}
+            className={`animate-fade-in flex items-start gap-2 py-0.5 ${line.cls}`}
+          >
+            <Icon size={12} className="mt-0.5 shrink-0 opacity-80" />
+            <span className="min-w-0 break-words">{line.text}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -3,8 +3,24 @@
 
 import type { RunEvent } from "./types";
 
+// Semantic icon keys — the panel maps these to lucide SVG icons.
+export type LogIcon =
+  | "loader"
+  | "play"
+  | "check"
+  | "x"
+  | "stop"
+  | "clock"
+  | "comment"
+  | "chat"
+  | "brain"
+  | "wrench"
+  | "reply"
+  | "flag"
+  | "dot";
+
 export interface LogLine {
-  icon: string;
+  icon: LogIcon;
   text: string;
   cls: string;
 }
@@ -51,7 +67,7 @@ export function summarizeEvent(event: RunEvent): LogLine[] {
       return runnerLines(event.payload);
     case "raw":
       return event.payload.trim()
-        ? [{ icon: "·", text: clip(event.payload, 200), cls: "text-muted" }]
+        ? [{ icon: "dot", text: clip(event.payload, 200), cls: "text-muted" }]
         : [];
   }
 }
@@ -61,15 +77,15 @@ function lifecycleLines(payload: string): LogLine[] {
   const status = str(obj?.status) ?? "";
   const detail = str(obj?.detail) ?? "";
   const map: Record<string, LogLine> = {
-    starting: { icon: "◌", text: `starting ${detail}`, cls: "text-sky" },
-    running: { icon: "▶", text: "agent process started", cls: "text-sky" },
-    succeeded: { icon: "✓", text: "run finished", cls: "text-moss" },
-    failed: { icon: "✗", text: `run failed — ${detail}`, cls: "text-ember" },
-    cancelled: { icon: "◼", text: "run cancelled", cls: "text-muted" },
-    timed_out: { icon: "⏱", text: "run timed out", cls: "text-ember" },
+    starting: { icon: "loader", text: `starting ${detail}`, cls: "text-sky" },
+    running: { icon: "play", text: "agent process started", cls: "text-sky" },
+    succeeded: { icon: "check", text: "run finished", cls: "text-moss" },
+    failed: { icon: "x", text: `run failed — ${detail}`, cls: "text-ember" },
+    cancelled: { icon: "stop", text: "run cancelled", cls: "text-muted" },
+    timed_out: { icon: "clock", text: "run timed out", cls: "text-ember" },
   };
   const line = map[status];
-  return line ? [line] : [{ icon: "•", text: clip(payload, 160), cls: "text-muted" }];
+  return line ? [line] : [{ icon: "dot", text: clip(payload, 160), cls: "text-muted" }];
 }
 
 function commentLines(payload: string): LogLine[] {
@@ -80,7 +96,7 @@ function commentLines(payload: string): LogLine[] {
   const body = str(obj.body) ?? "";
   return [
     {
-      icon: "💬",
+      icon: "comment",
       text: `${path}:${String(line)} — ${clip(body, 140)}`,
       cls: "text-moss",
     },
@@ -100,7 +116,7 @@ function runnerLines(payload: string): LogLine[] {
     case "result":
       return resultLines(obj);
     default:
-      return [{ icon: "·", text: clip(payload, 160), cls: "text-muted" }];
+      return [{ icon: "dot", text: clip(payload, 160), cls: "text-muted" }];
   }
 }
 
@@ -115,17 +131,17 @@ function assistantLines(obj: Record<string, unknown>): LogLine[] {
       const text = str(item.text) ?? "";
       // appa_comment lines already surface as 💬 comment events
       if (text.trim() && !text.includes('"appa_comment"')) {
-        lines.push({ icon: "🗨", text: clip(text, 200), cls: "text-cream/85" });
+        lines.push({ icon: "chat", text: clip(text, 200), cls: "text-cream/85" });
       }
     } else if (type === "thinking") {
-      lines.push({ icon: "…", text: "thinking", cls: "text-muted italic" });
+      lines.push({ icon: "brain", text: "thinking", cls: "text-muted italic" });
     } else if (type === "tool_use") {
       const name = str(item.name) ?? "tool";
       const input = asRecord(item.input);
       const target =
         str(input?.file_path) ?? str(input?.path) ?? str(input?.command) ?? str(input?.pattern);
       lines.push({
-        icon: "🔧",
+        icon: "wrench",
         text: target ? `${name} — ${clip(target, 120)}` : name,
         cls: "text-amber",
       });
@@ -141,7 +157,7 @@ function toolResultLines(obj: Record<string, unknown>): LogLine[] {
     const item = asRecord(raw);
     if (str(item?.type) === "tool_result") {
       const body = str(item?.content);
-      return body ? [{ icon: "↩", text: clip(body, 140), cls: "text-muted" }] : [];
+      return body ? [{ icon: "reply", text: clip(body, 140), cls: "text-muted" }] : [];
     }
   }
   return [];
@@ -153,7 +169,7 @@ function resultLines(obj: Record<string, unknown>): LogLine[] {
   const costText = cost !== null ? ` · $${cost.toFixed(2)}` : "";
   return [
     {
-      icon: "🏁",
+      icon: "flag",
       text: `agent done in ${seconds.toFixed(1)}s${costText}`,
       cls: "text-sky",
     },

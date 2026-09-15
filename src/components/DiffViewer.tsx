@@ -2,6 +2,7 @@
 // Hover a line and hit the ＋ (or click a line number) to attach a local
 // comment — never posted to GitHub.
 
+import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
 import type { FileDiff, LocalComment } from "../lib/types";
@@ -51,13 +52,21 @@ function FileCard({ file, comments }: { file: FileDiff; comments: LocalComment[]
         }}
         className="flex w-full items-center gap-2 border-b border-edge bg-panel-2/60 px-3 py-2 text-left transition-colors hover:bg-panel-2"
       >
-        <span className="text-xs text-muted">{collapsed ? "▸" : "▾"}</span>
+        <span className="text-muted">
+          {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+        </span>
         <span className="truncate font-mono text-xs text-cream">{displayPath}</span>
         {file.status === "renamed" ? (
-          <span className="truncate font-mono text-[11px] text-muted">← {file.old_path}</span>
+          <span className="inline-flex items-center gap-1 truncate font-mono text-[11px] text-muted">
+            <CornerDownRight size={11} /> from {file.old_path}
+          </span>
         ) : null}
         {statusPill(file)}
-        {comments.length > 0 ? <Pill tone="sky">{comments.length} 💬</Pill> : null}
+        {comments.length > 0 ? (
+          <Pill tone="sky">
+            <MessageSquare size={11} /> {comments.length}
+          </Pill>
+        ) : null}
         <span className="ml-auto shrink-0 text-[11px]">
           <span className="text-moss">+{file.additions}</span>{" "}
           <span className="text-ember">−{file.deletions}</span>

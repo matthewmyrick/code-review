@@ -1,6 +1,7 @@
 // Local review comments: the card (with triage actions) and the inline
 // composer. These are Appa-local — nothing here touches GitHub.
 
+import { Bot, User } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
@@ -15,8 +16,8 @@ export function CommentCard({ comment }: { comment: LocalComment }) {
   return (
     <div className="text-xs">
       <div className="mb-1 flex items-center gap-2">
-        <span className="font-medium text-cream">
-          {comment.author_kind === "agent" ? "🤖 " : ""}
+        <span className="inline-flex items-center gap-1 font-medium text-cream">
+          {comment.author_kind === "agent" ? <Bot size={12} /> : <User size={12} />}
           {comment.author_name}
         </span>
         <Pill tone={severityTone(comment.severity)}>{comment.severity}</Pill>

@@ -2,6 +2,7 @@
 // The main page is always the pull-request review view; settings is a
 // secondary screen behind the gear.
 
+import { ArrowLeft, Bot, GitPullRequest, MessageSquare, Moon, Settings, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AgentPanel } from "./components/AgentPanel";
@@ -29,14 +30,14 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2.5 border-b border-edge bg-panel px-4 py-2">
-        <span className="flex size-7 items-center justify-center rounded-lg bg-sky-deep/20 text-base">
-          🦬
+        <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-deep to-sky text-white shadow-sm">
+          <GitPullRequest size={15} strokeWidth={2.5} />
         </span>
         <span className="text-sm font-semibold tracking-wide text-cream">Appa</span>
         <span className="hidden text-[11px] text-muted sm:inline">local-first code review</span>
         <div className="ml-auto flex items-center gap-1.5">
           <IconButton onClick={toggleTheme} title="toggle light/dark theme">
-            {theme === "dark" ? "☀️" : "🌙"}
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </IconButton>
           <IconButton
             onClick={() => {
@@ -44,7 +45,7 @@ export default function App() {
             }}
             title={view === "settings" ? "back to review" : "settings"}
           >
-            {view === "settings" ? "←" : "⚙"}
+            {view === "settings" ? <ArrowLeft size={15} /> : <Settings size={15} />}
           </IconButton>
         </div>
       </div>
@@ -94,7 +95,7 @@ function ReviewLayout() {
                 setView("settings");
               }}
             >
-              ⚙ set up a repository
+              <Settings size={12} /> set up a repository
             </Button>
           }
         />
@@ -135,11 +136,12 @@ function ReviewLayout() {
                 onClick={() => {
                   setTab(t);
                 }}
-                className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
                   tab === t ? "border-b-2 border-sky text-cream" : "text-muted hover:text-cream"
                 }`}
               >
-                {t === "agents" ? "🤖 agents" : `💬 comments (${String(bundle.comments.length)})`}
+                {t === "agents" ? <Bot size={13} /> : <MessageSquare size={13} />}
+                {t === "agents" ? "agents" : `comments (${String(bundle.comments.length)})`}
               </button>
             ))}
           </div>

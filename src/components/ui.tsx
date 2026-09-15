@@ -1,5 +1,6 @@
 // Tiny shared UI primitives, styled for the Appa theme.
 
+import { GitPullRequest } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { CheckState, CommentSeverity, RunStatus } from "../lib/types";
@@ -117,10 +118,17 @@ export function Spinner(props: { label?: string }) {
   );
 }
 
-export function EmptyState(props: { title: string; hint?: string; action?: ReactNode }) {
+export function EmptyState(props: {
+  title: string;
+  hint?: string;
+  action?: ReactNode;
+  icon?: ReactNode;
+}) {
   return (
     <div className="animate-fade-up flex h-full flex-col items-center justify-center gap-3 text-center">
-      <div className="text-5xl drop-shadow-lg">🦬</div>
+      <span className="flex size-14 items-center justify-center rounded-2xl bg-panel-2 text-muted shadow-sm">
+        {props.icon ?? <GitPullRequest size={26} strokeWidth={1.5} />}
+      </span>
       <div className="text-sm font-semibold text-cream">{props.title}</div>
       {props.hint ? (
         <div className="max-w-sm text-xs leading-relaxed text-muted">{props.hint}</div>
