@@ -9,7 +9,7 @@ for a single-user local tool, but the isolation is **trust-based, not
 enforced**:
 
 - The run context tells the agent it must not post to GitHub — nothing
-  *prevents* a malicious/buggy agent from doing so.
+  _prevents_ a malicious/buggy agent from doing so.
 - `AgentSpec.network_allowlist` is collected in the UI **but not
   enforced** in v1. It exists so specs are already sandbox-shaped.
 - Mitigations available today: claude's `--allowedTools` allowlist,
@@ -18,7 +18,7 @@ enforced**:
 ## v2 (required): Docker + squid egress proxy
 
 > **This is a committed v2 deliverable, not a nice-to-have.** The whole
-> point is that the agent can do whatever it wants *inside* its
+> point is that the agent can do whatever it wants _inside_ its
 > environment — because the environment can't reach anything you didn't
 > allow.
 

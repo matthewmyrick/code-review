@@ -59,15 +59,15 @@ review**.
 
 ## Project layout
 
-| Path                  | What                                                    |
-| --------------------- | ------------------------------------------------------- |
-| `crates/appa-core`    | Domain types: PRs, diffs, local comments, agent specs    |
-| `crates/appa-github`  | Read-only GitHub REST client, pluggable auth             |
-| `crates/appa-cache`   | SQLite cache + local review store                        |
-| `crates/appa-agents`  | Agent runners (headless claude/codex/custom), JSONL logs |
-| `src-tauri`           | Tauri shell: commands, events, settings                  |
-| `src/`                | React frontend (differ, panels, settings)                |
-| `docs/`               | Architecture, sandboxing (v2 Docker+squid), roadmap      |
+| Path                 | What                                                     |
+| -------------------- | -------------------------------------------------------- |
+| `crates/appa-core`   | Domain types: PRs, diffs, local comments, agent specs    |
+| `crates/appa-github` | Read-only GitHub REST client, pluggable auth             |
+| `crates/appa-cache`  | SQLite cache + local review store                        |
+| `crates/appa-agents` | Agent runners (headless claude/codex/custom), JSONL logs |
+| `src-tauri`          | Tauri shell: commands, events, settings                  |
+| `src/`               | React frontend (differ, panels, settings)                |
+| `docs/`              | Architecture, sandboxing (v2 Docker+squid), roadmap      |
 
 ## Standards
 

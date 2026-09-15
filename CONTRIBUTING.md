@@ -11,7 +11,7 @@ rule below is enforced by CI (`.github/workflows/ci.yml`), not by hoping.
   ESLint `max-lines`). If a file wants to grow past that, it's telling
   you to split a responsibility out.
 - Files have one job. Name the file after the job.
-- Comments explain constraints the code can't (*why*, never *what*).
+- Comments explain constraints the code can't (_why_, never _what_).
 
 ### Rust
 

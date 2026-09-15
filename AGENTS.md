@@ -10,7 +10,7 @@ here; CONTRIBUTING.md is the human-flavored version.
 1. **400-line limit** on every source file. Check before you finish:
    `./scripts/check-file-length.sh`. Split modules rather than squeezing.
 2. **Zero-warning builds.** Rust: `cargo clippy --workspace --all-targets
-   -- -D warnings` must pass; no `unwrap`/`expect`/`panic!`/`todo!` in
+-- -D warnings` must pass; no `unwrap`/`expect`/`panic!`/`todo!` in
    non-test code (workspace lints deny them — return `AppaError`
    instead). TS: `pnpm lint` (`--max-warnings 0`) and `pnpm typecheck`.
 3. **Format before finishing:** `cargo fmt --all` and `pnpm format`.
@@ -47,7 +47,7 @@ here; CONTRIBUTING.md is the human-flavored version.
   `appa://agent-event`, `appa://comments-updated`, `appa://run-updated`);
   frontend listens in `store.init()`.
 - **Agent contract**: agents emit `{"type":"appa_comment","path":…,
-  "side":"new|old","line":…,"severity":…,"body":…}` on stdout or into
+"side":"new|old","line":…,"severity":…,"body":…}` on stdout or into
   `$APPA_COMMENTS_FILE`. If you change the contract, update
   `context.rs`, `events.rs`, and this file together.
 - **Errors**: every fallible path returns `AppaError` with a message a
