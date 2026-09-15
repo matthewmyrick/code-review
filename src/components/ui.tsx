@@ -7,7 +7,7 @@ import type { CheckState, CommentSeverity, RunStatus } from "../lib/types";
 export function Pill(props: { tone: Tone; children: ReactNode }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${toneClasses[props.tone]}`}
+      className={`inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 py-[3px] text-[11px] font-medium leading-none ${toneClasses[props.tone]}`}
     >
       {props.children}
     </span>
@@ -76,11 +76,11 @@ export function Button(props: {
 }) {
   const kind = props.kind ?? "ghost";
   const base =
-    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none";
+    "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none";
   const styles = {
-    primary: "bg-sky-deep text-cream hover:bg-sky",
-    ghost: "bg-panel-2 text-cream hover:bg-edge",
-    danger: "bg-ember/20 text-ember hover:bg-ember/30",
+    primary: "bg-sky-deep text-white shadow-sm shadow-sky-deep/30 hover:bg-sky hover:shadow-md",
+    ghost: "bg-panel-2 text-cream ring-1 ring-edge/60 hover:bg-edge/70",
+    danger: "bg-ember/15 text-ember ring-1 ring-ember/25 hover:bg-ember/25",
   }[kind];
   return (
     <button
@@ -89,6 +89,19 @@ export function Button(props: {
       onClick={props.onClick}
       disabled={props.disabled ?? false}
       title={props.title}
+    >
+      {props.children}
+    </button>
+  );
+}
+
+export function IconButton(props: { onClick: () => void; title: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      title={props.title}
+      className="inline-flex size-8 items-center justify-center rounded-lg text-sm text-muted ring-1 ring-transparent transition-all duration-150 hover:bg-panel-2 hover:text-cream hover:ring-edge/60 active:scale-95"
     >
       {props.children}
     </button>
@@ -104,12 +117,19 @@ export function Spinner(props: { label?: string }) {
   );
 }
 
-export function EmptyState(props: { title: string; hint?: string }) {
+export function EmptyState(props: { title: string; hint?: string; action?: ReactNode }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-      <div className="text-4xl">🦬</div>
-      <div className="text-sm font-medium text-cream">{props.title}</div>
-      {props.hint ? <div className="max-w-sm text-xs text-muted">{props.hint}</div> : null}
+    <div className="animate-fade-up flex h-full flex-col items-center justify-center gap-3 text-center">
+      <div className="text-5xl drop-shadow-lg">🦬</div>
+      <div className="text-sm font-semibold text-cream">{props.title}</div>
+      {props.hint ? (
+        <div className="max-w-sm text-xs leading-relaxed text-muted">{props.hint}</div>
+      ) : null}
+      {props.action ?? null}
     </div>
   );
+}
+
+export function Skeleton(props: { className?: string }) {
+  return <div className={`skeleton ${props.className ?? ""}`} />;
 }

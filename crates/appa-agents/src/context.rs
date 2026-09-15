@@ -29,14 +29,18 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
          - branch: {head} -> {base}\n\
          - head sha: {sha}\n\n\
          ## How to emit review comments\n\
-         Emit one JSON object per comment, either printed to stdout on its \
-         own line or appended to the file `{comments_file}`:\n\n\
+         Write one JSON object per comment, each on its own line, in your \
+         FINAL response text (no tools needed — this is the preferred \
+         path). Alternatively, append the same lines to the file \
+         `{comments_file}`.\n\n\
          {{\"type\":\"appa_comment\",\"path\":\"<file>\",\"side\":\"new|old\",\
          \"line\":<n>,\"severity\":\"info|suggestion|issue|blocker\",\
          \"body\":\"<markdown>\"}}\n\n\
-         `line` is the line number in the new file (or old file when \
-         side=old). Keep bodies concise and actionable. Emit nothing else \
-         as your deliverable — the comments ARE the review.\n\n\
+         Rules: `line` is the line number in the new file (or old file \
+         when side=old) and must be a line that appears in the diff below. \
+         Do NOT wrap the JSON in code fences. Keep bodies concise and \
+         actionable. The comments ARE the review — do not write a summary \
+         paragraph instead of comments.\n\n\
          ## Review instructions\n\
          {instructions}\n\n\
          ## Pull request description\n\

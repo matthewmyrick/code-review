@@ -1,4 +1,6 @@
 // App shell: header, sidebar, and the main review / settings views.
+// The main page is always the pull-request review view; settings is a
+// secondary screen behind the gear.
 
 import { useEffect, useState } from "react";
 
@@ -8,13 +10,15 @@ import { DiffViewer } from "./components/DiffViewer";
 import { PrHeader } from "./components/PrHeader";
 import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
-import { Button, EmptyState } from "./components/ui";
+import { Button, EmptyState, IconButton } from "./components/ui";
 import { useAppStore } from "./state/store";
 
 export default function App() {
   const init = useAppStore((s) => s.init);
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
+  const theme = useAppStore((s) => s.theme);
+  const toggleTheme = useAppStore((s) => s.toggleTheme);
   const lastError = useAppStore((s) => s.lastError);
   const clearError = useAppStore((s) => s.clearError);
 
@@ -24,23 +28,29 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-edge bg-panel px-4 py-2">
-        <span className="text-base">🦬</span>
+      <div className="flex items-center gap-2.5 border-b border-edge bg-panel px-4 py-2">
+        <span className="flex size-7 items-center justify-center rounded-lg bg-sky-deep/20 text-base">
+          🦬
+        </span>
         <span className="text-sm font-semibold tracking-wide text-cream">Appa</span>
-        <span className="text-[11px] text-muted">local-first code review</span>
-        <div className="ml-auto">
-          <Button
+        <span className="hidden text-[11px] text-muted sm:inline">local-first code review</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <IconButton onClick={toggleTheme} title="toggle light/dark theme">
+            {theme === "dark" ? "☀️" : "🌙"}
+          </IconButton>
+          <IconButton
             onClick={() => {
               setView(view === "settings" ? "review" : "settings");
             }}
+            title={view === "settings" ? "back to review" : "settings"}
           >
-            {view === "settings" ? "← back to review" : "⚙ settings"}
-          </Button>
+            {view === "settings" ? "←" : "⚙"}
+          </IconButton>
         </div>
       </div>
 
       {lastError ? (
-        <div className="flex items-center gap-2 border-b border-ember/40 bg-ember/10 px-4 py-1.5 text-xs text-ember">
+        <div className="animate-fade-in flex items-center gap-2 border-b border-ember/40 bg-ember/10 px-4 py-1.5 text-xs text-ember">
           <span className="min-w-0 flex-1 truncate" title={lastError}>
             {lastError}
           </span>
@@ -52,7 +62,7 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         {view === "settings" ? (
-          <main className="flex-1 overflow-y-auto">
+          <main className="animate-fade-up flex-1 overflow-y-auto">
             <SettingsView />
           </main>
         ) : (
@@ -66,7 +76,31 @@ export default function App() {
 function ReviewLayout() {
   const bundle = useAppStore((s) => s.bundle);
   const selectedPr = useAppStore((s) => s.selectedPr);
+  const settings = useAppStore((s) => s.settings);
+  const setView = useAppStore((s) => s.setView);
   const [tab, setTab] = useState<"comments" | "agents">("agents");
+
+  // First run: no repos configured yet — onboard from the main page.
+  if (settings?.repos.length === 0) {
+    return (
+      <main className="flex-1">
+        <EmptyState
+          title="welcome aboard"
+          hint="add a GitHub repository to start reviewing — Appa reads PRs, checks and comments, and keeps all review notes local"
+          action={
+            <Button
+              kind="primary"
+              onClick={() => {
+                setView("settings");
+              }}
+            >
+              ⚙ set up a repository
+            </Button>
+          }
+        />
+      </main>
+    );
+  }
 
   return (
     <>
@@ -101,7 +135,7 @@ function ReviewLayout() {
                 onClick={() => {
                   setTab(t);
                 }}
-                className={`flex-1 px-3 py-2 text-xs font-medium ${
+                className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
                   tab === t ? "border-b-2 border-sky text-cream" : "text-muted hover:text-cream"
                 }`}
               >

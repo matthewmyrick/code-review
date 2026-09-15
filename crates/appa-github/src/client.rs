@@ -79,13 +79,44 @@ impl GithubClient {
     }
 
     /// Open PRs for a repository (most recently updated first).
+    ///
+    /// The list endpoint omits `additions`/`deletions`/`changed_files`,
+    /// so each PR is re-fetched individually (concurrently) to fill the
+    /// size stats the sidebar shows.
     pub async fn list_pull_requests(&self, repo: &RepoRef) -> Result<Vec<PullRequest>> {
         let path = format!(
             "/repos/{}/{}/pulls?state=open&sort=updated&direction=desc&per_page=50",
             repo.owner, repo.name
         );
         let pulls: Vec<WirePull> = self.get_json(&path).await?;
-        Ok(pulls.into_iter().map(|p| p.into_domain(repo)).collect())
+        let mut prs: Vec<PullRequest> = pulls.into_iter().map(|p| p.into_domain(repo)).collect();
+
+        let mut set = tokio::task::JoinSet::new();
+        for (index, pr) in prs.iter().enumerate() {
+            let client = self.clone();
+            let owner = repo.owner.clone();
+            let name = repo.name.clone();
+            let number = pr.number;
+            set.spawn(async move {
+                let detail: Result<WirePull> = client
+                    .get_json(&format!("/repos/{owner}/{name}/pulls/{number}"))
+                    .await;
+                (index, detail)
+            });
+        }
+        while let Some(joined) = set.join_next().await {
+            let Ok((index, Ok(detail))) = joined else {
+                // A single failed enrichment shouldn't sink the list;
+                // that PR just keeps zeroed stats until opened.
+                continue;
+            };
+            if let Some(pr) = prs.get_mut(index) {
+                pr.additions = detail.additions;
+                pr.deletions = detail.deletions;
+                pr.changed_files = detail.changed_files;
+            }
+        }
+        Ok(prs)
     }
 
     /// Full detail bundle: PR, checks, reviews, and all comments.

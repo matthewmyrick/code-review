@@ -1,0 +1,161 @@
+// Turn raw agent run events (stream-json envelopes, lifecycle payloads)
+// into human-readable log lines for the agent panel.
+
+import type { RunEvent } from "./types";
+
+export interface LogLine {
+  icon: string;
+  text: string;
+  cls: string;
+}
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return typeof v === "object" && v !== null && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null;
+}
+
+function asArray(v: unknown): unknown[] | null {
+  return Array.isArray(v) ? v : null;
+}
+
+function str(v: unknown): string | null {
+  return typeof v === "string" ? v : null;
+}
+
+function num(v: unknown): number | null {
+  return typeof v === "number" ? v : null;
+}
+
+function parseJson(payload: string): Record<string, unknown> | null {
+  try {
+    return asRecord(JSON.parse(payload));
+  } catch {
+    return null;
+  }
+}
+
+function clip(text: string, max: number): string {
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  return oneLine.length > max ? `${oneLine.slice(0, max)}…` : oneLine;
+}
+
+/** Best-effort human summary; returns [] for noise worth hiding. */
+export function summarizeEvent(event: RunEvent): LogLine[] {
+  switch (event.kind) {
+    case "lifecycle":
+      return lifecycleLines(event.payload);
+    case "comment":
+      return commentLines(event.payload);
+    case "runner":
+      return runnerLines(event.payload);
+    case "raw":
+      return event.payload.trim()
+        ? [{ icon: "·", text: clip(event.payload, 200), cls: "text-muted" }]
+        : [];
+  }
+}
+
+function lifecycleLines(payload: string): LogLine[] {
+  const obj = parseJson(payload);
+  const status = str(obj?.status) ?? "";
+  const detail = str(obj?.detail) ?? "";
+  const map: Record<string, LogLine> = {
+    starting: { icon: "◌", text: `starting ${detail}`, cls: "text-sky" },
+    running: { icon: "▶", text: "agent process started", cls: "text-sky" },
+    succeeded: { icon: "✓", text: "run finished", cls: "text-moss" },
+    failed: { icon: "✗", text: `run failed — ${detail}`, cls: "text-ember" },
+    cancelled: { icon: "◼", text: "run cancelled", cls: "text-muted" },
+    timed_out: { icon: "⏱", text: "run timed out", cls: "text-ember" },
+  };
+  const line = map[status];
+  return line ? [line] : [{ icon: "•", text: clip(payload, 160), cls: "text-muted" }];
+}
+
+function commentLines(payload: string): LogLine[] {
+  const obj = parseJson(payload);
+  if (!obj) return [];
+  const path = str(obj.path) ?? "?";
+  const line = num(obj.line) ?? 0;
+  const body = str(obj.body) ?? "";
+  return [
+    {
+      icon: "💬",
+      text: `${path}:${String(line)} — ${clip(body, 140)}`,
+      cls: "text-moss",
+    },
+  ];
+}
+
+function runnerLines(payload: string): LogLine[] {
+  const obj = parseJson(payload);
+  if (!obj) return [];
+  switch (str(obj.type) ?? "") {
+    case "system":
+      return []; // init/thinking-token telemetry — noise
+    case "assistant":
+      return assistantLines(obj);
+    case "user":
+      return toolResultLines(obj);
+    case "result":
+      return resultLines(obj);
+    default:
+      return [{ icon: "·", text: clip(payload, 160), cls: "text-muted" }];
+  }
+}
+
+function assistantLines(obj: Record<string, unknown>): LogLine[] {
+  const content = asArray(asRecord(obj.message)?.content) ?? [];
+  const lines: LogLine[] = [];
+  for (const raw of content) {
+    const item = asRecord(raw);
+    if (!item) continue;
+    const type = str(item.type);
+    if (type === "text") {
+      const text = str(item.text) ?? "";
+      // appa_comment lines already surface as 💬 comment events
+      if (text.trim() && !text.includes('"appa_comment"')) {
+        lines.push({ icon: "🗨", text: clip(text, 200), cls: "text-cream/85" });
+      }
+    } else if (type === "thinking") {
+      lines.push({ icon: "…", text: "thinking", cls: "text-muted italic" });
+    } else if (type === "tool_use") {
+      const name = str(item.name) ?? "tool";
+      const input = asRecord(item.input);
+      const target =
+        str(input?.file_path) ?? str(input?.path) ?? str(input?.command) ?? str(input?.pattern);
+      lines.push({
+        icon: "🔧",
+        text: target ? `${name} — ${clip(target, 120)}` : name,
+        cls: "text-amber",
+      });
+    }
+  }
+  // collapse consecutive "thinking" spam to one line
+  return lines.filter((l, i) => !(l.text === "thinking" && lines[i - 1]?.text === "thinking"));
+}
+
+function toolResultLines(obj: Record<string, unknown>): LogLine[] {
+  const content = asArray(asRecord(obj.message)?.content) ?? [];
+  for (const raw of content) {
+    const item = asRecord(raw);
+    if (str(item?.type) === "tool_result") {
+      const body = str(item?.content);
+      return body ? [{ icon: "↩", text: clip(body, 140), cls: "text-muted" }] : [];
+    }
+  }
+  return [];
+}
+
+function resultLines(obj: Record<string, unknown>): LogLine[] {
+  const seconds = (num(obj.duration_ms) ?? 0) / 1000;
+  const cost = num(obj.total_cost_usd);
+  const costText = cost !== null ? ` · $${cost.toFixed(2)}` : "";
+  return [
+    {
+      icon: "🏁",
+      text: `agent done in ${seconds.toFixed(1)}s${costText}`,
+      cls: "text-sky",
+    },
+  ];
+}

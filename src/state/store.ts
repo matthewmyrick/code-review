@@ -18,9 +18,26 @@ import type {
 } from "../lib/types";
 
 export type View = "review" | "settings";
+export type Theme = "dark" | "light";
+
+const THEME_KEY = "appa-theme";
+
+function loadTheme(): Theme {
+  return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+}
+
+function applyTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem(THEME_KEY, theme);
+}
+
+// React StrictMode double-invokes effects in dev; without this guard the
+// event listeners register twice and every log line shows up duplicated.
+let initStarted = false;
 
 interface AppStore {
   view: View;
+  theme: Theme;
   settings: Settings | null;
   selectedRepo: string | null;
   prs: PullRequest[];
@@ -34,6 +51,7 @@ interface AppStore {
 
   init: () => Promise<void>;
   setView: (view: View) => void;
+  toggleTheme: () => void;
   selectRepo: (slug: string) => Promise<void>;
   selectPr: (number: number) => Promise<void>;
   refreshPrs: () => Promise<void>;
@@ -69,6 +87,7 @@ export const useAppStore = create<AppStore>((set, get) => {
 
   return {
     view: "review",
+    theme: loadTheme(),
     settings: null,
     selectedRepo: null,
     prs: [],
@@ -81,6 +100,9 @@ export const useAppStore = create<AppStore>((set, get) => {
     lastError: null,
 
     init: async () => {
+      if (initStarted) return;
+      initStarted = true;
+      applyTheme(get().theme);
       await listen<SyncEvent>("appa://sync", (event) => {
         const { key, phase, error } = event.payload;
         set((s) => ({
@@ -104,7 +126,6 @@ export const useAppStore = create<AppStore>((set, get) => {
         set({ settings, agentSpecs });
         const first = settings.repos[0];
         if (first) await get().selectRepo(first);
-        if (settings.repos.length === 0) set({ view: "settings" });
       } catch (e) {
         fail(e);
       }
@@ -112,6 +133,12 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     setView: (view) => {
       set({ view });
+    },
+
+    toggleTheme: () => {
+      const theme = get().theme === "dark" ? "light" : "dark";
+      applyTheme(theme);
+      set({ theme });
     },
 
     selectRepo: async (slug) => {

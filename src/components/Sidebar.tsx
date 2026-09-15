@@ -4,7 +4,7 @@
 import { relativeTime } from "../lib/format";
 import type { PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
-import { Pill, Spinner } from "./ui";
+import { Pill, Skeleton, Spinner } from "./ui";
 
 export function Sidebar() {
   const settings = useAppStore((s) => s.settings);
@@ -19,7 +19,7 @@ export function Sidebar() {
     <aside className="flex w-72 shrink-0 flex-col border-r border-edge bg-panel">
       <div className="border-b border-edge p-3">
         <select
-          className="w-full rounded-md border border-edge bg-panel-2 px-2 py-1.5 text-sm text-cream"
+          className="h-9 w-full rounded-lg border border-edge bg-panel-2 px-2 text-sm text-cream transition-colors focus:border-sky"
           value={selectedRepo ?? ""}
           onChange={(e) => {
             void selectRepo(e.target.value);
@@ -41,15 +41,32 @@ export function Sidebar() {
         {repoSyncing ? <Spinner /> : <span>{prs.length}</span>}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-2">
         {prs.map((pr) => (
           <PrListItem key={pr.number} pr={pr} />
         ))}
+        {prs.length === 0 && repoSyncing ? <PrListSkeleton /> : null}
         {prs.length === 0 && !repoSyncing ? (
-          <div className="px-3 py-6 text-center text-xs text-muted">no open PRs</div>
+          <div className="px-3 py-6 text-center text-xs text-muted">
+            {selectedRepo ? "no open PRs" : "pick a repository above"}
+          </div>
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function PrListSkeleton() {
+  return (
+    <div className="space-y-2 p-1">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="space-y-2 rounded-lg border border-edge/40 p-3">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -57,6 +74,7 @@ function PrListItem({ pr }: { pr: PullRequest }) {
   const selectedPr = useAppStore((s) => s.selectedPr);
   const selectPr = useAppStore((s) => s.selectPr);
   const active = selectedPr === pr.number;
+  const hasStats = pr.additions > 0 || pr.deletions > 0 || pr.changed_files > 0;
 
   return (
     <button
@@ -64,20 +82,26 @@ function PrListItem({ pr }: { pr: PullRequest }) {
       onClick={() => {
         void selectPr(pr.number);
       }}
-      className={`block w-full border-b border-edge/50 px-3 py-2.5 text-left transition-colors ${
-        active ? "bg-panel-2" : "hover:bg-panel-2/60"
+      className={`animate-fade-up block w-full rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${
+        active
+          ? "border-sky/40 bg-panel-2 shadow-sm"
+          : "border-transparent hover:border-edge hover:bg-panel-2/60"
       }`}
     >
       <div className="mb-1 flex items-center gap-2">
-        <span className="text-xs text-muted">#{pr.number}</span>
+        <span className="text-xs font-medium text-sky">#{pr.number}</span>
         {pr.draft ? <Pill tone="muted">draft</Pill> : null}
         <span className="ml-auto text-[11px] text-muted">{relativeTime(pr.updated_at)}</span>
       </div>
       <div className="line-clamp-2 text-[13px] leading-snug text-cream">{pr.title}</div>
-      <div className="mt-1 flex items-center gap-2 text-[11px] text-muted">
-        <span>{pr.author.login}</span>
-        <span className="text-moss">+{pr.additions}</span>
-        <span className="text-ember">−{pr.deletions}</span>
+      <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted">
+        <span className="truncate">{pr.author.login}</span>
+        {hasStats ? (
+          <>
+            <span className="text-moss">+{pr.additions}</span>
+            <span className="text-ember">−{pr.deletions}</span>
+          </>
+        ) : null}
       </div>
     </button>
   );

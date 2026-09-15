@@ -15,13 +15,34 @@ const DEFAULT_PROMPT =
   "significant maintainability problems. Prefer few high-signal comments " +
   "over many nits. Use severity `issue` or `blocker` only when confident.";
 
+// Curated per-runner model choices ("" = the CLI's default model).
+const MODEL_OPTIONS: Record<"claude_headless" | "codex_headless", [string, string][]> = {
+  claude_headless: [
+    ["", "CLI default"],
+    ["fable", "Fable 5 — most capable"],
+    ["opus", "Opus 4.8"],
+    ["sonnet", "Sonnet 5 — balanced"],
+    ["haiku", "Haiku 4.5 — fastest"],
+  ],
+  codex_headless: [
+    ["", "CLI default"],
+    ["gpt-5-codex", "GPT-5 Codex"],
+    ["gpt-5", "GPT-5"],
+    ["gpt-5-mini", "GPT-5 mini — fastest"],
+  ],
+};
+
+const CUSTOM_MODEL = "__custom__";
+
 function newSpec(): AgentSpec {
   return {
     name: "claude-reviewer",
     runner: { kind: "claude_headless" },
     auth: { kind: "cli_session" },
     model: null,
-    allowed_tools: [],
+    // Write lets the agent append to its comments drop-box file; the
+    // rest are read-only exploration tools.
+    allowed_tools: ["Read", "Grep", "Glob", "Write"],
     append_system_prompt: null,
     prompt: DEFAULT_PROMPT,
     env: {},
@@ -102,6 +123,63 @@ export function AgentEditor() {
   );
 }
 
+function ModelField(props: { spec: AgentSpec; patch: (p: Partial<AgentSpec>) => void }) {
+  const { spec, patch } = props;
+  const kind = spec.runner.kind;
+
+  // Custom runners take any model string.
+  if (kind === "custom") {
+    return (
+      <label className="flex flex-col gap-1">
+        <span className="text-muted">model (optional, passed via env)</span>
+        <input
+          value={spec.model ?? ""}
+          onChange={(e) => {
+            patch({ model: e.target.value || null });
+          }}
+          placeholder="default"
+          className={inputClass}
+        />
+      </label>
+    );
+  }
+
+  const options = MODEL_OPTIONS[kind];
+  const known = options.some(([value]) => value === (spec.model ?? ""));
+  const selectValue = known ? (spec.model ?? "") : CUSTOM_MODEL;
+
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-muted">model</span>
+      <select
+        value={selectValue}
+        onChange={(e) => {
+          const v = e.target.value;
+          patch({ model: v === CUSTOM_MODEL ? (spec.model ?? "") : v || null });
+        }}
+        className={inputClass}
+      >
+        {options.map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+        <option value={CUSTOM_MODEL}>custom…</option>
+      </select>
+      {selectValue === CUSTOM_MODEL ? (
+        <input
+          value={spec.model ?? ""}
+          onChange={(e) => {
+            patch({ model: e.target.value || null });
+          }}
+          placeholder="model id, e.g. claude-fable-5"
+          className={`${inputClass} font-mono`}
+        />
+      ) : null}
+    </label>
+  );
+}
+
 function SpecForm(props: {
   spec: AgentSpec;
   onSave: (spec: AgentSpec) => void;
@@ -151,17 +229,7 @@ function SpecForm(props: {
             <option value="custom">custom command</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-muted">model (optional)</span>
-          <input
-            value={spec.model ?? ""}
-            onChange={(e) => {
-              patch({ model: e.target.value || null });
-            }}
-            placeholder="default"
-            className={inputClass}
-          />
-        </label>
+        <ModelField spec={spec} patch={patch} />
       </div>
 
       {spec.runner.kind === "custom" ? (

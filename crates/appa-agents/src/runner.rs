@@ -16,7 +16,7 @@ use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::command::build_command;
-use crate::events::classify_line;
+use crate::events::{classify_line, extract_embedded_comments, parse_comment};
 
 #[derive(Debug, Clone)]
 pub struct RunRequest {
@@ -194,11 +194,14 @@ async fn run_process(
     tokio::pin!(cancel_rx);
 
     let mut outcome: Option<RunStatus> = None;
+    // Comments can arrive on several channels (bare stdout line, embedded
+    // in claude's assistant/result text, the drop-box file) — dedupe them.
+    let mut seen_comments = std::collections::HashSet::new();
     let exit_ok: bool;
     loop {
         tokio::select! {
             line = line_rx.recv() => match line {
-                Some(line) => emitter.emit(classify_line(&line), line),
+                Some(line) => emit_line(emitter, &mut seen_comments, line),
                 // Readers closed: process is done (or streams gone) — wait.
                 None => {
                     let status = child.wait().await.map_err(AppaError::Io)?;
@@ -220,10 +223,8 @@ async fn run_process(
     // Collect comments the agent appended to its drop-box file (agents
     // whose stdout is structured runner JSON use this path instead).
     if let Ok(contents) = tokio::fs::read_to_string(comments_path).await {
-        for line in contents.lines().filter(|l| !l.trim().is_empty()) {
-            if classify_line(line) == RunEventKind::Comment {
-                emitter.emit(RunEventKind::Comment, line);
-            }
+        for comment in contents.lines().filter_map(parse_comment) {
+            emit_comment(emitter, &mut seen_comments, &comment);
         }
     }
 
@@ -232,6 +233,36 @@ async fn run_process(
     } else {
         RunStatus::Failed
     }))
+}
+
+/// Classify one output line, forwarding it plus any comments embedded in
+/// structured runner envelopes (claude stream-json wraps model text).
+fn emit_line(emitter: &mut Emitter, seen: &mut std::collections::HashSet<String>, line: String) {
+    match classify_line(&line) {
+        RunEventKind::Comment => {
+            if let Some(comment) = parse_comment(&line) {
+                emit_comment(emitter, seen, &comment);
+            }
+        }
+        RunEventKind::Runner => {
+            let embedded = extract_embedded_comments(&line);
+            emitter.emit(RunEventKind::Runner, line);
+            for comment in embedded {
+                emit_comment(emitter, seen, &comment);
+            }
+        }
+        kind => emitter.emit(kind, line),
+    }
+}
+
+fn emit_comment(
+    emitter: &mut Emitter,
+    seen: &mut std::collections::HashSet<String>,
+    comment: &crate::events::AgentComment,
+) {
+    if seen.insert(comment.dedupe_key()) {
+        emitter.emit(RunEventKind::Comment, comment.to_payload());
+    }
 }
 
 fn spawn_line_reader(

@@ -1,5 +1,6 @@
 // The differ: renders structured FileDiffs with per-line commenting.
-// Click a line number to attach a local comment (never posted to GitHub).
+// Hover a line and hit the ＋ (or click a line number) to attach a local
+// comment — never posted to GitHub.
 
 import { useState } from "react";
 
@@ -42,13 +43,13 @@ function FileCard({ file, comments }: { file: FileDiff; comments: LocalComment[]
   const displayPath = file.status === "removed" ? file.old_path : file.new_path;
 
   return (
-    <section className="overflow-hidden rounded-lg border border-edge bg-panel">
+    <section className="animate-fade-up overflow-hidden rounded-xl border border-edge bg-panel shadow-sm">
       <button
         type="button"
         onClick={() => {
           setCollapsed((c) => !c);
         }}
-        className="flex w-full items-center gap-2 border-b border-edge bg-panel-2/60 px-3 py-2 text-left"
+        className="flex w-full items-center gap-2 border-b border-edge bg-panel-2/60 px-3 py-2 text-left transition-colors hover:bg-panel-2"
       >
         <span className="text-xs text-muted">{collapsed ? "▸" : "▾"}</span>
         <span className="truncate font-mono text-xs text-cream">{displayPath}</span>
@@ -96,32 +97,32 @@ function HunkView({ path, hunk, comments }: HunkProps) {
           line.kind === "added" ? "diff-added" : line.kind === "removed" ? "diff-removed" : "";
         const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "−" : " ";
 
+        const openForm = () => {
+          if (anchorLine !== null) setCommentAt({ line: anchorLine, side: anchorSide });
+        };
+
         return (
           <div key={i}>
-            <div className={`diff-line ${rowClass}`}>
+            <div className={`group-line relative ${rowClass}`}>
               <button
                 type="button"
-                className="diff-line-num"
-                title="add comment"
-                onClick={() => {
-                  if (anchorLine !== null) setCommentAt({ line: anchorLine, side: anchorSide });
-                }}
+                className="diff-add-btn"
+                title="add a local comment on this line"
+                onClick={openForm}
               >
-                {line.old_line ?? ""}
+                +
               </button>
-              <button
-                type="button"
-                className="diff-line-num"
-                title="add comment"
-                onClick={() => {
-                  if (anchorLine !== null) setCommentAt({ line: anchorLine, side: anchorSide });
-                }}
-              >
-                {line.new_line ?? ""}
-              </button>
-              <div className="diff-content">
-                <span className="select-none pr-1 text-muted">{marker}</span>
-                {line.content}
+              <div className="diff-line">
+                <button type="button" className="diff-line-num" onClick={openForm}>
+                  {line.old_line ?? ""}
+                </button>
+                <button type="button" className="diff-line-num" onClick={openForm}>
+                  {line.new_line ?? ""}
+                </button>
+                <div className="diff-content">
+                  <span className="select-none pr-1 text-muted">{marker}</span>
+                  {line.content}
+                </div>
               </div>
             </div>
 

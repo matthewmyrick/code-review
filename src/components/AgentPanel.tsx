@@ -1,8 +1,10 @@
 // Agent panel: pick a configured agent, run it against the open PR, and
-// watch its event stream live. Comments it emits land in the diff.
+// watch a human-readable feed of what it's doing. Comments it emits land
+// in the diff as local comments.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { summarizeEvent } from "../lib/agentEvents";
 import { relativeTime } from "../lib/format";
 import type { RunEvent } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -22,8 +24,9 @@ export function AgentPanel() {
 
   if (specs.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 p-6 text-center">
-        <div className="text-xs text-muted">
+      <div className="animate-fade-up flex flex-col items-center gap-3 p-6 text-center">
+        <div className="text-2xl">🤖</div>
+        <div className="text-xs leading-relaxed text-muted">
           no agents configured yet — add one in settings (claude, codex, or any custom command)
         </div>
         <Button
@@ -46,7 +49,7 @@ export function AgentPanel() {
           onChange={(e) => {
             setSelected(e.target.value);
           }}
-          className="flex-1 rounded-md border border-edge bg-panel-2 px-2 py-1.5 text-xs text-cream"
+          className="h-8 flex-1 rounded-lg border border-edge bg-panel-2 px-2 text-xs text-cream"
         >
           {specs.map((spec) => (
             <option key={spec.name} value={spec.name}>
@@ -78,9 +81,11 @@ export function AgentPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {activeRun ? (
-          <div className="flex items-center gap-2 border-b border-edge/60 px-3 py-2">
+          <div className="animate-fade-in flex items-center gap-2 border-b border-edge/60 px-3 py-2.5">
             <Spinner label={`${activeRun.agent_name} is reviewing…`} />
-            <Pill tone="sky">{activeRun.comment_count} comments so far</Pill>
+            <span className="ml-auto">
+              <Pill tone="sky">💬 {activeRun.comment_count}</Pill>
+            </span>
           </div>
         ) : null}
 
@@ -97,10 +102,12 @@ export function AgentPanel() {
               key={run.run_id}
               className="flex items-center gap-2 border-b border-edge/40 px-3 py-2 text-xs"
             >
-              <span className="text-cream">{run.agent_name}</span>
-              <Pill tone={runTone(run.status)}>{run.status}</Pill>
-              <span className="text-muted">{run.comment_count} 💬</span>
-              <span className="ml-auto text-[11px] text-muted">{relativeTime(run.started_at)}</span>
+              <span className="truncate text-cream">{run.agent_name}</span>
+              <Pill tone={runTone(run.status)}>{run.status.replace("_", " ")}</Pill>
+              <Pill tone="muted">💬 {run.comment_count}</Pill>
+              <span className="ml-auto shrink-0 text-[11px] text-muted">
+                {relativeTime(run.started_at)}
+              </span>
             </div>
           ))
         )}
@@ -110,32 +117,31 @@ export function AgentPanel() {
 }
 
 function EventLog({ events }: { events: RunEvent[] }) {
-  if (events.length === 0) return null;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const lines = events.flatMap((event) =>
+    summarizeEvent(event).map((line, i) => ({
+      key: `${event.run_id}:${String(event.seq)}:${String(i)}`,
+      ...line,
+    })),
+  );
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [lines.length]);
+
+  if (lines.length === 0) return null;
   return (
-    <div className="max-h-64 overflow-y-auto border-b border-edge/60 bg-ground/60 p-2 font-mono text-[11px] leading-relaxed">
-      {events.slice(-100).map((event) => (
-        <div key={`${event.run_id}:${String(event.seq)}`} className={eventClass(event)}>
-          {renderEvent(event)}
+    <div
+      ref={scrollRef}
+      className="max-h-72 overflow-y-auto border-b border-edge/60 bg-ground/70 px-3 py-2 font-mono text-[11px] leading-relaxed"
+    >
+      {lines.slice(-150).map((line) => (
+        <div key={line.key} className={`animate-fade-in flex gap-2 py-px ${line.cls}`}>
+          <span className="w-4 shrink-0 text-center opacity-80">{line.icon}</span>
+          <span className="min-w-0 break-words">{line.text}</span>
         </div>
       ))}
     </div>
   );
-}
-
-function eventClass(event: RunEvent): string {
-  switch (event.kind) {
-    case "lifecycle":
-      return "text-sky";
-    case "comment":
-      return "text-moss";
-    case "runner":
-      return "text-muted";
-    case "raw":
-      return "text-cream/70";
-  }
-}
-
-function renderEvent(event: RunEvent): string {
-  if (event.kind === "lifecycle" || event.kind === "comment") return event.payload;
-  return event.payload.length > 200 ? `${event.payload.slice(0, 200)}…` : event.payload;
 }
