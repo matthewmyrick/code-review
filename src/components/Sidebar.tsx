@@ -1,7 +1,7 @@
 // Left rail: repo picker + open PR list (cache-first, so it renders
 // instantly and refines when the sync lands).
 
-import { relativeTime } from "../lib/format";
+import { relativeTime, truncate } from "../lib/format";
 import type { PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Pill, Spinner } from "./ui";
@@ -73,7 +73,9 @@ function PrListItem({ pr }: { pr: PullRequest }) {
         {pr.draft ? <Pill tone="muted">draft</Pill> : null}
         <span className="ml-auto text-[11px] text-muted">{relativeTime(pr.updated_at)}</span>
       </div>
-      <div className="line-clamp-2 text-[13px] leading-snug text-cream">{pr.title}</div>
+      <div className="line-clamp-2 text-[13px] leading-snug text-cream">
+        {truncate(pr.title, 90)}
+      </div>
       <div className="mt-1 flex items-center gap-2 text-[11px] text-muted">
         <span>{pr.author.login}</span>
         <span className="text-moss">+{pr.additions}</span>
