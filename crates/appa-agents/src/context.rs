@@ -38,9 +38,13 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
          \"body\":\"<markdown>\"}}\n\n\
          Rules: `line` is the line number in the new file (or old file \
          when side=old) and must be a line that appears in the diff below. \
-         Do NOT wrap the JSON in code fences. Keep bodies concise and \
-         actionable. The comments ARE the review — do not write a summary \
-         paragraph instead of comments.\n\n\
+         Do NOT wrap the JSON in code fences. The `body` MUST be \
+         well-formatted GitHub-flavored markdown: backticked code spans \
+         for identifiers, fenced code blocks for multi-line code, tables \
+         or lists where they aid clarity (escape newlines as \\n inside \
+         the JSON string). Keep bodies concise and actionable. The \
+         comments ARE the review — do not write a summary paragraph \
+         instead of comments.\n\n\
          ## Review instructions\n\
          {instructions}\n\n\
          ## Pull request description\n\
@@ -111,9 +115,11 @@ pub fn build_reply_prompt(
          {{\"type\":\"appa_comment\",\"path\":\"{path}\",\"side\":\"{side}\",\
          \"line\":{line},\"severity\":\"info\",\
          \"parent_id\":\"{parent_id}\",\"body\":\"<your reply, markdown>\"}}\n\n\
-         Keep the reply focused and conversational — you are talking with \
-         the reviewer. Acknowledge if they are right; push back with \
-         evidence if not.\n\n\
+         The `body` MUST be well-formatted GitHub-flavored markdown — \
+         code spans, fenced code blocks, tables and lists where they help \
+         (escape newlines as \\n inside the JSON string). Keep the reply \
+         focused and conversational — you are talking with the reviewer. \
+         Acknowledge if they are right; push back with evidence if not.\n\n\
          ## Original review instructions\n\
          {instructions}\n\n\
          ## Diff context for {path}\n\

@@ -23,3 +23,8 @@ export function relativeTime(iso: string): string {
 export function repoSlug(repo: { owner: string; name: string }): string {
   return `${repo.owner}/${repo.name}`;
 }
+
+/** DOM id for a file's diff card, used by the file tree to scroll. */
+export function fileAnchorId(path: string): string {
+  return `diff-${path}`;
+}

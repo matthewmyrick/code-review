@@ -5,6 +5,7 @@
 import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
+import { fileAnchorId } from "../lib/format";
 import { highlightLine, languageForPath } from "../lib/highlight";
 import type { FileDiff, GithubComment, LocalComment } from "../lib/types";
 import { CommentThread, GithubCommentCard, groupThreads, InlineCommentForm } from "./comments";
@@ -62,7 +63,10 @@ function FileCard({ file, comments, githubComments }: FileCardProps) {
   const commentCount = comments.length + githubComments.length;
 
   return (
-    <section className="animate-fade-up overflow-hidden rounded-xl border border-edge bg-panel shadow-sm">
+    <section
+      id={fileAnchorId(displayPath)}
+      className="animate-fade-up scroll-mt-3 overflow-hidden rounded-xl border border-edge bg-panel shadow-sm"
+    >
       <button
         type="button"
         onClick={() => {

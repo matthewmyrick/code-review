@@ -6,6 +6,7 @@ import { Archive, Bot, Globe, Reply, RotateCcw, Trash2, User } from "lucide-reac
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
+import { MarkdownBody } from "./Markdown";
 import type { CommentSeverity, DiffSide, GithubComment, LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Button, Pill, severityTone, Spinner } from "./ui";
@@ -131,7 +132,7 @@ export function CommentCard(props: {
         ) : null}
         <span className="ml-auto text-[11px] text-muted">{relativeTime(comment.created_at)}</span>
       </div>
-      <div className="whitespace-pre-wrap leading-relaxed text-cream/90">{comment.body}</div>
+      <MarkdownBody text={comment.body} />
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         {props.isReply ? null : comment.status === "open" ? (
           <>
@@ -203,7 +204,7 @@ export function GithubCommentCard({ comment }: { comment: GithubComment }) {
         </Pill>
         <span className="ml-auto text-[11px] text-muted">{relativeTime(comment.created_at)}</span>
       </div>
-      <div className="whitespace-pre-wrap leading-relaxed text-cream/90">{comment.body}</div>
+      <MarkdownBody text={comment.body} />
     </div>
   );
 }
