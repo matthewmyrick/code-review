@@ -20,6 +20,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let state = AppState::init()?;
+            // Startup housekeeping: purge archive entries past their
+            // 3-day EST deadline (and their run dirs).
+            if let Ok(mut cache) = state.cache.try_lock() {
+                if let Err(e) = commands::prs::purge_expired_data(&mut cache, &state.dirs.runs_dir)
+                {
+                    tracing::warn!(error = %e, "startup purge failed");
+                }
+            }
             tauri::Manager::manage(app, state);
             Ok(())
         })
@@ -29,6 +37,7 @@ pub fn run() {
             prs::get_pr_bundle,
             prs::sync_pr_bundle,
             prs::get_last_synced,
+            prs::list_archived_prs,
             review::list_local_comments,
             review::add_local_comment,
             review::set_comment_status,

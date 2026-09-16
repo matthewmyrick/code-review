@@ -129,6 +129,17 @@ impl GithubClient {
         Ok(prs)
     }
 
+    /// One PR's core data (cheap single call — used for merge checks).
+    pub async fn pull_request(&self, repo: &RepoRef, number: u64) -> Result<PullRequest> {
+        let pull: WirePull = self
+            .get_json(&format!(
+                "/repos/{}/{}/pulls/{number}",
+                repo.owner, repo.name
+            ))
+            .await?;
+        Ok(pull.into_domain(repo))
+    }
+
     /// Full detail bundle: PR, checks, reviews, and all comments.
     pub async fn pull_request_detail(&self, repo: &RepoRef, number: u64) -> Result<PrDetail> {
         let base = format!("/repos/{}/{}", repo.owner, repo.name);

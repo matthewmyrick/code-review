@@ -112,6 +112,16 @@ pub struct GithubComment {
     pub created_at: DateTime<Utc>,
 }
 
+/// A merged PR held in the archive before its data is purged.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchivedPr {
+    pub pull_request: PullRequest,
+    pub archived_at: DateTime<Utc>,
+    /// Hard purge deadline: 11:59:59 PM EST on the third day after
+    /// archival. All cached data for the PR is deleted after this.
+    pub purge_after: DateTime<Utc>,
+}
+
 /// Everything Appa knows about one PR, bundled for the UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrDetail {

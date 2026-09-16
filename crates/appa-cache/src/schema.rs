@@ -55,6 +55,17 @@ pub const MIGRATIONS: &[&str] = &[
     );
     CREATE INDEX idx_agent_runs_pr ON agent_runs (repo, pr_number);
     ",
+    // 002: merged-PR archive (3-day retention before purge)
+    "
+    CREATE TABLE archived_prs (
+        repo        TEXT NOT NULL,
+        number      INTEGER NOT NULL,
+        archived_at TEXT NOT NULL,
+        purge_after TEXT NOT NULL,
+        json        TEXT NOT NULL,
+        PRIMARY KEY (repo, number)
+    );
+    ",
 ];
 
 /// Run any migrations newer than the connection's `user_version`.

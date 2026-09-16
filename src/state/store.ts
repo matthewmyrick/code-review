@@ -8,6 +8,7 @@ import { ipc } from "../lib/ipc";
 import type {
   AgentRun,
   AgentSpec,
+  ArchivedPr,
   CommentStatus,
   LocalComment,
   NewLocalComment,
@@ -58,6 +59,7 @@ interface AppStore {
   lastError: string | null;
   prHasMore: boolean;
   prPage: number;
+  archivedPrs: ArchivedPr[];
 
   init: () => Promise<void>;
   setView: (view: View) => void;
@@ -119,6 +121,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     lastError: null,
     prHasMore: false,
     prPage: 1,
+    archivedPrs: [],
 
     init: async () => {
       if (initStarted) return;
@@ -213,12 +216,24 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     selectRepo: async (slug) => {
-      set({ selectedRepo: slug, selectedPr: null, bundle: null, prs: [], prPage: 1 });
+      set({
+        selectedRepo: slug,
+        selectedPr: null,
+        bundle: null,
+        prs: [],
+        prPage: 1,
+        archivedPrs: [],
+      });
       try {
         const cached = await ipc.getPullRequests(slug);
-        set({ prs: cached });
+        set({ prs: cached, archivedPrs: await ipc.listArchivedPrs(slug) });
         const page = await ipc.syncPullRequests(slug, 1);
-        set({ prs: page.prs, prHasMore: page.has_more, prPage: 1 });
+        set({
+          prs: page.prs,
+          prHasMore: page.has_more,
+          prPage: 1,
+          archivedPrs: await ipc.listArchivedPrs(slug),
+        });
       } catch (e) {
         fail(e);
       }
@@ -244,7 +259,12 @@ export const useAppStore = create<AppStore>((set, get) => {
       if (!repo) return;
       try {
         const page = await ipc.syncPullRequests(repo, 1);
-        set({ prs: page.prs, prHasMore: page.has_more, prPage: 1 });
+        set({
+          prs: page.prs,
+          prHasMore: page.has_more,
+          prPage: 1,
+          archivedPrs: await ipc.listArchivedPrs(repo),
+        });
       } catch (e) {
         fail(e);
       }

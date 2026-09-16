@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentRun,
   AgentSpec,
+  ArchivedPr,
   CommentStatus,
   LocalComment,
   NewLocalComment,
@@ -25,6 +26,7 @@ export const ipc = {
   syncPrBundle: (repo: string, number: number) =>
     invoke<PrBundle>("sync_pr_bundle", { repo, number }),
   getLastSynced: (key: string) => invoke<string | null>("get_last_synced", { key }),
+  listArchivedPrs: (repo: string) => invoke<ArchivedPr[]>("list_archived_prs", { repo }),
 
   // local review comments
   listLocalComments: (repo: string, number: number) =>

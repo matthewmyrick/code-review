@@ -213,6 +213,12 @@ export interface PrBundle {
   comments: LocalComment[];
 }
 
+export interface ArchivedPr {
+  pull_request: PullRequest;
+  archived_at: string;
+  purge_after: string;
+}
+
 export interface PrPage {
   prs: PullRequest[];
   has_more: boolean;

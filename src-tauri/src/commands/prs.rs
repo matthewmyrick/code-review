@@ -4,9 +4,9 @@
 //! stale) render, kick off the matching `sync_*` command, and re-render
 //! when it resolves. `appa://sync` events drive the loading indicators.
 
-use appa_cache::{Cache, ReviewStore};
+use appa_cache::{ArchiveStore, Cache, ReviewStore};
 use appa_core::diff::FileDiff;
-use appa_core::github::{PrDetail, PullRequest};
+use appa_core::github::{ArchivedPr, PrDetail, PrState, PullRequest};
 use appa_core::review::LocalComment;
 use appa_core::AppaError;
 use chrono::{DateTime, Utc};
@@ -55,12 +55,37 @@ pub async fn sync_pull_requests(
     let result = async {
         let client = state.github_client().await?;
         let prs = client.list_pull_requests(&repo, page).await?;
+
+        // PRs that vanished from page 1 of the open list may have merged:
+        // check each and archive merged ones (3-day retention).
+        let vanished: Vec<u64> = if page == 1 {
+            let cache = state.cache.lock().await;
+            let open: std::collections::HashSet<u64> = prs.iter().map(|p| p.number).collect();
+            cache
+                .get_pull_requests(&repo)?
+                .iter()
+                .map(|p| p.number)
+                .filter(|n| !open.contains(n))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        for number in vanished {
+            if let Ok(pr) = client.pull_request(&repo, number).await {
+                if pr.state == PrState::Merged {
+                    let cache = state.cache.lock().await;
+                    cache.archive_pr(&pr, Utc::now())?;
+                }
+            }
+        }
+
         let mut cache = state.cache.lock().await;
         if page == 1 {
             cache.put_pull_requests(&repo, &prs)?;
         } else {
             cache.append_pull_requests(&repo, &prs)?;
         }
+        purge_expired_data(&mut cache, &state.dirs.runs_dir)?;
         let has_more = prs.len() == appa_github::GithubClient::PR_PAGE_SIZE;
         Ok::<_, AppaError>(PrPage { prs, has_more })
     }
@@ -105,6 +130,9 @@ pub async fn sync_pr_bundle(
         cache.put_pr_detail(&repo, &detail)?;
         cache.put_diff(&repo, number, &detail.pull_request.head_sha, &raw, &diff)?;
         cache.touch_sync(&key)?;
+        if detail.pull_request.state == PrState::Merged {
+            cache.archive_pr(&detail.pull_request, Utc::now())?;
+        }
         let comments = cache.list_comments(&repo, number)?;
         Ok::<_, AppaError>(PrBundle {
             detail,
@@ -119,6 +147,37 @@ pub async fn sync_pr_bundle(
         Err(e) => emit_sync(&app, &key, SyncPhase::Error, Some(e.to_string())),
     }
     result
+}
+
+#[tauri::command]
+pub async fn list_archived_prs(
+    state: State<'_, AppState>,
+    repo: String,
+) -> Result<Vec<ArchivedPr>, AppaError> {
+    let repo = parse_repo(&repo)?;
+    state.cache.lock().await.list_archived(&repo)
+}
+
+/// Purge expired archive entries and their run directories on disk.
+pub(crate) fn purge_expired_data(
+    cache: &mut Cache,
+    runs_dir: &std::path::Path,
+) -> Result<(), AppaError> {
+    let log_paths = cache.purge_expired(Utc::now())?;
+    for log_path in log_paths {
+        let path = std::path::Path::new(&log_path);
+        // Only remove directories that live under our own runs dir.
+        if let Some(dir) = path.parent() {
+            if dir.starts_with(runs_dir) {
+                if let Err(e) = std::fs::remove_dir_all(dir) {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        tracing::warn!(dir = %dir.display(), error = %e, "failed to purge run dir");
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
