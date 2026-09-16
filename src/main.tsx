@@ -4,14 +4,18 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles.css";
 
-// The macOS webview applies system autocorrect/auto-capitalization to
-// text fields, which mangles identifiers like repo slugs and usernames.
-// Stamp every input/textarea (current and future) to opt out.
+// The macOS webview applies system "smart typing" to text fields, which
+// silently rewrites identifiers like repo slugs and usernames. Policy:
+// never auto-replace anywhere (autocorrect/autocapitalize off), but keep
+// passive spellcheck squiggles on prose textareas (right-click offers
+// suggestions; nothing changes unless you pick one). Monospace textareas
+// hold code-ish content, so they opt out entirely.
 function disableAutocorrect(root: ParentNode) {
   root.querySelectorAll("input, textarea").forEach((el) => {
     el.setAttribute("autocorrect", "off");
     el.setAttribute("autocapitalize", "off");
-    el.setAttribute("spellcheck", "false");
+    const prose = el.tagName === "TEXTAREA" && !el.className.includes("font-mono");
+    el.setAttribute("spellcheck", prose ? "true" : "false");
   });
 }
 const observer = new MutationObserver(() => {

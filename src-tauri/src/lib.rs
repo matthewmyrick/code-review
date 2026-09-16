@@ -4,7 +4,7 @@ mod commands;
 mod settings;
 mod state;
 
-use commands::{agents, github_write, prs, review, settings_cmd, threads};
+use commands::{agents, github_write, prs, review, settings_cmd, text_tools, threads};
 use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -58,6 +58,7 @@ pub fn run() {
             settings_cmd::update_settings,
             settings_cmd::list_github_owners,
             settings_cmd::list_github_repos,
+            text_tools::polish_text,
         ])
         .run(tauri::generate_context!());
 

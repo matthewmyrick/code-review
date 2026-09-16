@@ -63,6 +63,9 @@ export const ipc = {
   approvePr: (repo: string, number: number, body: string | null) =>
     invoke<null>("approve_pr", { repo, number, body }),
 
+  // text utilities
+  polishText: (text: string) => invoke<string>("polish_text", { text }),
+
   // settings
   getSettings: () => invoke<Settings>("get_settings"),
   listGithubOwners: () => invoke<OwnerList>("list_github_owners"),

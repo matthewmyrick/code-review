@@ -2,9 +2,10 @@
 // configured agents; selecting inserts "@name ". Mentions are how you
 // summon an agent into a thread it didn't start.
 
-import { Bot } from "lucide-react";
+import { Bot, Loader, Sparkles } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { ipc } from "../lib/ipc";
 import { useAppStore } from "../state/store";
 
 /** Agent names @mentioned in a body, deduped, limited to known specs. */
@@ -39,6 +40,23 @@ export function MentionInput(props: MentionInputProps) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
   const [highlight, setHighlight] = useState(0);
+  const [polishing, setPolishing] = useState(false);
+
+  const polish = () => {
+    if (!props.value.trim() || polishing) return;
+    setPolishing(true);
+    ipc
+      .polishText(props.value)
+      .then((fixed) => {
+        props.onChange(fixed);
+      })
+      .catch((e: unknown) => {
+        console.error("polish failed", e);
+      })
+      .finally(() => {
+        setPolishing(false);
+      });
+  };
 
   const suggestions = mention
     ? specs.filter((s) => s.name.toLowerCase().startsWith(mention.query.toLowerCase()))
@@ -104,10 +122,19 @@ export function MentionInput(props: MentionInputProps) {
           if (e.key === "Escape") props.onCancel?.();
         }}
         placeholder={props.placeholder}
-        className={`min-h-16 w-full resize-y rounded-md border border-edge bg-ground p-2 text-xs text-cream outline-none focus:border-sky ${
+        className={`min-h-16 w-full resize-y rounded-md border border-edge bg-ground p-2 pr-8 text-xs text-cream outline-none focus:border-sky ${
           props.mono ? "font-mono" : ""
         }`}
       />
+      <button
+        type="button"
+        onClick={polish}
+        disabled={polishing || !props.value.trim()}
+        title="polish — fix typos & grammar with AI (never touches code or @mentions)"
+        className="absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-amber disabled:pointer-events-none disabled:opacity-30"
+      >
+        {polishing ? <Loader size={12} className="animate-spin" /> : <Sparkles size={12} />}
+      </button>
       {mention && suggestions.length > 0 ? (
         <div className="animate-fade-in absolute left-2 top-full z-50 -mt-1 w-56 overflow-hidden rounded-lg border border-edge bg-panel shadow-xl">
           {suggestions.map((spec, i) => (

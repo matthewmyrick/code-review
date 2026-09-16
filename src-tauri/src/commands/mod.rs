@@ -5,6 +5,7 @@ pub mod github_write;
 pub mod prs;
 pub mod review;
 pub mod settings_cmd;
+pub mod text_tools;
 pub mod threads;
 
 use serde::Serialize;
