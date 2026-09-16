@@ -1,7 +1,7 @@
 // Repo lookup for settings: pick an owner (you or one of your orgs),
 // filter that owner's repos, and add them with a click — no slug typing.
 
-import { Check, Lock, Plus, Search } from "lucide-react";
+import { Lock, Plus, Search } from "lucide-react";
 import { useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -64,8 +64,11 @@ export function RepoBrowser() {
     );
   }
 
-  const visible = repos.filter((r) =>
-    r.full_name.toLowerCase().includes(filter.trim().toLowerCase()),
+  // Hide repos that are already tracked — they're listed just below.
+  const visible = repos.filter(
+    (r) =>
+      !settings.repos.includes(r.full_name) &&
+      r.full_name.toLowerCase().includes(filter.trim().toLowerCase()),
   );
 
   return (
@@ -99,47 +102,42 @@ export function RepoBrowser() {
       {loading ? <Spinner label="loading repos…" /> : null}
 
       <div className="max-h-56 overflow-y-auto rounded-md">
-        {visible.map((repo) => {
-          const added = settings.repos.includes(repo.full_name);
-          return (
-            <div
-              key={repo.full_name}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-panel-2"
-            >
-              <span className="truncate font-mono text-cream">{repo.full_name}</span>
-              {repo.private ? (
-                <Pill tone="muted">
-                  <Lock size={9} /> private
-                </Pill>
-              ) : null}
-              {repo.description ? (
-                <span className="hidden truncate text-[10px] text-muted sm:inline">
-                  {repo.description}
-                </span>
-              ) : null}
-              <span className="ml-auto shrink-0">
-                {added ? (
-                  <Pill tone="moss">
-                    <Check size={10} /> added
-                  </Pill>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      void saveSettings({
-                        ...settings,
-                        repos: [...settings.repos, repo.full_name],
-                      });
-                    }}
-                  >
-                    <Plus size={11} /> add
-                  </Button>
-                )}
+        {visible.map((repo) => (
+          <div
+            key={repo.full_name}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-panel-2"
+          >
+            <span className="truncate font-mono text-cream">{repo.full_name}</span>
+            {repo.private ? (
+              <Pill tone="muted">
+                <Lock size={9} /> private
+              </Pill>
+            ) : null}
+            {repo.description ? (
+              <span className="hidden truncate text-[10px] text-muted sm:inline">
+                {repo.description}
               </span>
-            </div>
-          );
-        })}
+            ) : null}
+            <span className="ml-auto shrink-0">
+              <Button
+                onClick={() => {
+                  void saveSettings({
+                    ...settings,
+                    repos: [...settings.repos, repo.full_name],
+                  });
+                }}
+              >
+                <Plus size={11} /> add
+              </Button>
+            </span>
+          </div>
+        ))}
         {!loading && visible.length === 0 ? (
-          <div className="px-2 py-3 text-center text-[11px] text-muted">no repos match</div>
+          <div className="px-2 py-3 text-center text-[11px] text-muted">
+            {repos.length > 0 && filter.trim() === ""
+              ? "all matching repos are already added"
+              : "no repos match"}
+          </div>
         ) : null}
       </div>
     </div>
