@@ -33,21 +33,36 @@ pub async fn get_pull_requests(
     state.cache.lock().await.get_pull_requests(&repo)
 }
 
+/// One synced page of PRs plus whether another page likely exists.
+#[derive(Debug, Clone, Serialize)]
+pub struct PrPage {
+    pub prs: Vec<PullRequest>,
+    pub has_more: bool,
+}
+
 #[tauri::command]
 pub async fn sync_pull_requests(
     app: AppHandle,
     state: State<'_, AppState>,
     repo: String,
-) -> Result<Vec<PullRequest>, AppaError> {
+    page: Option<u32>,
+) -> Result<PrPage, AppaError> {
     let repo = parse_repo(&repo)?;
+    let page = page.unwrap_or(1).max(1);
     let key = format!("prs:{}", repo.slug());
     emit_sync(&app, &key, SyncPhase::Started, None);
 
     let result = async {
         let client = state.github_client().await?;
-        let prs = client.list_pull_requests(&repo).await?;
-        state.cache.lock().await.put_pull_requests(&repo, &prs)?;
-        Ok::<_, AppaError>(prs)
+        let prs = client.list_pull_requests(&repo, page).await?;
+        let mut cache = state.cache.lock().await;
+        if page == 1 {
+            cache.put_pull_requests(&repo, &prs)?;
+        } else {
+            cache.append_pull_requests(&repo, &prs)?;
+        }
+        let has_more = prs.len() == appa_github::GithubClient::PR_PAGE_SIZE;
+        Ok::<_, AppaError>(PrPage { prs, has_more })
     }
     .await;
 

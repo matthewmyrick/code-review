@@ -8,7 +8,7 @@ import { relativeTime } from "../lib/format";
 import type { PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { FileTree } from "./FileTree";
-import { Pill, Skeleton, Spinner } from "./ui";
+import { Button, Pill, Skeleton, Spinner } from "./ui";
 
 export function Sidebar() {
   const settings = useAppStore((s) => s.settings);
@@ -84,6 +84,8 @@ function PrList() {
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prs = useAppStore((s) => s.prs);
   const syncing = useAppStore((s) => s.syncing);
+  const prHasMore = useAppStore((s) => s.prHasMore);
+  const loadMorePrs = useAppStore((s) => s.loadMorePrs);
   const repoSyncing = selectedRepo ? (syncing[`prs:${selectedRepo}`] ?? false) : false;
 
   return (
@@ -100,6 +102,18 @@ function PrList() {
         {prs.length === 0 && !repoSyncing ? (
           <div className="px-3 py-6 text-center text-xs text-muted">
             {selectedRepo ? "no open PRs" : "pick a repository above"}
+          </div>
+        ) : null}
+        {prHasMore ? (
+          <div className="flex justify-center py-2">
+            <Button
+              onClick={() => {
+                void loadMorePrs();
+              }}
+              disabled={repoSyncing}
+            >
+              load more
+            </Button>
           </div>
         ) : null}
       </div>

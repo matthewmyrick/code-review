@@ -16,8 +16,10 @@ here; CONTRIBUTING.md is the human-flavored version.
 3. **Format before finishing:** `cargo fmt --all` and `pnpm format`.
 4. **Tests:** run `cargo test --workspace`. Add tests for any new parser,
    cache, or process logic. Never call the network in tests.
-5. **Read-only GitHub.** Do not add code that writes to GitHub (comments,
-   reviews, statuses). Review output stays local by design.
+5. **GitHub writes are user-only.** The only GitHub write paths live in
+   `commands/github_write.rs` and fire on explicit user clicks (post a
+   chosen comment, approve). Never add a way for an agent run to write
+   to GitHub; agent review output stays local until the user posts it.
 6. **Secrets** never in code, cache DB, logs, or fixtures.
 
 ## Architecture map (where things go)

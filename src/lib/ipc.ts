@@ -10,6 +10,7 @@ import type {
   LocalComment,
   NewLocalComment,
   PrBundle,
+  PrPage,
   PullRequest,
   Settings,
 } from "./types";
@@ -17,7 +18,8 @@ import type {
 export const ipc = {
   // pull requests
   getPullRequests: (repo: string) => invoke<PullRequest[]>("get_pull_requests", { repo }),
-  syncPullRequests: (repo: string) => invoke<PullRequest[]>("sync_pull_requests", { repo }),
+  syncPullRequests: (repo: string, page = 1) =>
+    invoke<PrPage>("sync_pull_requests", { repo, page }),
   getPrBundle: (repo: string, number: number) =>
     invoke<PrBundle | null>("get_pr_bundle", { repo, number }),
   syncPrBundle: (repo: string, number: number) =>
@@ -47,6 +49,14 @@ export const ipc = {
   cancelAgentRun: (runId: string) => invoke<null>("cancel_agent_run", { runId }),
   replyToComment: (agentName: string, commentId: string, body: string) =>
     invoke<string>("reply_to_comment", { agentName, commentId, body }),
+  mentionAgent: (agentName: string, commentId: string) =>
+    invoke<string>("mention_agent", { agentName, commentId }),
+
+  // explicit GitHub writes (user-triggered only)
+  postCommentToGithub: (commentId: string) =>
+    invoke<number>("post_comment_to_github", { commentId }),
+  approvePr: (repo: string, number: number, body: string | null) =>
+    invoke<null>("approve_pr", { repo, number, body }),
 
   // settings
   getSettings: () => invoke<Settings>("get_settings"),

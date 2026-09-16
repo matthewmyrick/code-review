@@ -57,6 +57,10 @@ pub struct LocalComment {
     pub path: String,
     pub side: DiffSide,
     pub line: u64,
+    /// Inclusive end of a multi-line anchor ("lines 2-5"); None for a
+    /// single line.
+    #[serde(default)]
+    pub end_line: Option<u64>,
     pub body: String,
     pub author_kind: CommentAuthorKind,
     /// Human username or agent name (e.g. "claude", "codex").
@@ -68,6 +72,14 @@ pub struct LocalComment {
     /// Root comment this replies to; None for top-level comments.
     #[serde(default)]
     pub parent_id: Option<String>,
+    /// GitHub review-comment id this thread discusses, when the thread
+    /// was started from a GitHub comment.
+    #[serde(default)]
+    pub github_comment_id: Option<u64>,
+    /// Set once this comment's body has been posted to GitHub (the id
+    /// GitHub assigned). Posting is always an explicit user action.
+    #[serde(default)]
+    pub posted_github_id: Option<u64>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -82,6 +94,8 @@ pub struct NewLocalComment {
     pub path: String,
     pub side: DiffSide,
     pub line: u64,
+    #[serde(default)]
+    pub end_line: Option<u64>,
     pub body: String,
     pub author_kind: CommentAuthorKind,
     pub author_name: String,
@@ -89,4 +103,6 @@ pub struct NewLocalComment {
     pub run_id: Option<String>,
     #[serde(default)]
     pub parent_id: Option<String>,
+    #[serde(default)]
+    pub github_comment_id: Option<u64>,
 }

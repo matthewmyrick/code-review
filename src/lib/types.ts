@@ -114,6 +114,7 @@ export interface LocalComment {
   path: string;
   side: DiffSide;
   line: number;
+  end_line: number | null;
   body: string;
   author_kind: CommentAuthorKind;
   author_name: string;
@@ -121,6 +122,8 @@ export interface LocalComment {
   status: CommentStatus;
   run_id: string | null;
   parent_id: string | null;
+  github_comment_id: number | null;
+  posted_github_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -132,12 +135,14 @@ export interface NewLocalComment {
   path: string;
   side: DiffSide;
   line: number;
+  end_line: number | null;
   body: string;
   author_kind: CommentAuthorKind;
   author_name: string;
   severity: CommentSeverity;
   run_id: string | null;
   parent_id: string | null;
+  github_comment_id: number | null;
 }
 
 // ---- agents ---------------------------------------------------------------
@@ -206,6 +211,11 @@ export interface PrBundle {
   detail: PrDetail;
   diff: FileDiff[];
   comments: LocalComment[];
+}
+
+export interface PrPage {
+  prs: PullRequest[];
+  has_more: boolean;
 }
 
 export interface SyncEvent {

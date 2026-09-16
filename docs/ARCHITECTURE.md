@@ -53,8 +53,9 @@ SHA changes. Local comments/agent runs are indexed by (repo, number).
    `$APPA_COMMENTS_FILE` drop-box) become `LocalComment`s tied to the
    run id and head SHA.
 4. UI shows the live event feed; comments appear inline in the diff for
-   triage (accept / reject / resolve / delete). Nothing is sent back to
-   GitHub, ever.
+   triage (accept / reject / archive / delete), threaded discussion
+   (reply, @mention an agent), and — only when you explicitly click
+   post/approve — pushing a chosen comment or an approval to GitHub.
 
 ## Frontend
 

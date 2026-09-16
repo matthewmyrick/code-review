@@ -158,6 +158,12 @@ body {
   background: color-mix(in srgb, var(--color-ember) 13%, transparent);
 }
 
+/* rows inside an in-progress multi-line comment selection */
+.diff-range {
+  background: color-mix(in srgb, var(--color-amber) 16%, transparent) !important;
+  box-shadow: inset 2px 0 0 var(--color-amber);
+}
+
 /* the hover "+" affordance for adding a comment on a line */
 .diff-add-btn {
   position: absolute;

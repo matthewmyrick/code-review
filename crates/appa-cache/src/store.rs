@@ -63,6 +63,26 @@ impl Cache {
         self.touch_sync(&format!("prs:{}", repo.slug()))
     }
 
+    /// Merge one further page of PRs into the cache (no delete).
+    pub fn append_pull_requests(&mut self, repo: &RepoRef, prs: &[PullRequest]) -> Result<()> {
+        let tx = self.conn.transaction().map_err(cache_err)?;
+        for pr in prs {
+            tx.execute(
+                "INSERT OR REPLACE INTO pull_requests (repo, number, updated_at, json)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    repo.slug(),
+                    pr.number,
+                    pr.updated_at.to_rfc3339(),
+                    serde_json::to_string(pr)?
+                ],
+            )
+            .map_err(cache_err)?;
+        }
+        tx.commit().map_err(cache_err)?;
+        Ok(())
+    }
+
     pub fn get_pull_requests(&self, repo: &RepoRef) -> Result<Vec<PullRequest>> {
         let mut stmt = self
             .conn

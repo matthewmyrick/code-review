@@ -209,12 +209,14 @@ async fn handle_comment(
             DiffSide::New
         },
         line: parsed.line,
+        end_line: None,
         body: parsed.body,
         author_kind: CommentAuthorKind::Agent,
         author_name: spec.name.clone(),
         severity: parse_severity(&parsed.severity),
         run_id: Some(run.run_id.clone()),
         parent_id: parsed.parent_id.clone(),
+        github_comment_id: None,
     };
     let state = app.state::<AppState>();
     let result = { state.cache.lock().await.add_comment(new) };

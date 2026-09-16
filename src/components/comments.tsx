@@ -2,12 +2,13 @@
 // and the inline composer. Local comments never touch GitHub; GitHub
 // comments render read-only with their own badge.
 
-import { Archive, Bot, Globe, Reply, RotateCcw, Trash2, User } from "lucide-react";
+import { Archive, Bot, Globe, Reply, RotateCcw, Send, Trash2, User } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
 import { MarkdownBody } from "./Markdown";
-import type { CommentSeverity, DiffSide, GithubComment, LocalComment } from "../lib/types";
+import { extractMentions, MentionInput } from "./MentionInput";
+import type { GithubComment, LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Button, Pill, severityTone, Spinner } from "./ui";
 
@@ -61,47 +62,77 @@ function ReplyComposer({ root, onDone }: { root: LocalComment; onDone: () => voi
   const [sending, setSending] = useState(false);
   const specs = useAppStore((s) => s.agentSpecs);
   const replyToComment = useAppStore((s) => s.replyToComment);
+  const addComment = useAppStore((s) => s.addComment);
+  const mentionAgent = useAppStore((s) => s.mentionAgent);
 
-  // Prefer talking to the agent that wrote the root comment.
-  const agentName =
-    (root.author_kind === "agent" && specs.some((sp) => sp.name === root.author_name)
+  // Auto-answer only when the thread was started by an agent; other
+  // threads need an explicit @mention to summon one.
+  const autoAgent =
+    root.author_kind === "agent" && specs.some((sp) => sp.name === root.author_name)
       ? root.author_name
-      : specs[0]?.name) ?? "";
+      : null;
+
+  const addReply = (text: string) =>
+    addComment({
+      repo: root.repo,
+      pr_number: root.pr_number,
+      head_sha: root.head_sha,
+      path: root.path,
+      side: root.side,
+      line: root.line,
+      end_line: root.end_line,
+      body: text,
+      author_kind: "human",
+      author_name: "you",
+      severity: "info",
+      run_id: null,
+      parent_id: root.id,
+      github_comment_id: null,
+    });
 
   const send = () => {
-    if (!body.trim() || !agentName) return;
+    const text = body.trim();
+    if (!text) return;
     setSending(true);
-    void replyToComment(root.id, body.trim(), agentName).then(() => {
+    const finish = () => {
       setSending(false);
       onDone();
-    });
+    };
+    const mentions = extractMentions(
+      text,
+      specs.map((sp) => sp.name),
+    );
+    if (mentions.length > 0) {
+      void addReply(text).then(async () => {
+        for (const name of mentions) await mentionAgent(name, root.id);
+        finish();
+      });
+    } else if (autoAgent) {
+      void replyToComment(root.id, text, autoAgent).then(finish);
+    } else {
+      void addReply(text).then(finish);
+    }
   };
 
   return (
     <div className="flex flex-col gap-2">
-      <textarea
-        autoFocus
+      <MentionInput
         value={body}
-        onChange={(e) => {
-          setBody(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
-          if (e.key === "Escape") onDone();
-        }}
+        onChange={setBody}
+        onSubmit={send}
+        onCancel={onDone}
         placeholder={
-          agentName
-            ? `reply — ${agentName} will answer in this thread (⌘↵)`
-            : "configure an agent in settings to discuss comments"
+          autoAgent
+            ? `reply — ${autoAgent} answers; @mention to summon others (⌘↵)`
+            : "reply — @mention an agent to bring one into this thread (⌘↵)"
         }
-        className="min-h-14 w-full resize-y rounded-md border border-edge bg-ground p-2 text-xs text-cream outline-none focus:border-sky"
       />
       <div className="flex items-center gap-2">
-        <Button kind="primary" onClick={send} disabled={!body.trim() || !agentName || sending}>
+        <Button kind="primary" onClick={send} disabled={!body.trim() || sending}>
           <Reply size={11} /> reply
         </Button>
         <Button onClick={onDone}>cancel</Button>
-        {sending ? <Spinner label="starting agent…" /> : null}
+        {sending ? <Spinner label="sending…" /> : null}
       </div>
     </div>
   );
@@ -177,6 +208,7 @@ export function CommentCard(props: {
             <Archive size={11} /> archive
           </Button>
         ) : null}
+        <PostToGithub comment={comment} />
         <button
           type="button"
           title="delete permanently"
@@ -192,7 +224,60 @@ export function CommentCard(props: {
   );
 }
 
-export function GithubCommentCard({ comment }: { comment: GithubComment }) {
+/// Explicit, two-step "post this comment body to GitHub" control.
+function PostToGithub({ comment }: { comment: LocalComment }) {
+  const postToGithub = useAppStore((s) => s.postToGithub);
+  const [confirming, setConfirming] = useState(false);
+  const [posting, setPosting] = useState(false);
+
+  if (comment.posted_github_id !== null) {
+    return (
+      <Pill tone="moss">
+        <Send size={10} /> posted
+      </Pill>
+    );
+  }
+  if (posting) return <Spinner label="posting…" />;
+  if (confirming) {
+    return (
+      <>
+        <Button
+          kind="danger"
+          onClick={() => {
+            setPosting(true);
+            void postToGithub(comment.id).then(() => {
+              setPosting(false);
+              setConfirming(false);
+            });
+          }}
+          title="this WILL post to GitHub"
+        >
+          <Send size={11} /> confirm post
+        </Button>
+        <Button
+          onClick={() => {
+            setConfirming(false);
+          }}
+        >
+          cancel
+        </Button>
+      </>
+    );
+  }
+  return (
+    <Button
+      onClick={() => {
+        setConfirming(true);
+      }}
+      title="post this comment to GitHub (asks to confirm)"
+    >
+      <Send size={11} /> post to github
+    </Button>
+  );
+}
+
+export function GithubCommentCard(props: { comment: GithubComment; onDiscuss?: () => void }) {
+  const { comment } = props;
   return (
     <div className="text-xs">
       <div className="mb-1 flex items-center gap-2">
@@ -205,75 +290,16 @@ export function GithubCommentCard({ comment }: { comment: GithubComment }) {
         <span className="ml-auto text-[11px] text-muted">{relativeTime(comment.created_at)}</span>
       </div>
       <MarkdownBody text={comment.body} />
-    </div>
-  );
-}
-
-export function InlineCommentForm(props: {
-  path: string;
-  line: number;
-  side: DiffSide;
-  onDone: () => void;
-}) {
-  const [body, setBody] = useState("");
-  const [severity, setSeverity] = useState<CommentSeverity>("suggestion");
-  const bundle = useAppStore((s) => s.bundle);
-  const addComment = useAppStore((s) => s.addComment);
-
-  if (!bundle) return null;
-  const pr = bundle.detail.pull_request;
-
-  const submit = () => {
-    if (!body.trim()) return;
-    void addComment({
-      repo: pr.repo,
-      pr_number: pr.number,
-      head_sha: pr.head_sha,
-      path: props.path,
-      side: props.side,
-      line: props.line,
-      body: body.trim(),
-      author_kind: "human",
-      author_name: "you",
-      severity,
-      run_id: null,
-      parent_id: null,
-    }).then(props.onDone);
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <textarea
-        autoFocus
-        value={body}
-        onChange={(e) => {
-          setBody(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
-          if (e.key === "Escape") props.onDone();
-        }}
-        placeholder={`local comment on ${props.path}:${String(props.line)} (⌘↵ to save)`}
-        className="min-h-16 w-full resize-y rounded-md border border-edge bg-ground p-2 font-mono text-xs text-cream outline-none focus:border-sky"
-      />
-      <div className="flex items-center gap-2">
-        <select
-          value={severity}
-          onChange={(e) => {
-            setSeverity(e.target.value as CommentSeverity);
-          }}
-          className="rounded-md border border-edge bg-panel-2 px-2 py-1 text-xs text-cream"
-        >
-          <option value="info">info</option>
-          <option value="suggestion">suggestion</option>
-          <option value="issue">issue</option>
-          <option value="blocker">blocker</option>
-        </select>
-        <Button kind="primary" onClick={submit} disabled={!body.trim()}>
-          add local comment
-        </Button>
-        <Button onClick={props.onDone}>cancel</Button>
-      </div>
+      {props.onDiscuss ? (
+        <div className="mt-1.5">
+          <Button
+            onClick={props.onDiscuss}
+            title="start a local thread about this GitHub comment — post back only when you choose"
+          >
+            <Reply size={11} /> discuss locally
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

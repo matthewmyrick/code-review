@@ -8,10 +8,12 @@ GitHub — diff, checks, reviews, approvers, comments — renders a fast,
 pretty differ, and lets a locally-run agent (Claude, Codex, or any custom
 command) review the diff with you.
 
-The twist: **agent comments never go to GitHub.** They land as local
-comments in Appa, where you triage them (accept / reject / resolve)
-before deciding what, if anything, becomes real feedback. Like Appa the
-sky bison: it carries the whole team, but you hold the reins.
+The twist: **agent comments never go to GitHub on their own.** They
+land as local comments in Appa, where you triage them (accept / reject
+/ archive), discuss them in threads (@mention any agent), and — only
+when you explicitly click post — push a chosen comment or an approval
+back to GitHub. Like Appa the sky bison: it carries the whole team,
+but you hold the reins.
 
 ## How it works
 

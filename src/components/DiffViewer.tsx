@@ -8,7 +8,8 @@ import { useState } from "react";
 import { fileAnchorId } from "../lib/format";
 import { highlightLine, languageForPath } from "../lib/highlight";
 import type { FileDiff, GithubComment, LocalComment } from "../lib/types";
-import { CommentThread, GithubCommentCard, groupThreads, InlineCommentForm } from "./comments";
+import { CommentThread, GithubCommentCard, groupThreads } from "./comments";
+import { InlineCommentForm } from "./InlineCommentForm";
 import { Pill } from "./ui";
 
 interface DiffViewerProps {
@@ -121,8 +122,15 @@ interface HunkProps {
   githubComments: GithubComment[];
 }
 
+interface ComposerAnchor {
+  line: number;
+  end: number;
+  side: "old" | "new";
+  githubCommentId?: number;
+}
+
 function HunkView({ path, language, hunk, comments, githubComments }: HunkProps) {
-  const [commentAt, setCommentAt] = useState<{ line: number; side: "old" | "new" } | null>(null);
+  const [commentAt, setCommentAt] = useState<ComposerAnchor | null>(null);
 
   return (
     <div className="border-b border-edge/40 last:border-b-0">
@@ -140,12 +148,20 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
         const ghAtLine = githubComments.filter(
           (c) => anchorSide === "new" && c.line === anchorLine,
         );
-        const rowClass =
-          line.kind === "added" ? "diff-added" : line.kind === "removed" ? "diff-removed" : "";
+        const inRange =
+          commentAt !== null &&
+          anchorLine !== null &&
+          anchorSide === commentAt.side &&
+          anchorLine >= commentAt.line &&
+          anchorLine <= commentAt.end;
+        const rowClass = `${
+          line.kind === "added" ? "diff-added" : line.kind === "removed" ? "diff-removed" : ""
+        }${inRange ? " diff-range" : ""}`;
         const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "−" : " ";
 
         const openForm = () => {
-          if (anchorLine !== null) setCommentAt({ line: anchorLine, side: anchorSide });
+          if (anchorLine !== null)
+            setCommentAt({ line: anchorLine, end: anchorLine, side: anchorSide });
         };
 
         return (
@@ -180,7 +196,17 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
             ))}
             {ghAtLine.map((c) => (
               <div key={c.id} className="border-y border-edge/60 bg-panel-2/40 px-4 py-2">
-                <GithubCommentCard comment={c} />
+                <GithubCommentCard
+                  comment={c}
+                  onDiscuss={
+                    c.line !== null
+                      ? () => {
+                          const l = c.line ?? 0;
+                          setCommentAt({ line: l, end: l, side: "new", githubCommentId: c.id });
+                        }
+                      : undefined
+                  }
+                />
               </div>
             ))}
 
@@ -192,6 +218,11 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
                   path={path}
                   line={commentAt.line}
                   side={commentAt.side}
+                  endLine={commentAt.end}
+                  onEndLineChange={(end) => {
+                    setCommentAt({ ...commentAt, end });
+                  }}
+                  githubCommentId={commentAt.githubCommentId}
                   onDone={() => {
                     setCommentAt(null);
                   }}

@@ -52,6 +52,7 @@ colima-based Docker setup on macOS.
 
 ## Invariants that hold in both versions
 
-- Review comments are local-only; Appa's own GitHub client is read-only.
+- Agent output is local-only; GitHub writes happen solely via explicit
+  user actions (post / approve) — never from a run.
 - Every run: own directory, JSONL event log, timeout, cancel handle.
 - Secrets never land in the cache DB or event logs.

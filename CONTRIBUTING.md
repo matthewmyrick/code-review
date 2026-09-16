@@ -40,9 +40,11 @@ rule below is enforced by CI (`.github/workflows/ci.yml`), not by hoping.
 
 ### Data handling
 
-- GitHub data is **read-only**: Appa never posts, edits, or deletes
-  anything on GitHub. Agent + human review comments stay in the local
-  SQLite cache.
+- Review comments stay in the local SQLite cache by default. GitHub
+  writes exist **only** behind explicit user actions (post a chosen
+  comment, approve the PR) in `src-tauri/src/commands/github_write.rs`.
+  **Agents can never post to GitHub** — do not add any code path that
+  lets a run write to GitHub.
 - Secrets (PATs, API keys) never go in the cache DB, logs, or the repo.
   Settings files are written `0600`.
 - Cache schema changes are append-only migrations

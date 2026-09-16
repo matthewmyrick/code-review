@@ -19,6 +19,7 @@ pub trait ReviewStore {
     fn get_comment(&self, id: &str) -> Result<Option<LocalComment>>;
     fn list_comments(&self, repo: &RepoRef, pr_number: u64) -> Result<Vec<LocalComment>>;
     fn set_comment_status(&self, id: &str, status: CommentStatus) -> Result<()>;
+    fn set_comment_posted(&self, id: &str, github_id: u64) -> Result<()>;
     fn update_comment_body(&self, id: &str, body: &str) -> Result<()>;
     fn delete_comment(&self, id: &str) -> Result<()>;
 
@@ -41,6 +42,7 @@ impl ReviewStore for Cache {
             path: new.path,
             side: new.side,
             line: new.line,
+            end_line: new.end_line,
             body: new.body,
             author_kind: new.author_kind,
             author_name: new.author_name,
@@ -48,6 +50,8 @@ impl ReviewStore for Cache {
             status: CommentStatus::Open,
             run_id: new.run_id,
             parent_id: new.parent_id,
+            github_comment_id: new.github_comment_id,
+            posted_github_id: None,
             created_at: now,
             updated_at: now,
         };
@@ -105,6 +109,10 @@ impl ReviewStore for Cache {
 
     fn set_comment_status(&self, id: &str, status: CommentStatus) -> Result<()> {
         self.mutate_comment(id, |c| c.status = status)
+    }
+
+    fn set_comment_posted(&self, id: &str, github_id: u64) -> Result<()> {
+        self.mutate_comment(id, |c| c.posted_github_id = Some(github_id))
     }
 
     fn update_comment_body(&self, id: &str, body: &str) -> Result<()> {
@@ -239,6 +247,8 @@ mod tests {
             severity: CommentSeverity::Suggestion,
             run_id: Some("run-1".into()),
             parent_id: None,
+            end_line: None,
+            github_comment_id: None,
         }
     }
 

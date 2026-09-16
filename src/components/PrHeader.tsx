@@ -2,6 +2,7 @@
 // pulled from GitHub, read-only.
 
 import { Check, RefreshCw, X } from "lucide-react";
+import { useState } from "react";
 
 import { shortSha } from "../lib/format";
 import type { PrDetail } from "../lib/types";
@@ -39,6 +40,7 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
         </div>
         <div className="flex items-center gap-2">
           {busy ? <Spinner label="syncing" /> : null}
+          <ApproveButton />
           <Button
             onClick={() => {
               void refreshBundle();
@@ -88,5 +90,51 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
         </details>
       ) : null}
     </header>
+  );
+}
+
+/// Two-step "approve on GitHub" — an explicit user action.
+function ApproveButton() {
+  const approvePr = useAppStore((s) => s.approvePr);
+  const [confirming, setConfirming] = useState(false);
+  const [working, setWorking] = useState(false);
+
+  if (working) return <Spinner label="approving…" />;
+  if (confirming) {
+    return (
+      <>
+        <Button
+          kind="danger"
+          title="this WILL submit an approving review on GitHub"
+          onClick={() => {
+            setWorking(true);
+            void approvePr(null).then(() => {
+              setWorking(false);
+              setConfirming(false);
+            });
+          }}
+        >
+          <Check size={12} /> confirm approve
+        </Button>
+        <Button
+          onClick={() => {
+            setConfirming(false);
+          }}
+        >
+          cancel
+        </Button>
+      </>
+    );
+  }
+  return (
+    <Button
+      kind="primary"
+      title="approve this PR on GitHub (asks to confirm)"
+      onClick={() => {
+        setConfirming(true);
+      }}
+    >
+      <Check size={12} /> approve
+    </Button>
   );
 }

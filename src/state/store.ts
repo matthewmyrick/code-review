@@ -9,6 +9,7 @@ import type {
   AgentRun,
   AgentSpec,
   CommentStatus,
+  LocalComment,
   NewLocalComment,
   PrBundle,
   PullRequest,
@@ -55,6 +56,8 @@ interface AppStore {
   agentEvents: RunEvent[];
   syncing: Record<string, boolean>;
   lastError: string | null;
+  prHasMore: boolean;
+  prPage: number;
 
   init: () => Promise<void>;
   setView: (view: View) => void;
@@ -62,12 +65,16 @@ interface AppStore {
   goHome: () => void;
   togglePinned: (side: "left" | "right") => void;
   replyToComment: (commentId: string, body: string, agentName: string) => Promise<void>;
+  mentionAgent: (agentName: string, commentId: string) => Promise<void>;
+  postToGithub: (commentId: string) => Promise<void>;
+  approvePr: (body: string | null) => Promise<void>;
+  loadMorePrs: () => Promise<void>;
   selectRepo: (slug: string) => Promise<void>;
   selectPr: (number: number) => Promise<void>;
   refreshPrs: () => Promise<void>;
   refreshBundle: () => Promise<void>;
   saveSettings: (settings: Settings) => Promise<void>;
-  addComment: (comment: NewLocalComment) => Promise<void>;
+  addComment: (comment: NewLocalComment) => Promise<LocalComment | null>;
   setCommentStatus: (id: string, status: CommentStatus) => Promise<void>;
   deleteComment: (id: string) => Promise<void>;
   saveAgentSpec: (spec: AgentSpec) => Promise<void>;
@@ -110,6 +117,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     agentEvents: [],
     syncing: {},
     lastError: null,
+    prHasMore: false,
+    prPage: 1,
 
     init: async () => {
       if (initStarted) return;
@@ -174,13 +183,42 @@ export const useAppStore = create<AppStore>((set, get) => {
       }
     },
 
+    mentionAgent: async (agentName, commentId) => {
+      try {
+        await ipc.mentionAgent(agentName, commentId);
+        await reloadRuns();
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    postToGithub: async (commentId) => {
+      try {
+        await ipc.postCommentToGithub(commentId);
+        await reloadComments();
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    approvePr: async (body) => {
+      const { selectedRepo, selectedPr } = get();
+      if (!selectedRepo || selectedPr === null) return;
+      try {
+        await ipc.approvePr(selectedRepo, selectedPr, body);
+        set({ bundle: await ipc.syncPrBundle(selectedRepo, selectedPr) });
+      } catch (e) {
+        fail(e);
+      }
+    },
+
     selectRepo: async (slug) => {
-      set({ selectedRepo: slug, selectedPr: null, bundle: null, prs: [] });
+      set({ selectedRepo: slug, selectedPr: null, bundle: null, prs: [], prPage: 1 });
       try {
         const cached = await ipc.getPullRequests(slug);
         set({ prs: cached });
-        const fresh = await ipc.syncPullRequests(slug);
-        set({ prs: fresh });
+        const page = await ipc.syncPullRequests(slug, 1);
+        set({ prs: page.prs, prHasMore: page.has_more, prPage: 1 });
       } catch (e) {
         fail(e);
       }
@@ -205,7 +243,20 @@ export const useAppStore = create<AppStore>((set, get) => {
       const repo = get().selectedRepo;
       if (!repo) return;
       try {
-        set({ prs: await ipc.syncPullRequests(repo) });
+        const page = await ipc.syncPullRequests(repo, 1);
+        set({ prs: page.prs, prHasMore: page.has_more, prPage: 1 });
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    loadMorePrs: async () => {
+      const { selectedRepo, prPage, prs } = get();
+      if (!selectedRepo) return;
+      try {
+        const next = prPage + 1;
+        const page = await ipc.syncPullRequests(selectedRepo, next);
+        set({ prs: [...prs, ...page.prs], prHasMore: page.has_more, prPage: next });
       } catch (e) {
         fail(e);
       }
@@ -232,10 +283,12 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     addComment: async (comment) => {
       try {
-        await ipc.addLocalComment(comment);
+        const created = await ipc.addLocalComment(comment);
         await reloadComments();
+        return created;
       } catch (e) {
         fail(e);
+        return null;
       }
     },
 
