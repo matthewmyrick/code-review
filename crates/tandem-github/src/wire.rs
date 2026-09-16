@@ -3,11 +3,19 @@
 //! focused on HTTP.
 
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tandem_core::github::{
     CheckRun, CheckState, GithubComment, GithubReview, PrState, PullRequest, RepoRef,
     ReviewVerdict, User,
 };
+
+/// Slim repo row for the settings repo browser.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoSummary {
+    pub full_name: String,
+    pub private: bool,
+    pub description: Option<String>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct WireUser {

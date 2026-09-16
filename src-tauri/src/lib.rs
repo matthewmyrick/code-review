@@ -55,6 +55,8 @@ pub fn run() {
             github_write::approve_pr,
             settings_cmd::get_settings,
             settings_cmd::update_settings,
+            settings_cmd::list_github_owners,
+            settings_cmd::list_github_repos,
         ])
         .run(tauri::generate_context!());
 

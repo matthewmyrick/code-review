@@ -219,6 +219,17 @@ export interface ArchivedPr {
   purge_after: string;
 }
 
+export interface RepoSummary {
+  full_name: string;
+  private: boolean;
+  description: string | null;
+}
+
+export interface OwnerList {
+  viewer: string;
+  orgs: string[];
+}
+
 export interface PrPage {
   prs: PullRequest[];
   has_more: boolean;

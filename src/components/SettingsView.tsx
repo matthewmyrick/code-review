@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { GithubAuth, Settings } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
+import { RepoBrowser } from "./RepoBrowser";
 import { Button } from "./ui";
 
 export function SettingsView() {
@@ -119,8 +120,9 @@ function ReposSection({ settings }: { settings: Settings }) {
   };
 
   return (
-    <Section title="Repositories" hint="owner/name slugs to review">
+    <Section title="Repositories" hint="browse your orgs or type an owner/name slug">
       <div className="flex flex-col gap-2">
+        <RepoBrowser />
         {settings.repos.map((repo) => (
           <div
             key={repo}

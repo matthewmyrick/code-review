@@ -1,6 +1,9 @@
-//! Settings commands.
+//! Settings commands, including GitHub owner/repo discovery for the
+//! settings repo browser.
 
+use serde::Serialize;
 use tandem_core::TandemError;
+use tandem_github::RepoSummary;
 use tauri::State;
 
 use crate::settings::Settings;
@@ -20,4 +23,29 @@ pub async fn update_settings(
     let mut current = state.settings.lock().await;
     *current = settings;
     Ok(current.clone())
+}
+
+/// The authenticated user plus their orgs — owners the browser offers.
+#[derive(Debug, Clone, Serialize)]
+pub struct OwnerList {
+    pub viewer: String,
+    pub orgs: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn list_github_owners(state: State<'_, AppState>) -> Result<OwnerList, TandemError> {
+    let client = state.github_client().await?;
+    let viewer = client.viewer_login().await?;
+    let orgs = client.list_orgs().await?;
+    Ok(OwnerList { viewer, orgs })
+}
+
+#[tauri::command]
+pub async fn list_github_repos(
+    state: State<'_, AppState>,
+    owner: String,
+    is_viewer: bool,
+) -> Result<Vec<RepoSummary>, TandemError> {
+    let client = state.github_client().await?;
+    client.list_owner_repos(&owner, is_viewer).await
 }

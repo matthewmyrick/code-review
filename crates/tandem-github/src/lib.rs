@@ -8,5 +8,7 @@ pub mod auth;
 pub mod client;
 mod wire;
 
+pub use wire::RepoSummary;
+
 pub use auth::{GithubAuth, GithubConfig};
 pub use client::{GithubClient, NewInlineComment};

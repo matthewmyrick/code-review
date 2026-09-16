@@ -11,7 +11,7 @@ use tandem_core::github::{GithubComment, PrDetail, PullRequest, RepoRef};
 use tandem_core::{Result, TandemError};
 
 use crate::auth::GithubConfig;
-use crate::wire::{WireCheckRunList, WireComment, WirePull, WireReview};
+use crate::wire::{RepoSummary, WireCheckRunList, WireComment, WirePull, WireReview};
 
 const JSON_ACCEPT: &str = "application/vnd.github+json";
 const DIFF_ACCEPT: &str = "application/vnd.github.v3.diff";
@@ -127,6 +127,37 @@ impl GithubClient {
             }
         }
         Ok(prs)
+    }
+
+    /// Login of the authenticated user (used to seed the repo browser).
+    pub async fn viewer_login(&self) -> Result<String> {
+        #[derive(serde::Deserialize)]
+        struct Viewer {
+            login: String,
+        }
+        let v: Viewer = self.get_json("/user").await?;
+        Ok(v.login)
+    }
+
+    /// Organizations the authenticated user belongs to.
+    pub async fn list_orgs(&self) -> Result<Vec<String>> {
+        #[derive(serde::Deserialize)]
+        struct Org {
+            login: String,
+        }
+        let orgs: Vec<Org> = self.get_json("/user/orgs?per_page=100").await?;
+        Ok(orgs.into_iter().map(|o| o.login).collect())
+    }
+
+    /// Repos for an owner, most recently pushed first. `viewer` selects
+    /// the authenticated-user endpoint (which includes private repos).
+    pub async fn list_owner_repos(&self, owner: &str, viewer: bool) -> Result<Vec<RepoSummary>> {
+        let path = if viewer {
+            "/user/repos?per_page=100&sort=pushed&affiliation=owner".to_owned()
+        } else {
+            format!("/orgs/{owner}/repos?per_page=100&sort=pushed")
+        };
+        self.get_json(&path).await
     }
 
     /// One PR's core data (cheap single call — used for merge checks).
