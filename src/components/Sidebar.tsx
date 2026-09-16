@@ -1,23 +1,15 @@
-// Left pane: repo picker + tabs for the open-PR list and the changed-
-// files tree of the currently open PR.
-
-import { FolderTree, GitPullRequest } from "lucide-react";
-import { useState } from "react";
+// Left pane: repo picker + the open-PR list. (The changed-files tree
+// lives inside the PR view.)
 
 import { relativeTime } from "../lib/format";
 import type { PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
-import { FileTree } from "./FileTree";
 import { Button, Pill, Skeleton, Spinner } from "./ui";
 
 export function Sidebar() {
   const settings = useAppStore((s) => s.settings);
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectRepo = useAppStore((s) => s.selectRepo);
-  const bundle = useAppStore((s) => s.bundle);
-  const [tab, setTab] = useState<"prs" | "files">("prs");
-
-  const fileCount = bundle?.diff.length ?? 0;
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -40,43 +32,10 @@ export function Sidebar() {
         </select>
       </div>
 
-      <div className="flex border-b border-edge">
-        <TabButton
-          active={tab === "prs"}
-          onClick={() => {
-            setTab("prs");
-          }}
-        >
-          <GitPullRequest size={12} /> pull requests
-        </TabButton>
-        <TabButton
-          active={tab === "files"}
-          onClick={() => {
-            setTab("files");
-          }}
-        >
-          <FolderTree size={12} /> files{fileCount > 0 ? ` (${String(fileCount)})` : ""}
-        </TabButton>
-      </div>
-
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "prs" ? <PrList /> : <FileTree />}
+        <PrList />
       </div>
     </div>
-  );
-}
-
-function TabButton(props: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      className={`flex flex-1 items-center justify-center gap-1.5 px-2 py-2 text-[11px] font-medium transition-colors ${
-        props.active ? "border-b-2 border-sky text-cream" : "text-muted hover:text-cream"
-      }`}
-    >
-      {props.children}
-    </button>
   );
 }
 

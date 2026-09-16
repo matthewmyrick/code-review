@@ -2,7 +2,7 @@
 // and the inline composer. Local comments never touch GitHub; GitHub
 // comments render read-only with their own badge.
 
-import { Archive, Bot, Globe, Reply, RotateCcw, Send, Trash2, User } from "lucide-react";
+import { Archive, Bot, Reply, RotateCcw, Send, Trash2, User } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
@@ -10,7 +10,7 @@ import { MarkdownBody } from "./Markdown";
 import { extractMentions, MentionInput } from "./MentionInput";
 import type { GithubComment, LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
-import { Button, Pill, severityTone, Spinner } from "./ui";
+import { Button, GithubMark, Pill, severityTone, Spinner } from "./ui";
 
 /** Group local comments into threads: roots with their replies. */
 export function groupThreads(
@@ -284,8 +284,8 @@ export function GithubCommentCard(props: { comment: GithubComment; onDiscuss?: (
         <span className="inline-flex items-center gap-1 font-medium text-cream">
           <User size={12} /> {comment.author.login}
         </span>
-        <Pill tone="muted">
-          <Globe size={10} /> github
+        <Pill tone="github">
+          <GithubMark size={10} /> github
         </Pill>
         <span className="ml-auto text-[11px] text-muted">{relativeTime(comment.created_at)}</span>
       </div>

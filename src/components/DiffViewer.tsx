@@ -3,7 +3,7 @@
 // to attach a local comment — never posted to GitHub.
 
 import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { fileAnchorId } from "../lib/format";
 import { highlightLine, languageForPath } from "../lib/highlight";
@@ -131,6 +131,20 @@ interface ComposerAnchor {
 
 function HunkView({ path, language, hunk, comments, githubComments }: HunkProps) {
   const [commentAt, setCommentAt] = useState<ComposerAnchor | null>(null);
+  // Click-drag across line numbers selects a range for the comment.
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const up = () => {
+      setDragging(false);
+    };
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mouseup", up);
+    };
+  }, [dragging]);
 
   return (
     <div className="border-b border-edge/40 last:border-b-0">
@@ -159,27 +173,39 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
         }${inRange ? " diff-range" : ""}`;
         const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "−" : " ";
 
-        const openForm = () => {
-          if (anchorLine !== null)
-            setCommentAt({ line: anchorLine, end: anchorLine, side: anchorSide });
+        const startDrag = (e: React.MouseEvent) => {
+          if (anchorLine === null) return;
+          e.preventDefault();
+          dragStart.current = anchorLine;
+          setCommentAt({ line: anchorLine, end: anchorLine, side: anchorSide });
+          setDragging(true);
+        };
+        const extendDrag = () => {
+          const start = dragStart.current;
+          if (!dragging || start === null || anchorLine === null) return;
+          setCommentAt((c) =>
+            c?.side === anchorSide
+              ? { ...c, line: Math.min(start, anchorLine), end: Math.max(start, anchorLine) }
+              : c,
+          );
         };
 
         return (
           <div key={i}>
-            <div className={`group-line relative ${rowClass}`}>
+            <div className={`group-line relative ${rowClass}`} onMouseEnter={extendDrag}>
               <button
                 type="button"
                 className="diff-add-btn"
-                title="add a local comment on this line"
-                onClick={openForm}
+                title="comment on this line (drag to select a range)"
+                onMouseDown={startDrag}
               >
                 +
               </button>
               <div className="diff-line">
-                <button type="button" className="diff-line-num" onClick={openForm}>
+                <button type="button" className="diff-line-num" onMouseDown={startDrag}>
                   {line.old_line ?? ""}
                 </button>
-                <button type="button" className="diff-line-num" onClick={openForm}>
+                <button type="button" className="diff-line-num" onMouseDown={startDrag}>
                   {line.new_line ?? ""}
                 </button>
                 <div className="diff-content">
@@ -195,7 +221,10 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
               </div>
             ))}
             {ghAtLine.map((c) => (
-              <div key={c.id} className="border-y border-edge/60 bg-panel-2/40 px-4 py-2">
+              <div
+                key={c.id}
+                className="border-y border-edge/60 border-l-4 border-l-fur/70 bg-fur/10 px-4 py-2"
+              >
                 <GithubCommentCard
                   comment={c}
                   onDiscuss={
@@ -210,8 +239,9 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
               </div>
             ))}
 
-            {commentAt !== null &&
-            commentAt.line === anchorLine &&
+            {!dragging &&
+            commentAt !== null &&
+            commentAt.end === anchorLine &&
             commentAt.side === anchorSide ? (
               <div className="border-y border-sky/30 bg-panel-2 px-4 py-2">
                 <InlineCommentForm

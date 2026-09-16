@@ -57,7 +57,10 @@ export function CommentsPanel() {
         <>
           <SectionLabel text={`on github (${String(githubComments.length)})`} />
           {githubComments.map((c) => (
-            <div key={c.id} className="rounded-lg border border-edge/70 bg-panel p-2.5">
+            <div
+              key={c.id}
+              className="rounded-lg border border-edge/70 border-l-4 border-l-fur/70 bg-fur/10 p-2.5"
+            >
               {c.path ? (
                 <div className="mb-1 truncate font-mono text-[11px] text-muted">
                   {c.path}

@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { AgentPanel } from "./components/AgentPanel";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { DiffViewer } from "./components/DiffViewer";
+import { FileTreePanel } from "./components/FileTree";
 import { PrHeader } from "./components/PrHeader";
 import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
@@ -95,6 +96,8 @@ function ReviewLayout() {
   const [tab, setTab] = useState<"comments" | "agents">("agents");
 
   const agentRunning = runs.some((r) => r.status === "starting" || r.status === "running");
+  const selectedRepo = useAppStore((s) => s.selectedRepo);
+  const prKey = `${selectedRepo ?? ""}#${String(selectedPr ?? "")}`;
 
   // First run: no repos configured yet — onboard from the main page.
   if (settings?.repos.length === 0) {
@@ -145,12 +148,15 @@ function ReviewLayout() {
         {bundle ? (
           <>
             <PrHeader detail={bundle.detail} />
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <DiffViewer
-                diff={bundle.diff}
-                comments={bundle.comments}
-                githubComments={bundle.detail.comments}
-              />
+            <div className="flex min-h-0 flex-1">
+              <FileTreePanel key={prKey} prKey={prKey} />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <DiffViewer
+                  diff={bundle.diff}
+                  comments={bundle.comments}
+                  githubComments={bundle.detail.comments}
+                />
+              </div>
             </div>
           </>
         ) : (

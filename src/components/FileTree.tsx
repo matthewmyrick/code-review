@@ -2,7 +2,16 @@
 // differ to that file's card. Single-child folder chains are compressed
 // ("src/lib" as one row), GitHub-style.
 
-import { ChevronDown, ChevronRight, FileCode2, Folder, FolderOpen } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  FileCode2,
+  Folder,
+  FolderOpen,
+  FolderTree,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { fileAnchorId } from "../lib/format";
@@ -73,6 +82,56 @@ function statusColor(file: FileDiff): string {
 }
 
 const EMPTY_DIFF: FileDiff[] = [];
+
+/// Collapsible tree column inside the PR view. Open/closed state is
+/// remembered per PR (mount with key={prKey} so state re-reads on
+/// PR switch); defaults to open.
+export function FileTreePanel({ prKey }: { prKey: string }) {
+  const storageKey = `appa-filetree-${prKey}`;
+  const [open, setOpen] = useState(() => localStorage.getItem(storageKey) !== "closed");
+  const fileCount = useAppStore((s) => s.bundle?.diff.length ?? 0);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    localStorage.setItem(storageKey, next ? "open" : "closed");
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={toggle}
+        title="show changed files"
+        className="flex h-full w-8 shrink-0 flex-col items-center gap-2 border-r border-edge bg-panel/70 py-3 text-muted transition-colors hover:text-cream"
+      >
+        <FolderTree size={14} />
+        <span className="text-[10px] font-semibold">{fileCount}</span>
+        <ChevronsRight size={13} className="mt-auto" />
+      </button>
+    );
+  }
+
+  return (
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-edge bg-panel/70">
+      <div className="flex items-center gap-1.5 border-b border-edge px-3 py-2 text-[11px] uppercase tracking-wide text-muted">
+        <FolderTree size={12} />
+        files ({fileCount})
+        <button
+          type="button"
+          onClick={toggle}
+          title="hide file tree"
+          className="ml-auto inline-flex size-5 items-center justify-center rounded text-muted transition-colors hover:bg-panel-2 hover:text-cream"
+        >
+          <ChevronsLeft size={13} />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <FileTree />
+      </div>
+    </aside>
+  );
+}
 
 export function FileTree() {
   const diff = useAppStore((s) => s.bundle?.diff ?? EMPTY_DIFF);
