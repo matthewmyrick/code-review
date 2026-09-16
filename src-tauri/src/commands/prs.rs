@@ -149,6 +149,32 @@ pub async fn sync_pr_bundle(
     result
 }
 
+/// Search all open PRs server-side; results are merged into the cache
+/// so they can be opened like any listed PR.
+#[tauri::command]
+pub async fn search_prs(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    repo: String,
+    query: String,
+) -> Result<Vec<PullRequest>, TandemError> {
+    let repo = parse_repo(&repo)?;
+    let key = format!("prs:{}", repo.slug());
+    emit_sync(&app, &key, SyncPhase::Started, None);
+    let result = async {
+        let client = state.github_client().await?;
+        let prs = client.search_open_prs(&repo, &query).await?;
+        state.cache.lock().await.append_pull_requests(&repo, &prs)?;
+        Ok::<_, TandemError>(prs)
+    }
+    .await;
+    match &result {
+        Ok(_) => emit_sync(&app, &key, SyncPhase::Finished, None),
+        Err(e) => emit_sync(&app, &key, SyncPhase::Error, Some(e.to_string())),
+    }
+    result
+}
+
 #[tauri::command]
 pub async fn list_archived_prs(
     state: State<'_, AppState>,

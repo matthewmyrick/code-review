@@ -9,6 +9,18 @@ use tandem_core::github::{
     ReviewVerdict, User,
 };
 
+/// Search API response — we only need the matching PR numbers.
+#[derive(Debug, Deserialize)]
+pub struct WireSearch {
+    #[serde(default)]
+    pub items: Vec<WireSearchItem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WireSearchItem {
+    pub number: u64,
+}
+
 /// Slim repo row for the settings repo browser.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepoSummary {

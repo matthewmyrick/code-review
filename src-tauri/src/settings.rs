@@ -15,6 +15,18 @@ pub struct Settings {
     pub github: GithubConfig,
     /// Repositories to track, as `owner/name` slugs.
     pub repos: Vec<String>,
+    /// Default PR-list filters, applied whenever a repo is opened; the
+    /// user can adjust or clear them at runtime without saving.
+    pub pr_filters: PrFilters,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PrFilters {
+    pub query: String,
+    pub author: String,
+    pub label: String,
+    pub hide_drafts: bool,
 }
 
 /// Where Tandem keeps its files on disk.

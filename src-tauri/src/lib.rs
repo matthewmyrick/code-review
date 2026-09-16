@@ -38,6 +38,7 @@ pub fn run() {
             prs::sync_pr_bundle,
             prs::get_last_synced,
             prs::list_archived_prs,
+            prs::search_prs,
             review::list_local_comments,
             review::add_local_comment,
             review::set_comment_status,

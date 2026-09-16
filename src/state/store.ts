@@ -5,22 +5,12 @@ import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
 
 import { ipc } from "../lib/ipc";
-import type {
-  AgentRun,
-  AgentSpec,
-  ArchivedPr,
-  CommentStatus,
-  LocalComment,
-  NewLocalComment,
-  PrBundle,
-  PullRequest,
-  RunEvent,
-  Settings,
-  SyncEvent,
-} from "../lib/types";
+import type { RunEvent, SyncEvent } from "../lib/types";
+import { EMPTY_FILTERS } from "../lib/types";
 
-export type View = "review" | "settings";
-export type Theme = "dark" | "light";
+import type { AppStore, Theme } from "./storeTypes";
+
+export type { Theme, View } from "./storeTypes";
 
 const THEME_KEY = "tandem-theme";
 
@@ -41,50 +31,6 @@ function applyTheme(theme: Theme) {
 // React StrictMode double-invokes effects in dev; without this guard the
 // event listeners register twice and every log line shows up duplicated.
 let initStarted = false;
-
-interface AppStore {
-  view: View;
-  theme: Theme;
-  leftPinned: boolean;
-  rightPinned: boolean;
-  settings: Settings | null;
-  selectedRepo: string | null;
-  prs: PullRequest[];
-  selectedPr: number | null;
-  bundle: PrBundle | null;
-  agentSpecs: AgentSpec[];
-  runs: AgentRun[];
-  agentEvents: RunEvent[];
-  syncing: Record<string, boolean>;
-  lastError: string | null;
-  prHasMore: boolean;
-  prPage: number;
-  archivedPrs: ArchivedPr[];
-
-  init: () => Promise<void>;
-  setView: (view: View) => void;
-  toggleTheme: () => void;
-  goHome: () => void;
-  togglePinned: (side: "left" | "right") => void;
-  replyToComment: (commentId: string, body: string, agentName: string) => Promise<void>;
-  mentionAgent: (agentName: string, commentId: string) => Promise<void>;
-  postToGithub: (commentId: string) => Promise<void>;
-  approvePr: (body: string | null) => Promise<void>;
-  loadMorePrs: () => Promise<void>;
-  selectRepo: (slug: string) => Promise<void>;
-  selectPr: (number: number) => Promise<void>;
-  refreshPrs: () => Promise<void>;
-  refreshBundle: () => Promise<void>;
-  saveSettings: (settings: Settings) => Promise<void>;
-  addComment: (comment: NewLocalComment) => Promise<LocalComment | null>;
-  setCommentStatus: (id: string, status: CommentStatus) => Promise<void>;
-  deleteComment: (id: string) => Promise<void>;
-  saveAgentSpec: (spec: AgentSpec) => Promise<void>;
-  deleteAgentSpec: (name: string) => Promise<void>;
-  startAgentReview: (agentName: string) => Promise<void>;
-  cancelRun: (runId: string) => Promise<void>;
-  clearError: () => void;
-}
 
 export const useAppStore = create<AppStore>((set, get) => {
   const fail = (e: unknown) => {
@@ -122,6 +68,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     prHasMore: false,
     prPage: 1,
     archivedPrs: [],
+    filters: EMPTY_FILTERS,
+    searchResults: null,
 
     init: async () => {
       if (initStarted) return;
@@ -147,7 +95,7 @@ export const useAppStore = create<AppStore>((set, get) => {
       try {
         const settings = await ipc.getSettings();
         const agentSpecs = await ipc.listAgentSpecs();
-        set({ settings, agentSpecs });
+        set({ settings, agentSpecs, filters: settings.pr_filters });
         const first = settings.repos[0];
         if (first) await get().selectRepo(first);
       } catch (e) {
@@ -157,6 +105,33 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     setView: (view) => {
       set({ view });
+    },
+
+    setFilters: (patch) => {
+      set((s) => ({ filters: { ...s.filters, ...patch } }));
+    },
+
+    resetFilters: () => {
+      set({ filters: get().settings?.pr_filters ?? EMPTY_FILTERS, searchResults: null });
+    },
+
+    clearFilters: () => {
+      set({ filters: EMPTY_FILTERS, searchResults: null });
+    },
+
+    searchPrs: async () => {
+      const { selectedRepo, filters } = get();
+      const query = filters.query.trim();
+      if (!selectedRepo || !query) return;
+      try {
+        set({ searchResults: await ipc.searchPrs(selectedRepo, query) });
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    clearSearch: () => {
+      set({ searchResults: null });
     },
 
     toggleTheme: () => {
@@ -223,6 +198,8 @@ export const useAppStore = create<AppStore>((set, get) => {
         prs: [],
         prPage: 1,
         archivedPrs: [],
+        filters: EMPTY_FILTERS,
+        searchResults: null,
       });
       try {
         const cached = await ipc.getPullRequests(slug);

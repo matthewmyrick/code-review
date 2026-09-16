@@ -7,8 +7,10 @@
 pub mod auth;
 pub mod client;
 mod wire;
+mod write;
 
 pub use wire::RepoSummary;
 
 pub use auth::{GithubAuth, GithubConfig};
-pub use client::{GithubClient, NewInlineComment};
+pub use client::GithubClient;
+pub use write::NewInlineComment;

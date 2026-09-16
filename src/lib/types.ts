@@ -202,9 +202,19 @@ export interface GithubConfig {
   api_base: string;
 }
 
+export interface PrFilters {
+  query: string;
+  author: string;
+  label: string;
+  hide_drafts: boolean;
+}
+
+export const EMPTY_FILTERS: PrFilters = { query: "", author: "", label: "", hide_drafts: false };
+
 export interface Settings {
   github: GithubConfig;
   repos: string[];
+  pr_filters: PrFilters;
 }
 
 export interface PrBundle {

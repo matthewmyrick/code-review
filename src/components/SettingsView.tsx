@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { GithubAuth, Settings } from "../lib/types";
+import type { GithubAuth, PrFilters, Settings } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
 import { RepoBrowser } from "./RepoBrowser";
@@ -15,6 +15,7 @@ export function SettingsView() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <GithubSection settings={settings} />
       <ReposSection settings={settings} />
+      <FiltersSection settings={settings} />
       <AgentEditor />
     </div>
   );
@@ -100,6 +101,72 @@ function GithubSection({ settings }: { settings: Settings }) {
         <div>
           <Button kind="primary" onClick={save}>
             save auth
+          </Button>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function FiltersSection({ settings }: { settings: Settings }) {
+  const saveSettings = useAppStore((s) => s.saveSettings);
+  const setRuntimeFilters = useAppStore((s) => s.setFilters);
+  const [filters, setFilters] = useState<PrFilters>(settings.pr_filters);
+  const patch = (p: Partial<PrFilters>) => {
+    setFilters((f) => ({ ...f, ...p }));
+  };
+
+  return (
+    <Section
+      title="Default PR filters"
+      hint="applied to the PR list whenever you open a repo — adjust or clear them there anytime"
+    >
+      <div className="flex flex-col gap-2 text-xs">
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            value={filters.query}
+            onChange={(e) => {
+              patch({ query: e.target.value });
+            }}
+            placeholder="search text"
+            className={inputClass}
+          />
+          <input
+            value={filters.author}
+            onChange={(e) => {
+              patch({ author: e.target.value });
+            }}
+            placeholder="author"
+            className={inputClass}
+          />
+          <input
+            value={filters.label}
+            onChange={(e) => {
+              patch({ label: e.target.value });
+            }}
+            placeholder="label"
+            className={inputClass}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-muted">
+          <input
+            type="checkbox"
+            checked={filters.hide_drafts}
+            onChange={(e) => {
+              patch({ hide_drafts: e.target.checked });
+            }}
+          />
+          hide draft PRs by default
+        </label>
+        <div>
+          <Button
+            kind="primary"
+            onClick={() => {
+              void saveSettings({ ...settings, pr_filters: filters });
+              setRuntimeFilters(filters);
+            }}
+          >
+            save defaults
           </Button>
         </div>
       </div>

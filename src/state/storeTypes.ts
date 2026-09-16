@@ -1,0 +1,70 @@
+// The AppStore contract — state shape + actions. Implementation lives
+// in store.ts; kept separate so both stay under the 400-line rule.
+
+import type {
+  AgentRun,
+  AgentSpec,
+  ArchivedPr,
+  CommentStatus,
+  LocalComment,
+  NewLocalComment,
+  PrBundle,
+  PrFilters,
+  PullRequest,
+  RunEvent,
+  Settings,
+} from "../lib/types";
+
+export type View = "review" | "settings";
+export type Theme = "dark" | "light";
+
+export interface AppStore {
+  view: View;
+  theme: Theme;
+  leftPinned: boolean;
+  rightPinned: boolean;
+  settings: Settings | null;
+  selectedRepo: string | null;
+  prs: PullRequest[];
+  selectedPr: number | null;
+  bundle: PrBundle | null;
+  agentSpecs: AgentSpec[];
+  runs: AgentRun[];
+  agentEvents: RunEvent[];
+  syncing: Record<string, boolean>;
+  lastError: string | null;
+  prHasMore: boolean;
+  prPage: number;
+  archivedPrs: ArchivedPr[];
+  filters: PrFilters;
+  searchResults: PullRequest[] | null;
+
+  init: () => Promise<void>;
+  setView: (view: View) => void;
+  toggleTheme: () => void;
+  goHome: () => void;
+  togglePinned: (side: "left" | "right") => void;
+  replyToComment: (commentId: string, body: string, agentName: string) => Promise<void>;
+  mentionAgent: (agentName: string, commentId: string) => Promise<void>;
+  postToGithub: (commentId: string) => Promise<void>;
+  approvePr: (body: string | null) => Promise<void>;
+  loadMorePrs: () => Promise<void>;
+  setFilters: (patch: Partial<PrFilters>) => void;
+  resetFilters: () => void;
+  clearFilters: () => void;
+  searchPrs: () => Promise<void>;
+  clearSearch: () => void;
+  selectRepo: (slug: string) => Promise<void>;
+  selectPr: (number: number) => Promise<void>;
+  refreshPrs: () => Promise<void>;
+  refreshBundle: () => Promise<void>;
+  saveSettings: (settings: Settings) => Promise<void>;
+  addComment: (comment: NewLocalComment) => Promise<LocalComment | null>;
+  setCommentStatus: (id: string, status: CommentStatus) => Promise<void>;
+  deleteComment: (id: string) => Promise<void>;
+  saveAgentSpec: (spec: AgentSpec) => Promise<void>;
+  deleteAgentSpec: (name: string) => Promise<void>;
+  startAgentReview: (agentName: string) => Promise<void>;
+  cancelRun: (runId: string) => Promise<void>;
+  clearError: () => void;
+}

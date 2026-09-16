@@ -2,10 +2,11 @@
 // held in the 3-day archive. (The changed-files tree lives inside the
 // PR view.)
 
-import { Archive } from "lucide-react";
+import { Archive, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { relativeTime } from "../lib/format";
-import type { ArchivedPr, PullRequest } from "../lib/types";
+import { fuzzyScore } from "../lib/fuzzy";
+import type { ArchivedPr, PrFilters, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Button, Pill, Skeleton, Spinner } from "./ui";
 
@@ -35,6 +36,7 @@ export function Sidebar() {
         </select>
       </div>
 
+      <FilterBar />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <PrList />
         <ArchivedList />
@@ -90,31 +92,146 @@ function ArchivedItem(props: { archived: ArchivedPr; onOpen: (n: number) => Prom
   );
 }
 
+/** Client-side filter pass with fuzzy text matching (fzf-style). In
+ * server-search mode the text query was already applied by GitHub, so
+ * only the structured filters run. Returns a rank (higher = better) or
+ * null when the PR is filtered out. */
+function filterRank(pr: PullRequest, f: PrFilters, applyQuery: boolean): number | null {
+  if (f.hide_drafts && pr.draft) return null;
+  if (f.author && fuzzyScore(f.author, pr.author.login) === null) return null;
+  if (f.label && !pr.labels.some((l) => fuzzyScore(f.label, l) !== null)) return null;
+  if (applyQuery && f.query.trim()) {
+    const hay =
+      `#${String(pr.number)} ${pr.title} ${pr.author.login} ${pr.head_ref} ` + pr.labels.join(" ");
+    return fuzzyScore(f.query, hay);
+  }
+  return 0;
+}
+
+function FilterBar() {
+  const filters = useAppStore((s) => s.filters);
+  const setFilters = useAppStore((s) => s.setFilters);
+  const resetFilters = useAppStore((s) => s.resetFilters);
+  const clearFilters = useAppStore((s) => s.clearFilters);
+  const searchPrs = useAppStore((s) => s.searchPrs);
+  const searchResults = useAppStore((s) => s.searchResults);
+  const clearSearch = useAppStore((s) => s.clearSearch);
+
+  const structured = Boolean(filters.author || filters.label || filters.hide_drafts);
+  const inputClass =
+    "w-full rounded-md border border-edge bg-ground px-2 py-1 text-xs text-cream outline-none focus:border-sky";
+
+  return (
+    <div className="border-b border-edge px-3 py-2">
+      <div className="relative">
+        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted" />
+        <input
+          value={filters.query}
+          onChange={(e) => {
+            setFilters({ query: e.target.value });
+            if (!e.target.value.trim()) clearSearch();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void searchPrs();
+          }}
+          placeholder="filter loaded · ↵ search all"
+          className={`${inputClass} pl-6 ${searchResults ? "pr-6" : ""}`}
+        />
+        {searchResults ? (
+          <button
+            type="button"
+            title="exit search"
+            onClick={clearSearch}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted hover:text-cream"
+          >
+            <X size={12} />
+          </button>
+        ) : null}
+      </div>
+
+      <details open={structured}>
+        <summary className="mt-1.5 flex cursor-pointer items-center gap-1 text-[11px] text-muted hover:text-cream">
+          <SlidersHorizontal size={10} /> filters{structured ? " · active" : ""}
+        </summary>
+        <div className="mt-1.5 space-y-1.5">
+          <input
+            value={filters.author}
+            onChange={(e) => {
+              setFilters({ author: e.target.value });
+            }}
+            placeholder="author"
+            className={inputClass}
+          />
+          <input
+            value={filters.label}
+            onChange={(e) => {
+              setFilters({ label: e.target.value });
+            }}
+            placeholder="label"
+            className={inputClass}
+          />
+          <label className="flex items-center gap-2 text-[11px] text-muted">
+            <input
+              type="checkbox"
+              checked={filters.hide_drafts}
+              onChange={(e) => {
+                setFilters({ hide_drafts: e.target.checked });
+              }}
+            />
+            hide drafts
+          </label>
+          <div className="flex gap-1.5">
+            <Button onClick={resetFilters} title="back to your saved defaults">
+              reset
+            </Button>
+            <Button onClick={clearFilters}>clear</Button>
+          </div>
+        </div>
+      </details>
+    </div>
+  );
+}
+
 function PrList() {
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prs = useAppStore((s) => s.prs);
   const syncing = useAppStore((s) => s.syncing);
   const prHasMore = useAppStore((s) => s.prHasMore);
   const loadMorePrs = useAppStore((s) => s.loadMorePrs);
+  const filters = useAppStore((s) => s.filters);
+  const searchResults = useAppStore((s) => s.searchResults);
   const repoSyncing = selectedRepo ? (syncing[`prs:${selectedRepo}`] ?? false) : false;
+
+  const searching = searchResults !== null;
+  const visible = (searchResults ?? prs)
+    .map((pr) => ({ pr, rank: filterRank(pr, filters, !searching) }))
+    .filter((x): x is { pr: PullRequest; rank: number } => x.rank !== null)
+    .sort((a, b) => b.rank - a.rank)
+    .map((x) => x.pr);
 
   return (
     <>
       <div className="flex items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted">
-        <span>Open pull requests</span>
-        {repoSyncing ? <Spinner /> : <span>{prs.length}</span>}
+        <span>{searching ? "search results (all open PRs)" : "Open pull requests"}</span>
+        {repoSyncing ? <Spinner /> : <span>{visible.length}</span>}
       </div>
       <div className="space-y-1 px-2 pb-2">
-        {prs.map((pr) => (
+        {visible.map((pr) => (
           <PrListItem key={pr.number} pr={pr} />
         ))}
-        {prs.length === 0 && repoSyncing ? <PrListSkeleton /> : null}
-        {prs.length === 0 && !repoSyncing ? (
+        {visible.length === 0 && repoSyncing ? <PrListSkeleton /> : null}
+        {visible.length === 0 && !repoSyncing ? (
           <div className="px-3 py-6 text-center text-xs text-muted">
-            {selectedRepo ? "no open PRs" : "pick a repository above"}
+            {!selectedRepo
+              ? "pick a repository above"
+              : searching
+                ? "nothing matches across all open PRs"
+                : prs.length > 0
+                  ? "no loaded PRs match your filters"
+                  : "no open PRs"}
           </div>
         ) : null}
-        {prHasMore ? (
+        {prHasMore && !searching ? (
           <div className="flex justify-center py-2">
             <Button
               onClick={() => {
