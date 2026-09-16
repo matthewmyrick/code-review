@@ -1,4 +1,4 @@
-# 🦬 Tandem
+# Tandem
 
 **Local-first code review that works with your agents.**
 
@@ -12,26 +12,51 @@ The twist: **agent comments never go to GitHub on their own.** They
 land as local comments in Tandem, where you triage them (accept / reject
 / archive), discuss them in threads (@mention any agent), and — only
 when you explicitly click post — push a chosen comment or an approval
-back to GitHub. Like Tandem the sky bison: it carries the whole team,
-but you hold the reins.
+back to GitHub. Two riders, one bike: the agents pedal with you, but
+you steer.
 
 ## How it works
 
+```mermaid
+flowchart LR
+    GH["GitHub"]
+    subgraph core["Rust core · tokio"]
+        direction TB
+        client["tandem-github<br/>auth: gh CLI · PAT · GHES"]
+        cache[("tandem-cache<br/>SQLite, cache-first")]
+        runners["tandem-agents<br/>headless runners"]
+    end
+    UI["React UI<br/>differ · threads · agent feed"]
+    proc["agent process<br/>claude -p · codex exec · custom"]
+
+    GH -- "reads: PRs, diffs, checks, comments" --> client
+    client --> cache
+    cache -- "instant renders" --> UI
+    UI -- "Tauri IPC + events" --> core
+    runners -- spawns --> proc
+    proc -- "JSONL events · tandem_comment" --> runners
+    runners -- "local comments" --> cache
+    UI -- "explicit click only: post / approve" --> GH
 ```
-┌────────────┐   REST (read-only)   ┌─────────────┐
-│  GitHub    │ ───────────────────► │  Rust core   │
-└────────────┘                      │  (tokio)     │
-                                    │   ├─ tandem-github  auth: gh CLI / PAT / GHES
-                                    │   ├─ tandem-cache   SQLite, cache-first UI
-                                    │   └─ tandem-agents  headless runners
-                                    └──────┬──────┘
-                                           │ Tauri IPC + events
-                                    ┌──────▼──────┐        ┌──────────────┐
-                                    │  React UI   │        │ agent process │
-                                    │  (differ,   │◄──────┤ claude -p /   │
-                                    │  comments)  │ JSONL  │ codex exec /  │
-                                    └─────────────┘ events │ custom cmd    │
-                                                           └──────────────┘
+
+And the review loop itself:
+
+```mermaid
+sequenceDiagram
+    actor You
+    participant T as Tandem
+    participant A as Agent (claude/codex)
+    participant G as GitHub
+
+    You->>T: open a PR
+    T->>G: sync diff, checks, comments
+    T-->>You: instant render from cache
+    You->>T: run review (or @mention an agent)
+    T->>A: prompt: PR context + diff + rules
+    A-->>T: tandem_comment lines (stay local)
+    You->>T: triage — accept / reject / archive / reply
+    A-->>T: replies in-thread
+    You->>G: post chosen comment / approve (explicit click)
 ```
 
 - **Cache-first**: the UI renders instantly from SQLite, background syncs
@@ -56,20 +81,20 @@ pnpm tauri dev
 ```
 
 In the app: **settings → GitHub auth** (defaults to your `gh` CLI
-session) → add a repo (`owner/name`) → pick a PR → add an agent → **▶
-review**.
+session) → add a repo (browse your orgs or type `owner/name`) → pick a
+PR → add an agent → **run review**.
 
 ## Project layout
 
-| Path                   | What                                                     |
-| ---------------------- | -------------------------------------------------------- |
-| `crates/tandem-core`   | Domain types: PRs, diffs, local comments, agent specs    |
-| `crates/tandem-github` | Read-only GitHub REST client, pluggable auth             |
-| `crates/tandem-cache`  | SQLite cache + local review store                        |
-| `crates/tandem-agents` | Agent runners (headless claude/codex/custom), JSONL logs |
-| `src-tauri`            | Tauri shell: commands, events, settings                  |
-| `src/`                 | React frontend (differ, panels, settings)                |
-| `docs/`                | Architecture, sandboxing (v2 Docker+squid), roadmap      |
+| Path                   | What                                                      |
+| ---------------------- | --------------------------------------------------------- |
+| `crates/tandem-core`   | Domain types: PRs, diffs, local comments, agent specs     |
+| `crates/tandem-github` | GitHub REST client — reads + explicit user-action writes  |
+| `crates/tandem-cache`  | SQLite cache, local review store, 3-day merged-PR archive |
+| `crates/tandem-agents` | Agent runners (headless claude/codex/custom), JSONL logs  |
+| `src-tauri`            | Tauri shell: commands, events, settings                   |
+| `src/`                 | React frontend (differ, panels, settings)                 |
+| `docs/`                | Architecture, sandboxing (v2 Docker+squid), roadmap       |
 
 ## Standards
 
@@ -80,7 +105,8 @@ and [AGENTS.md](AGENTS.md).
 ## Security model (v1 → v2)
 
 v1 runs agents as local processes — same trust level as running the CLI
-yourself. **v2 moves agent execution into Docker with a squid proxy** so
-each agent can only reach the endpoints you allowlist. The
+yourself. GitHub writes happen only behind explicit user clicks; agents
+have no write path. **v2 moves agent execution into Docker with a squid
+proxy** so each agent can only reach the endpoints you allowlist. The
 `network_allowlist` field already exists on every agent spec; see
 [docs/SANDBOXING.md](docs/SANDBOXING.md) for the plan.

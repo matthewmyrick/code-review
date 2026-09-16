@@ -20,13 +20,30 @@ pub struct Settings {
     pub pr_filters: PrFilters,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PrFilters {
     pub query: String,
     pub author: String,
     pub label: String,
+    #[serde(default = "default_true")]
     pub hide_drafts: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for PrFilters {
+    fn default() -> Self {
+        Self {
+            query: String::new(),
+            author: String::new(),
+            label: String::new(),
+            // Drafts are noise for most review flows — hide by default.
+            hide_drafts: true,
+        }
+    }
 }
 
 /// Where Tandem keeps its files on disk.

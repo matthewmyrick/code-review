@@ -82,4 +82,4 @@ jobs:
     needs: [standards, frontend, rust]
     runs-on: ubuntu-latest
     steps:
-      - run: echo "all gates green — safe to deploy 🦬"
+      - run: echo "all gates green — safe to deploy"
