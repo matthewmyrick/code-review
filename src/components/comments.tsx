@@ -2,10 +2,11 @@
 // and the inline composer. Local comments never touch GitHub; GitHub
 // comments render read-only with their own badge.
 
-import { Archive, Bot, Reply, RotateCcw, Send, Trash2, User } from "lucide-react";
+import { Archive, Bot, ExternalLink, Reply, RotateCcw, Send, Trash2, User } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
+import { githubCommentUrl, openExternal, postedCommentUrl } from "../lib/open";
 import { MarkdownBody } from "./Markdown";
 import { extractMentions, MentionInput } from "./MentionInput";
 import type { GithubComment, LocalComment } from "../lib/types";
@@ -230,11 +231,21 @@ function PostToGithub({ comment }: { comment: LocalComment }) {
   const [confirming, setConfirming] = useState(false);
   const [posting, setPosting] = useState(false);
 
-  if (comment.posted_github_id !== null) {
+  const postedUrl = postedCommentUrl(comment);
+  if (postedUrl !== null) {
     return (
-      <Pill tone="moss">
-        <Send size={10} /> posted
-      </Pill>
+      <button
+        type="button"
+        title="posted — open it on github.com"
+        onClick={() => {
+          openExternal(postedUrl);
+        }}
+        className="inline-flex"
+      >
+        <Pill tone="moss">
+          <Send size={10} /> posted <ExternalLink size={9} />
+        </Pill>
+      </button>
     );
   }
   if (posting) return <Spinner label="posting…" />;
@@ -278,6 +289,7 @@ function PostToGithub({ comment }: { comment: LocalComment }) {
 
 export function GithubCommentCard(props: { comment: GithubComment; onDiscuss?: () => void }) {
   const { comment } = props;
+  const pr = useAppStore((s) => s.bundle?.detail.pull_request);
   return (
     <div className="text-xs">
       <div className="mb-1 flex items-center gap-2">
@@ -287,6 +299,18 @@ export function GithubCommentCard(props: { comment: GithubComment; onDiscuss?: (
         <Pill tone="github">
           <GithubMark size={10} /> github
         </Pill>
+        {pr ? (
+          <button
+            type="button"
+            title="open this comment on github.com"
+            onClick={() => {
+              openExternal(githubCommentUrl(pr.repo, pr.number, comment));
+            }}
+            className="inline-flex size-5 items-center justify-center rounded text-muted transition-colors hover:bg-panel-2 hover:text-cream"
+          >
+            <ExternalLink size={11} />
+          </button>
+        ) : null}
         <span className="ml-auto text-[11px] text-muted">{relativeTime(comment.created_at)}</span>
       </div>
       <MarkdownBody text={comment.body} />

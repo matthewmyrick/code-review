@@ -1,10 +1,11 @@
 // PR title bar: branches, checks, reviews/approvers, labels — everything
 // pulled from GitHub, read-only.
 
-import { Check, RefreshCw, X } from "lucide-react";
+import { Check, ExternalLink, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 
 import { shortSha } from "../lib/format";
+import { openExternal, prUrl } from "../lib/open";
 import type { PrDetail } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Button, checkTone, Pill, Spinner } from "./ui";
@@ -40,6 +41,14 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
         </div>
         <div className="flex items-center gap-2">
           {busy ? <Spinner label="syncing" /> : null}
+          <Button
+            onClick={() => {
+              openExternal(prUrl(pr.repo, pr.number));
+            }}
+            title="open this PR on github.com"
+          >
+            <ExternalLink size={12} /> github
+          </Button>
           <ApproveButton />
           <Button
             onClick={() => {
