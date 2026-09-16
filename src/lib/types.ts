@@ -1,4 +1,4 @@
-// TypeScript mirrors of the Rust domain types (appa-core). Keep field
+// TypeScript mirrors of the Rust domain types (tandem-core). Keep field
 // names in sync with the serde output: snake_case fields, snake_case
 // enum values, internally-tagged enums using `kind`.
 

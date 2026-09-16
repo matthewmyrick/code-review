@@ -87,7 +87,7 @@ const EMPTY_DIFF: FileDiff[] = [];
 /// remembered per PR (mount with key={prKey} so state re-reads on
 /// PR switch); defaults to open.
 export function FileTreePanel({ prKey }: { prKey: string }) {
-  const storageKey = `appa-filetree-${prKey}`;
+  const storageKey = `tandem-filetree-${prKey}`;
   const [open, setOpen] = useState(() => localStorage.getItem(storageKey) !== "closed");
   const fileCount = useAppStore((s) => s.bundle?.diff.length ?? 0);
 

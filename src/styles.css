@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Appa theme — sky-bison palette. Dark is the default; the light theme
+/* Tandem theme — sky-bison palette. Dark is the default; the light theme
    overrides the same variables below, so every Tailwind color utility
    (bg-panel, text-cream, ...) follows the toggle automatically. */
 @theme {

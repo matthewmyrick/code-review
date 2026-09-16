@@ -130,8 +130,8 @@ function assistantLines(obj: Record<string, unknown>): LogLine[] {
     const type = str(item.type);
     if (type === "text") {
       const text = str(item.text) ?? "";
-      // appa_comment lines already surface as 💬 comment events
-      if (text.trim() && !text.includes('"appa_comment"')) {
+      // tandem_comment lines already surface as 💬 comment events
+      if (text.trim() && !text.includes('"tandem_comment"')) {
         lines.push({ icon: "chat", text: clip(text, 200), cls: "text-cream/85" });
       }
     } else if (type === "thinking") {

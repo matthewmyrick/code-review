@@ -1,9 +1,9 @@
 //! Shared application state managed by Tauri.
 
-use appa_cache::Cache;
-use appa_core::Result;
-use appa_github::{GithubClient, GithubConfig};
 use std::collections::HashMap;
+use tandem_cache::Cache;
+use tandem_core::Result;
+use tandem_github::{GithubClient, GithubConfig};
 use tokio::sync::Mutex;
 
 use crate::settings::{AppDirs, Settings};
@@ -13,7 +13,7 @@ pub struct AppState {
     pub cache: Mutex<Cache>,
     pub settings: Mutex<Settings>,
     /// Cancel handles for in-flight agent runs, keyed by run id.
-    pub runs: Mutex<HashMap<String, appa_agents::runner::CancelHandle>>,
+    pub runs: Mutex<HashMap<String, tandem_agents::runner::CancelHandle>>,
 }
 
 impl std::fmt::Debug for AppState {

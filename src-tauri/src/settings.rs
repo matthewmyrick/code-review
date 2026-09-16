@@ -4,10 +4,10 @@
 //! file (created with 0600 perms). Moving secrets to the OS keychain is
 //! on the roadmap (docs/ROADMAP.md).
 
-use appa_core::{AppaError, Result};
-use appa_github::GithubConfig;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use tandem_core::{Result, TandemError};
+use tandem_github::GithubConfig;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -17,7 +17,7 @@ pub struct Settings {
     pub repos: Vec<String>,
 }
 
-/// Where Appa keeps its files on disk.
+/// Where Tandem keeps its files on disk.
 #[derive(Debug, Clone)]
 pub struct AppDirs {
     pub settings_file: PathBuf,
@@ -27,17 +27,33 @@ pub struct AppDirs {
 
 impl AppDirs {
     pub fn resolve() -> Result<Self> {
-        let config = dirs::config_dir()
-            .ok_or_else(|| AppaError::Config("no config directory on this platform".into()))?
-            .join("appa");
-        let data = dirs::data_dir()
-            .ok_or_else(|| AppaError::Config("no data directory on this platform".into()))?
-            .join("appa");
+        let config_root = dirs::config_dir()
+            .ok_or_else(|| TandemError::Config("no config directory on this platform".into()))?;
+        let data_root = dirs::data_dir()
+            .ok_or_else(|| TandemError::Config("no data directory on this platform".into()))?;
+        // The app used to be called "appa" — carry existing data across.
+        migrate_legacy_dir(&config_root.join("appa"), &config_root.join("tandem"));
+        migrate_legacy_dir(&data_root.join("appa"), &data_root.join("tandem"));
+
+        let config = config_root.join("tandem");
+        let data = data_root.join("tandem");
         Ok(Self {
             settings_file: config.join("settings.json"),
             cache_db: data.join("cache.sqlite3"),
             runs_dir: data.join("runs"),
         })
+    }
+}
+
+/// Best-effort one-time rename of a pre-rename data directory.
+fn migrate_legacy_dir(old: &Path, new: &Path) {
+    if old.is_dir() && !new.exists() {
+        match std::fs::rename(old, new) {
+            Ok(()) => {
+                tracing::info!(from = %old.display(), to = %new.display(), "migrated data dir")
+            }
+            Err(e) => tracing::warn!(error = %e, "failed to migrate legacy data dir"),
+        }
     }
 }
 
@@ -81,7 +97,7 @@ mod tests {
 
     #[test]
     fn roundtrips_settings() {
-        let dir = std::env::temp_dir().join(format!("appa-settings-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("tandem-settings-{}", std::process::id()));
         let path = dir.join("settings.json");
         let mut s = Settings::default();
         s.repos.push("matthewmyrick/code-review".into());
@@ -93,7 +109,7 @@ mod tests {
 
     #[test]
     fn missing_file_yields_defaults() {
-        let loaded = Settings::load(Path::new("/nonexistent/appa/settings.json")).unwrap();
+        let loaded = Settings::load(Path::new("/nonexistent/tandem/settings.json")).unwrap();
         assert!(loaded.repos.is_empty());
     }
 }

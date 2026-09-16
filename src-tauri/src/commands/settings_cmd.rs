@@ -1,13 +1,13 @@
 //! Settings commands.
 
-use appa_core::AppaError;
+use tandem_core::TandemError;
 use tauri::State;
 
 use crate::settings::Settings;
 use crate::state::AppState;
 
 #[tauri::command]
-pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings, AppaError> {
+pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings, TandemError> {
     Ok(state.settings.lock().await.clone())
 }
 
@@ -15,7 +15,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings, AppaEr
 pub async fn update_settings(
     state: State<'_, AppState>,
     settings: Settings,
-) -> Result<Settings, AppaError> {
+) -> Result<Settings, TandemError> {
     settings.save(&state.dirs.settings_file)?;
     let mut current = state.settings.lock().await;
     *current = settings;

@@ -53,7 +53,7 @@ function GithubSection({ settings }: { settings: Settings }) {
   return (
     <Section
       title="GitHub authentication"
-      hint="Choose how Appa reads from GitHub. Appa never writes to GitHub."
+      hint="Choose how Tandem reads from GitHub. Tandem never writes to GitHub."
     >
       <div className="flex flex-col gap-2 text-xs text-cream">
         {(

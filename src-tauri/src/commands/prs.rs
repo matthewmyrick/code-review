@@ -2,15 +2,15 @@
 //!
 //! The UI pattern is: call the `get_*` command for an instant (possibly
 //! stale) render, kick off the matching `sync_*` command, and re-render
-//! when it resolves. `appa://sync` events drive the loading indicators.
+//! when it resolves. `tandem://sync` events drive the loading indicators.
 
-use appa_cache::{ArchiveStore, Cache, ReviewStore};
-use appa_core::diff::FileDiff;
-use appa_core::github::{ArchivedPr, PrDetail, PrState, PullRequest};
-use appa_core::review::LocalComment;
-use appa_core::AppaError;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+use tandem_cache::{ArchiveStore, Cache, ReviewStore};
+use tandem_core::diff::FileDiff;
+use tandem_core::github::{ArchivedPr, PrDetail, PrState, PullRequest};
+use tandem_core::review::LocalComment;
+use tandem_core::TandemError;
 use tauri::{AppHandle, State};
 
 use crate::commands::{emit_sync, parse_repo, SyncPhase};
@@ -28,7 +28,7 @@ pub struct PrBundle {
 pub async fn get_pull_requests(
     state: State<'_, AppState>,
     repo: String,
-) -> Result<Vec<PullRequest>, AppaError> {
+) -> Result<Vec<PullRequest>, TandemError> {
     let repo = parse_repo(&repo)?;
     state.cache.lock().await.get_pull_requests(&repo)
 }
@@ -46,7 +46,7 @@ pub async fn sync_pull_requests(
     state: State<'_, AppState>,
     repo: String,
     page: Option<u32>,
-) -> Result<PrPage, AppaError> {
+) -> Result<PrPage, TandemError> {
     let repo = parse_repo(&repo)?;
     let page = page.unwrap_or(1).max(1);
     let key = format!("prs:{}", repo.slug());
@@ -86,8 +86,8 @@ pub async fn sync_pull_requests(
             cache.append_pull_requests(&repo, &prs)?;
         }
         purge_expired_data(&mut cache, &state.dirs.runs_dir)?;
-        let has_more = prs.len() == appa_github::GithubClient::PR_PAGE_SIZE;
-        Ok::<_, AppaError>(PrPage { prs, has_more })
+        let has_more = prs.len() == tandem_github::GithubClient::PR_PAGE_SIZE;
+        Ok::<_, TandemError>(PrPage { prs, has_more })
     }
     .await;
 
@@ -103,7 +103,7 @@ pub async fn get_pr_bundle(
     state: State<'_, AppState>,
     repo: String,
     number: u64,
-) -> Result<Option<PrBundle>, AppaError> {
+) -> Result<Option<PrBundle>, TandemError> {
     let repo = parse_repo(&repo)?;
     let cache = state.cache.lock().await;
     load_bundle(&cache, &repo, number)
@@ -115,7 +115,7 @@ pub async fn sync_pr_bundle(
     state: State<'_, AppState>,
     repo: String,
     number: u64,
-) -> Result<PrBundle, AppaError> {
+) -> Result<PrBundle, TandemError> {
     let repo = parse_repo(&repo)?;
     let key = format!("pr:{}#{number}", repo.slug());
     emit_sync(&app, &key, SyncPhase::Started, None);
@@ -124,7 +124,7 @@ pub async fn sync_pr_bundle(
         let client = state.github_client().await?;
         let detail = client.pull_request_detail(&repo, number).await?;
         let raw = client.pull_request_diff_raw(&repo, number).await?;
-        let diff = appa_core::diff_parse::parse_unified_diff(&raw)?;
+        let diff = tandem_core::diff_parse::parse_unified_diff(&raw)?;
 
         let cache = state.cache.lock().await;
         cache.put_pr_detail(&repo, &detail)?;
@@ -134,7 +134,7 @@ pub async fn sync_pr_bundle(
             cache.archive_pr(&detail.pull_request, Utc::now())?;
         }
         let comments = cache.list_comments(&repo, number)?;
-        Ok::<_, AppaError>(PrBundle {
+        Ok::<_, TandemError>(PrBundle {
             detail,
             diff,
             comments,
@@ -153,7 +153,7 @@ pub async fn sync_pr_bundle(
 pub async fn list_archived_prs(
     state: State<'_, AppState>,
     repo: String,
-) -> Result<Vec<ArchivedPr>, AppaError> {
+) -> Result<Vec<ArchivedPr>, TandemError> {
     let repo = parse_repo(&repo)?;
     state.cache.lock().await.list_archived(&repo)
 }
@@ -162,7 +162,7 @@ pub async fn list_archived_prs(
 pub(crate) fn purge_expired_data(
     cache: &mut Cache,
     runs_dir: &std::path::Path,
-) -> Result<(), AppaError> {
+) -> Result<(), TandemError> {
     let log_paths = cache.purge_expired(Utc::now())?;
     for log_path in log_paths {
         let path = std::path::Path::new(&log_path);
@@ -184,15 +184,15 @@ pub(crate) fn purge_expired_data(
 pub async fn get_last_synced(
     state: State<'_, AppState>,
     key: String,
-) -> Result<Option<DateTime<Utc>>, AppaError> {
+) -> Result<Option<DateTime<Utc>>, TandemError> {
     state.cache.lock().await.last_synced(&key)
 }
 
 fn load_bundle(
     cache: &Cache,
-    repo: &appa_core::github::RepoRef,
+    repo: &tandem_core::github::RepoRef,
     number: u64,
-) -> Result<Option<PrBundle>, AppaError> {
+) -> Result<Option<PrBundle>, TandemError> {
     let Some(detail) = cache.get_pr_detail(repo, number)? else {
         return Ok(None);
     };

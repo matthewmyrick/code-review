@@ -7,7 +7,7 @@ commands). CONTRIBUTING.md holds the same standards for humans.
 Quick reminders:
 
 - Every source file ≤ 400 lines (`./scripts/check-file-length.sh`).
-- No `unwrap`/`expect`/`panic!` outside tests — return `AppaError`.
+- No `unwrap`/`expect`/`panic!` outside tests — return `TandemError`.
 - `pnpm lint` runs with `--max-warnings 0`; clippy runs with `-D warnings`.
-- GitHub is read-only; review comments stay local. Never add write calls.
+- GitHub writes are user-only (commands/github_write.rs); agents can never post.
 - Before finishing: fmt + clippy + tests + lint + typecheck + build.

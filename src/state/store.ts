@@ -22,7 +22,7 @@ import type {
 export type View = "review" | "settings";
 export type Theme = "dark" | "light";
 
-const THEME_KEY = "appa-theme";
+const THEME_KEY = "tandem-theme";
 
 function loadTheme(): Theme {
   // Light is the default; dark only when explicitly chosen.
@@ -107,8 +107,8 @@ export const useAppStore = create<AppStore>((set, get) => {
   return {
     view: "review",
     theme: loadTheme(),
-    leftPinned: loadPinned("appa-pin-left"),
-    rightPinned: loadPinned("appa-pin-right"),
+    leftPinned: loadPinned("tandem-pin-left"),
+    rightPinned: loadPinned("tandem-pin-right"),
     settings: null,
     selectedRepo: null,
     prs: [],
@@ -127,20 +127,20 @@ export const useAppStore = create<AppStore>((set, get) => {
       if (initStarted) return;
       initStarted = true;
       applyTheme(get().theme);
-      await listen<SyncEvent>("appa://sync", (event) => {
+      await listen<SyncEvent>("tandem://sync", (event) => {
         const { key, phase, error } = event.payload;
         set((s) => ({
           syncing: { ...s.syncing, [key]: phase === "started" },
           lastError: phase === "error" ? (error ?? "sync failed") : s.lastError,
         }));
       });
-      await listen<RunEvent>("appa://agent-event", (event) => {
+      await listen<RunEvent>("tandem://agent-event", (event) => {
         set((s) => ({ agentEvents: [...s.agentEvents.slice(-499), event.payload] }));
       });
-      await listen("appa://comments-updated", () => {
+      await listen("tandem://comments-updated", () => {
         void reloadComments().catch(console.error);
       });
-      await listen("appa://run-updated", () => {
+      await listen("tandem://run-updated", () => {
         void reloadRuns().catch(console.error);
       });
 
@@ -172,7 +172,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     togglePinned: (side) => {
       const key = side === "left" ? "leftPinned" : "rightPinned";
       const value = !get()[key];
-      localStorage.setItem(side === "left" ? "appa-pin-left" : "appa-pin-right", String(value));
+      localStorage.setItem(side === "left" ? "tandem-pin-left" : "tandem-pin-right", String(value));
       set({ [key]: value } as Partial<AppStore>);
     },
 

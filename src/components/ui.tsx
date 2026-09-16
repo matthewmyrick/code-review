@@ -1,4 +1,4 @@
-// Tiny shared UI primitives, styled for the Appa theme.
+// Tiny shared UI primitives, styled for the Tandem theme.
 
 import { GitPullRequest } from "lucide-react";
 import type { ReactNode } from "react";
@@ -26,6 +26,26 @@ const toneClasses: Record<Tone, string> = {
   // High-contrast on purpose: GitHub-origin content must be unmissable.
   github: "bg-cream text-ground shadow-sm",
 };
+
+/** Tandem's mark: two chevrons riding together — the agent and you. */
+export function TandemMark({ size = 15 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 5.5 12.5 12 6 18.5" opacity={0.5} />
+      <path d="M12 5.5 18.5 12 12 18.5" />
+    </svg>
+  );
+}
 
 /** The GitHub octocat mark (inline so we stay CDN-free). */
 export function GithubMark({ size = 11 }: { size?: number }) {

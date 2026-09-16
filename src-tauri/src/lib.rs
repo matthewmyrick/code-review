@@ -1,4 +1,4 @@
-//! Appa's Tauri application shell: state init + command registration.
+//! Tandem's Tauri application shell: state init + command registration.
 
 mod commands;
 mod settings;

@@ -13,7 +13,7 @@ import { PrHeader } from "./components/PrHeader";
 import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
 import { SidePane } from "./components/SidePane";
-import { Button, EmptyState, IconButton } from "./components/ui";
+import { Button, EmptyState, IconButton, TandemMark } from "./components/ui";
 import { useAppStore } from "./state/store";
 
 export default function App() {
@@ -40,9 +40,9 @@ export default function App() {
           className="flex items-center gap-2.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-panel-2"
         >
           <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-deep to-sky text-white shadow-sm">
-            <GitPullRequest size={15} strokeWidth={2.5} />
+            <TandemMark size={16} />
           </span>
-          <span className="text-sm font-semibold tracking-wide text-cream">Appa</span>
+          <span className="text-sm font-semibold tracking-wide text-cream">Tandem</span>
         </button>
         <div className="ml-auto flex items-center gap-1.5">
           <IconButton onClick={toggleTheme} title="toggle light/dark theme">
@@ -105,7 +105,7 @@ function ReviewLayout() {
       <main className="flex-1">
         <EmptyState
           title="welcome aboard"
-          hint="add a GitHub repository to start reviewing — Appa reads PRs, checks and comments, and keeps all review notes local"
+          hint="add a GitHub repository to start reviewing — Tandem reads PRs, checks and comments, and keeps all review notes local"
           action={
             <Button
               kind="primary"
@@ -164,7 +164,7 @@ function ReviewLayout() {
             title={selectedPr === null ? "pick a pull request" : "loading pull request…"}
             hint={
               selectedPr === null
-                ? "select a PR from the sidebar — Appa loads from cache instantly and syncs GitHub in the background"
+                ? "select a PR from the sidebar — Tandem loads from cache instantly and syncs GitHub in the background"
                 : undefined
             }
           />

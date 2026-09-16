@@ -1,18 +1,18 @@
-# 🦬 Appa
+# 🦬 Tandem
 
 **Local-first code review that works with your agents.**
 
-Appa is a desktop app (Tauri 2 + Rust + React) for reviewing GitHub pull
+Tandem is a desktop app (Tauri 2 + Rust + React) for reviewing GitHub pull
 requests with AI agents riding along. It pulls everything about a PR from
 GitHub — diff, checks, reviews, approvers, comments — renders a fast,
 pretty differ, and lets a locally-run agent (Claude, Codex, or any custom
 command) review the diff with you.
 
 The twist: **agent comments never go to GitHub on their own.** They
-land as local comments in Appa, where you triage them (accept / reject
+land as local comments in Tandem, where you triage them (accept / reject
 / archive), discuss them in threads (@mention any agent), and — only
 when you explicitly click post — push a chosen comment or an approval
-back to GitHub. Like Appa the sky bison: it carries the whole team,
+back to GitHub. Like Tandem the sky bison: it carries the whole team,
 but you hold the reins.
 
 ## How it works
@@ -21,9 +21,9 @@ but you hold the reins.
 ┌────────────┐   REST (read-only)   ┌─────────────┐
 │  GitHub    │ ───────────────────► │  Rust core   │
 └────────────┘                      │  (tokio)     │
-                                    │   ├─ appa-github  auth: gh CLI / PAT / GHES
-                                    │   ├─ appa-cache   SQLite, cache-first UI
-                                    │   └─ appa-agents  headless runners
+                                    │   ├─ tandem-github  auth: gh CLI / PAT / GHES
+                                    │   ├─ tandem-cache   SQLite, cache-first UI
+                                    │   └─ tandem-agents  headless runners
                                     └──────┬──────┘
                                            │ Tauri IPC + events
                                     ┌──────▼──────┐        ┌──────────────┐
@@ -40,7 +40,7 @@ but you hold the reins.
   key, or point at a custom endpoint. Configure everything in-app.
 - **Agents know they're reviewing**: each run gets a context block (PR,
   diff, rules) and a simple contract — emit
-  `{"type":"appa_comment", ...}` lines — inspired by
+  `{"type":"tandem_comment", ...}` lines — inspired by
   [hunk](https://github.com/modem-dev/hunk).
 - **Obvious logging**: every run writes a JSONL event log you can tail in
   the UI or grep on disk.
@@ -61,15 +61,15 @@ review**.
 
 ## Project layout
 
-| Path                 | What                                                     |
-| -------------------- | -------------------------------------------------------- |
-| `crates/appa-core`   | Domain types: PRs, diffs, local comments, agent specs    |
-| `crates/appa-github` | Read-only GitHub REST client, pluggable auth             |
-| `crates/appa-cache`  | SQLite cache + local review store                        |
-| `crates/appa-agents` | Agent runners (headless claude/codex/custom), JSONL logs |
-| `src-tauri`          | Tauri shell: commands, events, settings                  |
-| `src/`               | React frontend (differ, panels, settings)                |
-| `docs/`              | Architecture, sandboxing (v2 Docker+squid), roadmap      |
+| Path                   | What                                                     |
+| ---------------------- | -------------------------------------------------------- |
+| `crates/tandem-core`   | Domain types: PRs, diffs, local comments, agent specs    |
+| `crates/tandem-github` | Read-only GitHub REST client, pluggable auth             |
+| `crates/tandem-cache`  | SQLite cache + local review store                        |
+| `crates/tandem-agents` | Agent runners (headless claude/codex/custom), JSONL logs |
+| `src-tauri`            | Tauri shell: commands, events, settings                  |
+| `src/`                 | React frontend (differ, panels, settings)                |
+| `docs/`                | Architecture, sandboxing (v2 Docker+squid), roadmap      |
 
 ## Standards
 

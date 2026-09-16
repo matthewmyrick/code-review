@@ -2,10 +2,10 @@
 //! an explicit user click in the UI — agents have no path here, and the
 //! agent prompt still forbids posting.
 
-use appa_cache::ReviewStore;
-use appa_core::review::DiffSide;
-use appa_core::AppaError;
-use appa_github::NewInlineComment;
+use tandem_cache::ReviewStore;
+use tandem_core::review::DiffSide;
+use tandem_core::TandemError;
+use tandem_github::NewInlineComment;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::parse_repo;
@@ -20,14 +20,14 @@ pub async fn post_comment_to_github(
     app: AppHandle,
     state: State<'_, AppState>,
     comment_id: String,
-) -> Result<u64, AppaError> {
+) -> Result<u64, TandemError> {
     let (comment, thread_gh_id) = {
         let cache = state.cache.lock().await;
         let comment = cache
             .get_comment(&comment_id)?
-            .ok_or_else(|| AppaError::Cache(format!("comment not found: {comment_id}")))?;
+            .ok_or_else(|| TandemError::Cache(format!("comment not found: {comment_id}")))?;
         if comment.posted_github_id.is_some() {
-            return Err(AppaError::Config(
+            return Err(TandemError::Config(
                 "comment was already posted to GitHub".into(),
             ));
         }
@@ -77,7 +77,7 @@ pub async fn post_comment_to_github(
         cache.set_comment_posted(&comment.id, github_id)?;
     }
     let payload = serde_json::json!({ "repo": repo.slug(), "number": number });
-    if let Err(e) = app.emit("appa://comments-updated", payload) {
+    if let Err(e) = app.emit("tandem://comments-updated", payload) {
         tracing::warn!(error = %e, "failed to emit comments-updated");
     }
     Ok(github_id)
@@ -90,7 +90,7 @@ pub async fn approve_pr(
     repo: String,
     number: u64,
     body: Option<String>,
-) -> Result<(), AppaError> {
+) -> Result<(), TandemError> {
     let repo = parse_repo(&repo)?;
     let client = state.github_client().await?;
     client

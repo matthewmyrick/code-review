@@ -1,4 +1,4 @@
-# Contributing to Appa
+# Contributing to Tandem
 
 The core promise: **if CI is green, the change is safe to deploy.** Every
 rule below is enforced by CI (`.github/workflows/ci.yml`), not by hoping.
@@ -18,7 +18,7 @@ rule below is enforced by CI (`.github/workflows/ci.yml`), not by hoping.
 - `cargo fmt` clean; `cargo clippy --workspace --all-targets` with **zero
   warnings** (CI passes `-D warnings`).
 - Workspace lints (root `Cargo.toml`) deny `unwrap`, `expect`, `panic!`,
-  `todo!`, `dbg!`, and `unsafe`. Errors flow through `AppaError` — the
+  `todo!`, `dbg!`, and `unsafe`. Errors flow through `TandemError` — the
   user sees a message, never a crash. Tests may `#[allow]` unwrap.
 - All I/O is async (tokio) or explicitly documented as a small blocking
   write. Never block the UI thread; never busy-loop — wait on channels,
@@ -48,7 +48,7 @@ rule below is enforced by CI (`.github/workflows/ci.yml`), not by hoping.
 - Secrets (PATs, API keys) never go in the cache DB, logs, or the repo.
   Settings files are written `0600`.
 - Cache schema changes are append-only migrations
-  (`crates/appa-cache/src/schema.rs`) — never edit a shipped migration.
+  (`crates/tandem-cache/src/schema.rs`) — never edit a shipped migration.
 
 ### Tests
 

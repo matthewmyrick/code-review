@@ -1,9 +1,9 @@
-//! Local review-comment commands. These comments live only in Appa's
+//! Local review-comment commands. These comments live only in Tandem's
 //! cache — nothing here talks to GitHub.
 
-use appa_cache::ReviewStore;
-use appa_core::review::{CommentStatus, LocalComment, NewLocalComment};
-use appa_core::AppaError;
+use tandem_cache::ReviewStore;
+use tandem_core::review::{CommentStatus, LocalComment, NewLocalComment};
+use tandem_core::TandemError;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::parse_repo;
@@ -11,7 +11,7 @@ use crate::state::AppState;
 
 fn notify_comments_changed(app: &AppHandle, repo: &str, number: u64) {
     let payload = serde_json::json!({ "repo": repo, "number": number });
-    if let Err(e) = app.emit("appa://comments-updated", payload) {
+    if let Err(e) = app.emit("tandem://comments-updated", payload) {
         tracing::warn!(error = %e, "failed to emit comments-updated");
     }
 }
@@ -21,7 +21,7 @@ pub async fn list_local_comments(
     state: State<'_, AppState>,
     repo: String,
     number: u64,
-) -> Result<Vec<LocalComment>, AppaError> {
+) -> Result<Vec<LocalComment>, TandemError> {
     let repo = parse_repo(&repo)?;
     state.cache.lock().await.list_comments(&repo, number)
 }
@@ -31,7 +31,7 @@ pub async fn add_local_comment(
     app: AppHandle,
     state: State<'_, AppState>,
     comment: NewLocalComment,
-) -> Result<LocalComment, AppaError> {
+) -> Result<LocalComment, TandemError> {
     let slug = comment.repo.slug();
     let number = comment.pr_number;
     let created = state.cache.lock().await.add_comment(comment)?;
@@ -47,7 +47,7 @@ pub async fn set_comment_status(
     status: CommentStatus,
     repo: String,
     number: u64,
-) -> Result<(), AppaError> {
+) -> Result<(), TandemError> {
     state.cache.lock().await.set_comment_status(&id, status)?;
     notify_comments_changed(&app, &repo, number);
     Ok(())
@@ -61,7 +61,7 @@ pub async fn update_comment_body(
     body: String,
     repo: String,
     number: u64,
-) -> Result<(), AppaError> {
+) -> Result<(), TandemError> {
     state.cache.lock().await.update_comment_body(&id, &body)?;
     notify_comments_changed(&app, &repo, number);
     Ok(())
@@ -74,7 +74,7 @@ pub async fn delete_local_comment(
     id: String,
     repo: String,
     number: u64,
-) -> Result<(), AppaError> {
+) -> Result<(), TandemError> {
     state.cache.lock().await.delete_comment(&id)?;
     notify_comments_changed(&app, &repo, number);
     Ok(())

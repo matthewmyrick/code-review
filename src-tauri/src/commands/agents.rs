@@ -1,35 +1,41 @@
 //! Agent commands: manage specs, start/cancel review runs, and pump run
 //! events into the cache and the UI.
 
-use appa_agents::context::{build_prompt, ReviewContext};
-use appa_agents::events::parse_comment;
-use appa_agents::runner::{LocalProcessRunner, RunRequest};
-use appa_cache::ReviewStore;
-use appa_core::agent::{AgentRun, AgentSpec, RunEvent, RunEventKind, RunStatus};
-use appa_core::github::RepoRef;
-use appa_core::review::{CommentAuthorKind, CommentSeverity, DiffSide, NewLocalComment};
-use appa_core::AppaError;
 use chrono::Utc;
+use tandem_agents::context::{build_prompt, ReviewContext};
+use tandem_agents::events::parse_comment;
+use tandem_agents::runner::{LocalProcessRunner, RunRequest};
+use tandem_cache::ReviewStore;
+use tandem_core::agent::{AgentRun, AgentSpec, RunEvent, RunEventKind, RunStatus};
+use tandem_core::github::RepoRef;
+use tandem_core::review::{CommentAuthorKind, CommentSeverity, DiffSide, NewLocalComment};
+use tandem_core::TandemError;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::commands::parse_repo;
 use crate::state::AppState;
 
 #[tauri::command]
-pub async fn list_agent_specs(state: State<'_, AppState>) -> Result<Vec<AgentSpec>, AppaError> {
+pub async fn list_agent_specs(state: State<'_, AppState>) -> Result<Vec<AgentSpec>, TandemError> {
     state.cache.lock().await.list_agent_specs()
 }
 
 #[tauri::command]
-pub async fn save_agent_spec(state: State<'_, AppState>, spec: AgentSpec) -> Result<(), AppaError> {
+pub async fn save_agent_spec(
+    state: State<'_, AppState>,
+    spec: AgentSpec,
+) -> Result<(), TandemError> {
     if spec.name.trim().is_empty() {
-        return Err(AppaError::Config("agent name cannot be empty".into()));
+        return Err(TandemError::Config("agent name cannot be empty".into()));
     }
     state.cache.lock().await.put_agent_spec(&spec)
 }
 
 #[tauri::command]
-pub async fn delete_agent_spec(state: State<'_, AppState>, name: String) -> Result<(), AppaError> {
+pub async fn delete_agent_spec(
+    state: State<'_, AppState>,
+    name: String,
+) -> Result<(), TandemError> {
     state.cache.lock().await.delete_agent_spec(&name)
 }
 
@@ -38,13 +44,16 @@ pub async fn list_agent_runs(
     state: State<'_, AppState>,
     repo: String,
     number: u64,
-) -> Result<Vec<AgentRun>, AppaError> {
+) -> Result<Vec<AgentRun>, TandemError> {
     let repo = parse_repo(&repo)?;
     state.cache.lock().await.list_agent_runs(&repo, number)
 }
 
 #[tauri::command]
-pub async fn cancel_agent_run(state: State<'_, AppState>, run_id: String) -> Result<(), AppaError> {
+pub async fn cancel_agent_run(
+    state: State<'_, AppState>,
+    run_id: String,
+) -> Result<(), TandemError> {
     if let Some(mut handle) = state.runs.lock().await.remove(&run_id) {
         handle.cancel();
     }
@@ -53,7 +62,7 @@ pub async fn cancel_agent_run(state: State<'_, AppState>, run_id: String) -> Res
 
 /// Start an agent review of a PR. The PR bundle must be synced first so
 /// its diff is in the cache. Returns the run id; progress streams via
-/// `appa://agent-event` and comments land via `appa://comments-updated`.
+/// `tandem://agent-event` and comments land via `tandem://comments-updated`.
 #[tauri::command]
 pub async fn start_agent_review(
     app: AppHandle,
@@ -61,7 +70,7 @@ pub async fn start_agent_review(
     agent_name: String,
     repo: String,
     number: u64,
-) -> Result<String, AppaError> {
+) -> Result<String, TandemError> {
     let repo = parse_repo(&repo)?;
     let (spec, pr, raw_diff) = {
         let cache = state.cache.lock().await;
@@ -69,13 +78,13 @@ pub async fn start_agent_review(
             .list_agent_specs()?
             .into_iter()
             .find(|s| s.name == agent_name)
-            .ok_or_else(|| AppaError::Agent(format!("no agent named {agent_name}")))?;
+            .ok_or_else(|| TandemError::Agent(format!("no agent named {agent_name}")))?;
         let detail = cache
             .get_pr_detail(&repo, number)?
-            .ok_or_else(|| AppaError::Agent("PR not synced yet — open it first".into()))?;
+            .ok_or_else(|| TandemError::Agent("PR not synced yet — open it first".into()))?;
         let raw = cache
             .get_raw_diff(&repo, number, &detail.pull_request.head_sha)?
-            .ok_or_else(|| AppaError::Agent("diff not cached yet — open the PR first".into()))?;
+            .ok_or_else(|| TandemError::Agent("diff not cached yet — open the PR first".into()))?;
         (spec, detail.pull_request, raw)
     };
 
@@ -100,9 +109,9 @@ pub(crate) async fn launch_run(
     state: &AppState,
     spec: AgentSpec,
     repo: RepoRef,
-    pr: appa_core::github::PullRequest,
+    pr: tandem_core::github::PullRequest,
     build_prompt_fn: impl FnOnce(&str, &str) -> String,
-) -> Result<String, AppaError> {
+) -> Result<String, TandemError> {
     let run_id = uuid::Uuid::new_v4().to_string();
     let run_dir = state.dirs.runs_dir.join(&run_id);
     let comments_file = run_dir
@@ -156,7 +165,7 @@ async fn pump_events(
     head_sha: String,
 ) {
     while let Some(event) = events.recv().await {
-        if let Err(e) = app.emit("appa://agent-event", &event) {
+        if let Err(e) = app.emit("tandem://agent-event", &event) {
             tracing::warn!(error = %e, "failed to forward agent event");
         }
         match event.kind {
@@ -195,7 +204,7 @@ async fn handle_comment(
     head_sha: &str,
 ) {
     let Some(parsed) = parse_comment(&event.payload) else {
-        tracing::warn!(payload = %event.payload, "agent emitted malformed appa_comment");
+        tracing::warn!(payload = %event.payload, "agent emitted malformed tandem_comment");
         return;
     };
     let new = NewLocalComment {
@@ -225,7 +234,7 @@ async fn handle_comment(
             run.comment_count += 1;
             persist_run(app, run).await;
             let payload = serde_json::json!({ "repo": repo.slug(), "number": run.pr_number });
-            if let Err(e) = app.emit("appa://comments-updated", payload) {
+            if let Err(e) = app.emit("tandem://comments-updated", payload) {
                 tracing::warn!(error = %e, "failed to emit comments-updated");
             }
         }
@@ -239,7 +248,7 @@ async fn persist_run(app: &AppHandle, run: &AgentRun) {
     if let Err(e) = result {
         tracing::error!(error = %e, "failed to persist agent run");
     }
-    if let Err(e) = app.emit("appa://run-updated", run) {
+    if let Err(e) = app.emit("tandem://run-updated", run) {
         tracing::warn!(error = %e, "failed to emit run-updated");
     }
 }

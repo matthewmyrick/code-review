@@ -2,12 +2,12 @@
 //! then (when an agent is involved) launch a run that has the whole
 //! thread as context and answers back into the same thread.
 
-use appa_agents::context::{build_reply_prompt, ReplyContext, ThreadMessage};
-use appa_cache::ReviewStore;
-use appa_core::review::{
+use tandem_agents::context::{build_reply_prompt, ReplyContext, ThreadMessage};
+use tandem_cache::ReviewStore;
+use tandem_core::review::{
     CommentAuthorKind, CommentSeverity, DiffSide, LocalComment, NewLocalComment,
 };
-use appa_core::AppaError;
+use tandem_core::TandemError;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::agents::launch_run;
@@ -21,9 +21,9 @@ pub async fn reply_to_comment(
     agent_name: String,
     comment_id: String,
     body: String,
-) -> Result<String, AppaError> {
+) -> Result<String, TandemError> {
     if body.trim().is_empty() {
-        return Err(AppaError::Config("reply cannot be empty".into()));
+        return Err(TandemError::Config("reply cannot be empty".into()));
     }
 
     let root_id = {
@@ -60,14 +60,17 @@ pub async fn mention_agent(
     state: State<'_, AppState>,
     agent_name: String,
     comment_id: String,
-) -> Result<String, AppaError> {
+) -> Result<String, TandemError> {
     launch_thread_run(app, &state, &agent_name, &comment_id).await
 }
 
-fn resolve_root(cache: &appa_cache::Cache, comment_id: &str) -> Result<LocalComment, AppaError> {
+fn resolve_root(
+    cache: &tandem_cache::Cache,
+    comment_id: &str,
+) -> Result<LocalComment, TandemError> {
     let comment = cache
         .get_comment(comment_id)?
-        .ok_or_else(|| AppaError::Cache(format!("comment not found: {comment_id}")))?;
+        .ok_or_else(|| TandemError::Cache(format!("comment not found: {comment_id}")))?;
     Ok(match comment.parent_id.as_deref() {
         Some(pid) => cache.get_comment(pid)?.unwrap_or(comment),
         None => comment,
@@ -76,7 +79,7 @@ fn resolve_root(cache: &appa_cache::Cache, comment_id: &str) -> Result<LocalComm
 
 fn notify(app: &AppHandle, root: &LocalComment) {
     let payload = serde_json::json!({ "repo": root.repo.slug(), "number": root.pr_number });
-    if let Err(e) = app.emit("appa://comments-updated", payload) {
+    if let Err(e) = app.emit("tandem://comments-updated", payload) {
         tracing::warn!(error = %e, "failed to emit comments-updated");
     }
 }
@@ -88,7 +91,7 @@ async fn launch_thread_run(
     state: &AppState,
     agent_name: &str,
     comment_id: &str,
-) -> Result<String, AppaError> {
+) -> Result<String, TandemError> {
     let (root, spec, pr, diff_excerpt, thread) = {
         let cache = state.cache.lock().await;
         let root = resolve_root(&cache, comment_id)?;
@@ -96,10 +99,10 @@ async fn launch_thread_run(
             .list_agent_specs()?
             .into_iter()
             .find(|s| s.name == agent_name)
-            .ok_or_else(|| AppaError::Agent(format!("no agent named {agent_name}")))?;
+            .ok_or_else(|| TandemError::Agent(format!("no agent named {agent_name}")))?;
         let detail = cache
             .get_pr_detail(&root.repo, root.pr_number)?
-            .ok_or_else(|| AppaError::Agent("PR not synced yet — open it first".into()))?;
+            .ok_or_else(|| TandemError::Agent("PR not synced yet — open it first".into()))?;
         let raw = cache
             .get_raw_diff(&root.repo, root.pr_number, &detail.pull_request.head_sha)?
             .unwrap_or_default();

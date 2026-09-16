@@ -7,7 +7,7 @@
 - [x] SQLite cache-first data flow with visible sync state
 - [x] Structured differ with inline local comments
 - [x] Agent runs: headless claude / codex / custom command, live JSONL
-      event feed, appa_comment contract, triage workflow
+      event feed, tandem_comment contract, triage workflow
 - [ ] Comment anchors survive force-pushes (re-anchor by hunk context)
 - [ ] Syntax highlighting in the differ
 - [ ] Split (side-by-side) diff view
