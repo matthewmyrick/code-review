@@ -1,10 +1,10 @@
 // Settings: GitHub auth (fully configurable), tracked repos, and agents.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ipc } from "../lib/ipc";
 import { PR_SORTS } from "../lib/sort";
-import type { GithubAuth, PrFilters, Settings } from "../lib/types";
+import type { FileConfigInfo, GithubAuth, PrFilters, Settings } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
 import { RepoBrowser } from "./RepoBrowser";
@@ -12,9 +12,28 @@ import { Button } from "./ui";
 
 export function SettingsView() {
   const settings = useAppStore((s) => s.settings);
+  const [fileConfig, setFileConfig] = useState<FileConfigInfo | null>(null);
+
+  useEffect(() => {
+    ipc.fileConfigInfo().then(setFileConfig).catch(console.warn);
+  }, []);
+
   if (!settings) return null;
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+      {fileConfig ? (
+        <div className="rounded-lg border border-sky/30 bg-sky/10 px-4 py-3 text-xs text-cream">
+          <div className="font-medium">file config active</div>
+          <div className="mt-0.5 font-mono text-[11px] text-muted">{fileConfig.path}</div>
+          <div className="mt-1 text-muted">
+            {fileConfig.agents} agent{fileConfig.agents === 1 ? "" : "s"} managed from file
+            {fileConfig.overrides.length > 0
+              ? ` · overrides: ${fileConfig.overrides.join(", ")}`
+              : ""}{" "}
+            — file values win over what's saved here
+          </div>
+        </div>
+      ) : null}
       <GithubSection settings={settings} />
       <ReposSection settings={settings} />
       <FiltersSection settings={settings} />

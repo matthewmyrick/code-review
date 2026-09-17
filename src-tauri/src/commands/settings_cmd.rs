@@ -49,3 +49,10 @@ pub async fn list_github_repos(
     let client = state.github_client().await?;
     client.list_owner_repos(&owner, is_viewer).await
 }
+
+#[tauri::command]
+pub async fn file_config_info(
+    state: State<'_, AppState>,
+) -> Result<Option<crate::file_config::FileConfigInfo>, TandemError> {
+    Ok(state.file_config.clone())
+}

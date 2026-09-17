@@ -7,6 +7,7 @@ import type {
   AgentRun,
   AgentSpec,
   ArchivedPr,
+  FileConfigInfo,
   OwnerList,
   RepoSummary,
   CommentStatus,
@@ -70,6 +71,7 @@ export const ipc = {
 
   // settings
   getSettings: () => invoke<Settings>("get_settings"),
+  fileConfigInfo: () => invoke<FileConfigInfo | null>("file_config_info"),
   listGithubOwners: () => invoke<OwnerList>("list_github_owners"),
   listGithubRepos: (owner: string, isViewer: boolean) =>
     invoke<RepoSummary[]>("list_github_repos", { owner, isViewer }),

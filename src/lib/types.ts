@@ -245,6 +245,12 @@ export interface OwnerList {
 
 export type InboxScope = "requested" | "mentions" | "involved" | "approved";
 
+export interface FileConfigInfo {
+  path: string;
+  agents: number;
+  overrides: string[];
+}
+
 export interface PrPage {
   prs: PullRequest[];
   has_more: boolean;

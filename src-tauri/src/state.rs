@@ -6,10 +6,13 @@ use tandem_core::Result;
 use tandem_github::{GithubClient, GithubConfig};
 use tokio::sync::Mutex;
 
+use crate::file_config::{load_and_apply, FileConfigInfo};
 use crate::settings::{AppDirs, Settings};
 
 pub struct AppState {
     pub dirs: AppDirs,
+    /// Present when an optional YAML file config was loaded at startup.
+    pub file_config: Option<FileConfigInfo>,
     pub cache: Mutex<Cache>,
     pub settings: Mutex<Settings>,
     /// Cancel handles for in-flight agent runs, keyed by run id.
@@ -28,9 +31,11 @@ impl AppState {
     pub fn init() -> Result<Self> {
         let dirs = AppDirs::resolve()?;
         let cache = Cache::open(&dirs.cache_db)?;
-        let settings = Settings::load(&dirs.settings_file)?;
+        let mut settings = Settings::load(&dirs.settings_file)?;
+        let file_config = load_and_apply(&mut settings, &cache);
         Ok(Self {
             dirs,
+            file_config,
             cache: Mutex::new(cache),
             settings: Mutex::new(settings),
             runs: Mutex::new(HashMap::new()),

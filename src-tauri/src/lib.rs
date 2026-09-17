@@ -1,6 +1,7 @@
 //! Tandem's Tauri application shell: state init + command registration.
 
 mod commands;
+mod file_config;
 mod settings;
 mod state;
 
@@ -57,6 +58,7 @@ pub fn run() {
             github_write::approve_pr,
             settings_cmd::get_settings,
             settings_cmd::update_settings,
+            settings_cmd::file_config_info,
             settings_cmd::list_github_owners,
             settings_cmd::list_github_repos,
             text_tools::polish_text,
