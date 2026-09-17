@@ -2,7 +2,6 @@
 
 import { GitPullRequest, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
 
 import type { CheckState, CommentSeverity, RunStatus } from "../lib/types";
 
@@ -174,27 +173,12 @@ export function Skeleton(props: { className?: string }) {
   return <div className={`skeleton ${props.className ?? ""}`} />;
 }
 
-/** Centered floating pane over a dimmed backdrop. Escape or clicking
- * the backdrop closes it. */
+/** Centered floating pane over a dimmed backdrop. Deliberately closes
+ * ONLY via the ✕ button — never on backdrop clicks or Escape — so a
+ * half-typed comment can't be lost by a stray click or focus change. */
 export function Modal(props: { title: ReactNode; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") props.onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
-    <div
-      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) props.onClose();
-      }}
-    >
+    <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <div className="animate-fade-up flex h-[85vh] w-[min(85vw,80rem)] flex-col overflow-hidden rounded-2xl border border-edge bg-panel shadow-2xl">
         <div className="flex items-center gap-2 border-b border-edge px-4 py-2.5">
           <div className="min-w-0 flex-1 text-xs font-medium text-cream">{props.title}</div>
