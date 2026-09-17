@@ -5,43 +5,13 @@ import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
 
 import { ipc } from "../lib/ipc";
-import type { PrSort } from "../lib/sort";
 import type { RunEvent, SyncEvent } from "../lib/types";
 import { EMPTY_FILTERS } from "../lib/types";
 
-import type { AppStore, Theme } from "./storeTypes";
+import { applyTheme, loadPinned, loadPrSort, loadTheme, PR_SORT_KEY } from "./persist";
+import type { AppStore } from "./storeTypes";
 
 export type { Theme, View } from "./storeTypes";
-
-const THEME_KEY = "tandem-theme";
-
-function loadTheme(): Theme {
-  // Light is the default; dark only when explicitly chosen.
-  return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
-}
-
-function loadPinned(key: string): boolean {
-  return localStorage.getItem(key) !== "false";
-}
-
-function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem(THEME_KEY, theme);
-}
-
-const PR_SORT_KEY = "tandem-pr-sort";
-
-function loadPrSort(): PrSort {
-  const saved = localStorage.getItem(PR_SORT_KEY);
-  const valid: PrSort[] = [
-    "opened-asc",
-    "opened-desc",
-    "updated-desc",
-    "number-asc",
-    "number-desc",
-  ];
-  return valid.includes(saved as PrSort) ? (saved as PrSort) : "opened-asc";
-}
 
 // React StrictMode double-invokes effects in dev; without this guard the
 // event listeners register twice and every log line shows up duplicated.
