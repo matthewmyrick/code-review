@@ -2,6 +2,8 @@
 
 import { GitPullRequest, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
+import { create } from "zustand";
 
 import type { CheckState, CommentSeverity, RunStatus } from "../lib/types";
 
@@ -173,10 +175,30 @@ export function Skeleton(props: { className?: string }) {
   return <div className={`skeleton ${props.className ?? ""}`} />;
 }
 
+/** Open-modal counter. Unpinned side panes normally unmount when the
+ * mouse leaves; while any modal is open they must stay mounted or the
+ * modal (and its draft) would vanish with them. */
+export const useModalHold = create<{ count: number; inc: () => void; dec: () => void }>((set) => ({
+  count: 0,
+  inc: () => {
+    set((s) => ({ count: s.count + 1 }));
+  },
+  dec: () => {
+    set((s) => ({ count: Math.max(0, s.count - 1) }));
+  },
+}));
+
 /** Centered floating pane over a dimmed backdrop. Deliberately closes
  * ONLY via the ✕ button — never on backdrop clicks or Escape — so a
  * half-typed comment can't be lost by a stray click or focus change. */
 export function Modal(props: { title: ReactNode; onClose: () => void; children: ReactNode }) {
+  const inc = useModalHold((s) => s.inc);
+  const dec = useModalHold((s) => s.dec);
+  useEffect(() => {
+    inc();
+    return dec;
+  }, [inc, dec]);
+
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <div className="animate-fade-up flex h-[85vh] w-[min(85vw,80rem)] flex-col overflow-hidden rounded-2xl border border-edge bg-panel shadow-2xl">

@@ -7,6 +7,8 @@ import { ChevronsLeft, ChevronsRight, Pin } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
+import { useModalHold } from "./ui";
+
 interface SidePaneProps {
   side: "left" | "right";
   /** true = expanded (pane visible), false = collapsed to the rail. */
@@ -21,6 +23,9 @@ interface SidePaneProps {
 
 export function SidePane(props: SidePaneProps) {
   const [hovering, setHovering] = useState(false);
+  // A modal rendered from this pane's content must keep the overlay
+  // alive even when the mouse wanders off (e.g. to another monitor).
+  const modalOpen = useModalHold((s) => s.count > 0);
   const isLeft = props.side === "left";
   const borderClass = isLeft ? "border-r border-edge" : "border-l border-edge";
   const CollapseIcon = isLeft ? ChevronsLeft : ChevronsRight;
@@ -76,7 +81,7 @@ export function SidePane(props: SidePaneProps) {
         </button>
       </div>
 
-      {hovering ? (
+      {hovering || modalOpen ? (
         <div
           className={`animate-fade-in absolute top-0 z-30 h-full ${
             isLeft ? "left-full" : "right-full"
