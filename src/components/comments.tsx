@@ -2,10 +2,20 @@
 // and the inline composer. Local comments never touch GitHub; GitHub
 // comments render read-only with their own badge.
 
-import { Archive, Bot, ExternalLink, Reply, RotateCcw, Send, Trash2, User } from "lucide-react";
+import {
+  Archive,
+  AtSign,
+  Bot,
+  ExternalLink,
+  Reply,
+  RotateCcw,
+  Send,
+  Trash2,
+  User,
+} from "lucide-react";
 import { useState } from "react";
 
-import { relativeTime } from "../lib/format";
+import { mentionsUser, relativeTime } from "../lib/format";
 import { githubCommentUrl, openExternal, postedCommentUrl } from "../lib/open";
 import { MarkdownBody } from "./Markdown";
 import { extractMentions, MentionInput } from "./MentionInput";
@@ -290,6 +300,7 @@ function PostToGithub({ comment }: { comment: LocalComment }) {
 export function GithubCommentCard(props: { comment: GithubComment; onDiscuss?: () => void }) {
   const { comment } = props;
   const pr = useAppStore((s) => s.bundle?.detail.pull_request);
+  const viewer = useAppStore((s) => s.viewer);
   return (
     <div className="text-xs">
       <div className="mb-1 flex items-center gap-2">
@@ -299,6 +310,11 @@ export function GithubCommentCard(props: { comment: GithubComment; onDiscuss?: (
         <Pill tone="github">
           <GithubMark size={10} /> github
         </Pill>
+        {mentionsUser(comment.body, viewer) ? (
+          <Pill tone="amber">
+            <AtSign size={9} /> you
+          </Pill>
+        ) : null}
         {pr ? (
           <button
             type="button"

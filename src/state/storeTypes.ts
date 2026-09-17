@@ -43,6 +43,7 @@ export interface AppStore {
   inbox: Partial<Record<InboxScope, PullRequest[]>>;
   prSort: PrSort;
   inboxAllRepos: boolean;
+  viewer: string | null;
 
   init: () => Promise<void>;
   setView: (view: View) => void;

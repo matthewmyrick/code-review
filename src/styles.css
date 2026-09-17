@@ -344,6 +344,15 @@ body {
   margin: 0.6rem 0;
 }
 
+/* @mention of the signed-in user inside comment bodies */
+.md-body mark.mention-you {
+  background: color-mix(in srgb, var(--color-amber) 30%, transparent);
+  color: var(--color-cream);
+  border-radius: 4px;
+  padding: 0 0.2rem;
+  font-weight: 600;
+}
+
 /* pulsing "agent running" dot on the pane rail */
 .run-dot {
   position: absolute;

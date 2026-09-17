@@ -27,3 +27,14 @@ export function sortPrs(prs: PullRequest[], sort: PrSort): PullRequest[] {
       return sorted.sort((a, b) => b.number - a.number);
   }
 }
+
+export function sanitizePrSort(sort: string): PrSort {
+  const valid: PrSort[] = [
+    "opened-asc",
+    "opened-desc",
+    "updated-desc",
+    "number-asc",
+    "number-desc",
+  ];
+  return valid.includes(sort as PrSort) ? (sort as PrSort) : "opened-asc";
+}

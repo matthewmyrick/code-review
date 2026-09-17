@@ -3,10 +3,10 @@
 // opens the full thread in a centered floating pane with replies and
 // actions. Sections: open / triaged / archived / on github.
 
-import { Bot, MessageSquare, MessageSquarePlus, Send, User } from "lucide-react";
+import { AtSign, Bot, MessageSquare, MessageSquarePlus, Send, User } from "lucide-react";
 import { useState } from "react";
 
-import { relativeTime } from "../lib/format";
+import { mentionsUser, relativeTime } from "../lib/format";
 import type { GithubComment, LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { CommentThread, GithubCommentCard, groupThreads } from "./comments";
@@ -207,6 +207,8 @@ function SectionLabel({ text }: { text: string }) {
 
 function ThreadSummary(props: { thread: Thread; onOpen: (s: Selected) => void }) {
   const { root, replies } = props.thread;
+  const viewer = useAppStore((s) => s.viewer);
+  const mentioned = [root, ...replies].some((c) => mentionsUser(c.body, viewer));
   return (
     <button
       type="button"
@@ -225,6 +227,11 @@ function ThreadSummary(props: { thread: Thread; onOpen: (s: Selected) => void })
         {root.posted_github_id !== null ? (
           <Pill tone="moss">
             <Send size={9} /> posted
+          </Pill>
+        ) : null}
+        {mentioned ? (
+          <Pill tone="amber">
+            <AtSign size={9} /> you
           </Pill>
         ) : null}
         <span className="ml-auto text-[10px] text-muted">{relativeTime(root.created_at)}</span>
@@ -246,6 +253,7 @@ function ThreadSummary(props: { thread: Thread; onOpen: (s: Selected) => void })
 
 function GithubSummary(props: { comment: GithubComment; onOpen: (s: Selected) => void }) {
   const { comment } = props;
+  const viewer = useAppStore((s) => s.viewer);
   return (
     <button
       type="button"
@@ -261,6 +269,11 @@ function GithubSummary(props: { comment: GithubComment; onOpen: (s: Selected) =>
         <Pill tone="github">
           <GithubMark size={9} /> github
         </Pill>
+        {mentionsUser(comment.body, viewer) ? (
+          <Pill tone="amber">
+            <AtSign size={9} /> you
+          </Pill>
+        ) : null}
         <span className="ml-auto text-[10px] text-muted">{relativeTime(comment.created_at)}</span>
       </div>
       {comment.path ? (

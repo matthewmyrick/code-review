@@ -8,15 +8,11 @@ import { ipc } from "../lib/ipc";
 import type { RunEvent, SyncEvent } from "../lib/types";
 import { EMPTY_FILTERS } from "../lib/types";
 
+import { sanitizePrSort } from "../lib/sort";
 import { applyTheme, loadPinned, loadTheme } from "./persist";
 import type { AppStore } from "./storeTypes";
 
 export type { Theme, View } from "./storeTypes";
-
-function sanitizeSort(sort: string): AppStore["prSort"] {
-  const valid = ["opened-asc", "opened-desc", "updated-desc", "number-asc", "number-desc"];
-  return valid.includes(sort) ? (sort as AppStore["prSort"]) : "opened-asc";
-}
 
 // React StrictMode double-invokes effects in dev; without this guard the
 // event listeners register twice and every log line shows up duplicated.
@@ -63,6 +59,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     inbox: {},
     prSort: "opened-asc",
     inboxAllRepos: false,
+    viewer: null,
 
     init: async () => {
       if (initStarted) return;
@@ -92,7 +89,7 @@ export const useAppStore = create<AppStore>((set, get) => {
           settings,
           agentSpecs,
           filters: settings.pr_filters,
-          prSort: sanitizeSort(settings.pr_sort),
+          prSort: sanitizePrSort(settings.pr_sort),
           inboxAllRepos: settings.inbox_all_repos,
         });
         const first = settings.repos[0];
@@ -100,6 +97,13 @@ export const useAppStore = create<AppStore>((set, get) => {
         // Prefetch the review-request inbox for the tab badge (scoped
         // like the tabs); auth-dependent, so failures stay quiet.
         get().loadInbox("requested").catch(console.warn);
+        // Viewer login powers @mention highlighting in comment bodies.
+        ipc
+          .listGithubOwners()
+          .then((o) => {
+            set({ viewer: o.viewer });
+          })
+          .catch(console.warn);
       } catch (e) {
         fail(e);
       }
@@ -236,7 +240,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         inbox: {},
         // Re-seed per-repo view state from the saved defaults.
         filters: get().settings?.pr_filters ?? EMPTY_FILTERS,
-        prSort: sanitizeSort(get().settings?.pr_sort ?? "opened-asc"),
+        prSort: sanitizePrSort(get().settings?.pr_sort ?? "opened-asc"),
       });
       try {
         const cached = await ipc.getPullRequests(slug);

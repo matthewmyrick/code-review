@@ -28,3 +28,10 @@ export function repoSlug(repo: { owner: string; name: string }): string {
 export function fileAnchorId(path: string): string {
   return `diff-${path}`;
 }
+
+/** Does this body @mention the given user (word-boundary, any case)? */
+export function mentionsUser(body: string, login: string | null): boolean {
+  if (!login) return false;
+  const escaped = login.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`@${escaped}(?![\\w-])`, "i").test(body);
+}
