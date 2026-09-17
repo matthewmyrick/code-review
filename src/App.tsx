@@ -96,7 +96,9 @@ function ReviewLayout() {
   const [tab, setTab] = useState<"comments" | "agents">("agents");
 
   const agentRunning = runs.some((r) => r.status === "starting" || r.status === "running");
-  const commentCount = bundle ? bundle.comments.length + bundle.detail.comments.length : 0;
+  const commentCount = bundle
+    ? bundle.comments.length + bundle.detail.comments.length + bundle.detail.review_bodies.length
+    : 0;
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prKey = `${selectedRepo ?? ""}#${String(selectedPr ?? "")}`;
 

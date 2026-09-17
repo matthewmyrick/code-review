@@ -46,6 +46,7 @@ export type ReviewVerdict =
   "approved" | "changes_requested" | "commented" | "dismissed" | "pending";
 
 export interface GithubReview {
+  id: number;
   author: User;
   verdict: ReviewVerdict;
   body: string;
@@ -66,6 +67,7 @@ export interface PrDetail {
   checks: CheckRun[];
   reviews: GithubReview[];
   comments: GithubComment[];
+  review_bodies: GithubReview[];
 }
 
 // ---- diff ----------------------------------------------------------------

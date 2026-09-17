@@ -65,8 +65,15 @@ export function MentionInput(props: MentionInputProps) {
   const refresh = () => {
     const el = ref.current;
     if (!el) return;
-    setMention(activeMention(el.value, el.selectionStart));
-    setHighlight(0);
+    const next = activeMention(el.value, el.selectionStart);
+    setMention((prev) => {
+      // Only reset the highlighted row when the @token itself changed —
+      // arrow-key navigation must not snap back to the top.
+      if (prev?.start !== next?.start || prev?.query !== next?.query) {
+        setHighlight(0);
+      }
+      return next;
+    });
   };
 
   const insert = (name: string) => {
@@ -93,7 +100,10 @@ export function MentionInput(props: MentionInputProps) {
           props.onChange(e.target.value);
           requestAnimationFrame(refresh);
         }}
-        onKeyUp={refresh}
+        onKeyUp={(e) => {
+          if (["ArrowUp", "ArrowDown", "Enter", "Tab", "Escape"].includes(e.key)) return;
+          refresh();
+        }}
         onClick={refresh}
         onKeyDown={(e) => {
           if (mention && suggestions.length > 0) {

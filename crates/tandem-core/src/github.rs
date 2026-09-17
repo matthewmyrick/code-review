@@ -98,6 +98,8 @@ pub enum ReviewVerdict {
 /// A review submitted on GitHub (approval, change request, …).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubReview {
+    #[serde(default)]
+    pub id: u64,
     pub author: User,
     pub verdict: ReviewVerdict,
     pub body: String,
@@ -130,9 +132,14 @@ pub struct ArchivedPr {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrDetail {
     pub pull_request: PullRequest,
+    /// Effective per-reviewer verdicts (deduped) — drives the pills.
     pub checks: Vec<CheckRun>,
     pub reviews: Vec<GithubReview>,
     pub comments: Vec<GithubComment>,
+    /// Raw review events that carried body text — mentions often hide
+    /// in these, so the UI lists them alongside comments.
+    #[serde(default)]
+    pub review_bodies: Vec<GithubReview>,
 }
 
 #[cfg(test)]

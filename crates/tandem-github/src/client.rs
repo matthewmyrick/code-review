@@ -275,6 +275,21 @@ impl GithubClient {
         Ok(pull.into_domain(repo))
     }
 
+    /// Fetch up to 3 pages (300 items) of a listing endpoint. The path
+    /// must already contain `per_page=100`.
+    async fn get_json_paged<T: serde::de::DeserializeOwned>(&self, base: &str) -> Result<Vec<T>> {
+        let mut all = Vec::new();
+        for page in 1..=3 {
+            let mut batch: Vec<T> = self.get_json(&format!("{base}&page={page}")).await?;
+            let n = batch.len();
+            all.append(&mut batch);
+            if n < 100 {
+                break;
+            }
+        }
+        Ok(all)
+    }
+
     /// Full detail bundle: PR, checks, reviews, and all comments.
     pub async fn pull_request_detail(&self, repo: &RepoRef, number: u64) -> Result<PrDetail> {
         let base = format!("/repos/{}/{}", repo.owner, repo.name);
@@ -289,27 +304,37 @@ impl GithubClient {
             ))
             .await?;
         let reviews: Vec<WireReview> = self
-            .get_json(&format!("{base}/pulls/{number}/reviews?per_page=100"))
+            .get_json_paged(&format!("{base}/pulls/{number}/reviews?per_page=100"))
             .await?;
 
         // GitHub splits discussion into issue comments (thread) and review
-        // comments (inline); Tandem shows both.
+        // comments (inline); Tandem shows both, paginated.
         let issue_comments: Vec<WireComment> = self
-            .get_json(&format!("{base}/issues/{number}/comments?per_page=100"))
+            .get_json_paged(&format!("{base}/issues/{number}/comments?per_page=100"))
             .await?;
         let review_comments: Vec<WireComment> = self
-            .get_json(&format!("{base}/pulls/{number}/comments?per_page=100"))
+            .get_json_paged(&format!("{base}/pulls/{number}/comments?per_page=100"))
             .await?;
 
         let mut comments: Vec<GithubComment> = issue_comments.into_iter().map(Into::into).collect();
         comments.extend(review_comments.into_iter().map(GithubComment::from));
         comments.sort_by_key(|c| c.created_at);
 
+        let all_reviews: Vec<tandem_core::github::GithubReview> =
+            reviews.into_iter().map(Into::into).collect();
+        let mut review_bodies: Vec<_> = all_reviews
+            .iter()
+            .filter(|r| !r.body.trim().is_empty())
+            .cloned()
+            .collect();
+        review_bodies.sort_by_key(|r| r.submitted_at);
+
         Ok(PrDetail {
             pull_request,
             checks: checks.check_runs.into_iter().map(Into::into).collect(),
-            reviews: effective_reviews(reviews.into_iter().map(Into::into).collect()),
+            reviews: effective_reviews(all_reviews),
             comments,
+            review_bodies,
         })
     }
 

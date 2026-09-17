@@ -7,7 +7,7 @@ import { AtSign, Bot, MessageSquare, MessageSquarePlus, Send, User } from "lucid
 import { useState } from "react";
 
 import { mentionsUser, relativeTime } from "../lib/format";
-import type { GithubComment, LocalComment } from "../lib/types";
+import type { GithubComment, GithubReview, LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { CommentThread, GithubCommentCard, groupThreads } from "./comments";
 import { GithubReplyComposer } from "./GithubReplyComposer";
@@ -21,13 +21,18 @@ interface Thread {
 }
 
 type Selected =
-  { kind: "local"; id: string } | { kind: "github"; id: number } | { kind: "new-general" } | null;
+  | { kind: "local"; id: string }
+  | { kind: "github"; id: number }
+  | { kind: "review"; id: number }
+  | { kind: "new-general" }
+  | null;
 
 export function CommentsPanel() {
   const bundle = useAppStore((s) => s.bundle);
   const [selected, setSelected] = useState<Selected>(null);
   const comments = bundle?.comments ?? [];
   const githubComments = bundle?.detail.comments ?? [];
+  const reviewBodies = bundle?.detail.review_bodies ?? [];
 
   const threads = groupThreads(comments);
   const open = threads.filter((t) => t.root.status === "open");
@@ -40,6 +45,8 @@ export function CommentsPanel() {
     selected?.kind === "local" ? (threads.find((t) => t.root.id === selected.id) ?? null) : null;
   const selectedGithub =
     selected?.kind === "github" ? (githubComments.find((c) => c.id === selected.id) ?? null) : null;
+  const selectedReview =
+    selected?.kind === "review" ? (reviewBodies.find((r) => r.id === selected.id) ?? null) : null;
 
   return (
     <div className="flex flex-col gap-1.5 p-3">
@@ -66,9 +73,14 @@ export function CommentsPanel() {
         <ThreadSummary key={t.root.id} thread={t} onOpen={setSelected} />
       ))}
 
-      {githubComments.length > 0 ? (
+      {githubComments.length + reviewBodies.length > 0 ? (
         <>
-          <SectionLabel text={`on github (${String(githubComments.length)})`} />
+          <SectionLabel
+            text={`on github (${String(githubComments.length + reviewBodies.length)})`}
+          />
+          {reviewBodies.map((r) => (
+            <ReviewSummary key={r.id} review={r} onOpen={setSelected} />
+          ))}
           {githubComments.map((c) => (
             <GithubSummary key={c.id} comment={c} onOpen={setSelected} />
           ))}
@@ -140,6 +152,27 @@ export function CommentsPanel() {
             githubCommentId={selectedGithub.id}
             reviewCommentId={selectedGithub.path !== null ? selectedGithub.id : undefined}
           />
+        </Modal>
+      ) : null}
+
+      {selectedReview ? (
+        <Modal
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              <GithubMark size={11} /> review by {selectedReview.author.login}
+            </span>
+          }
+          onClose={() => {
+            setSelected(null);
+          }}
+        >
+          <div className="mb-2 flex items-center gap-2 text-xs">
+            <Pill tone={verdictTone(selectedReview.verdict)}>
+              {selectedReview.verdict.replace("_", " ")}
+            </Pill>
+          </div>
+          <MarkdownBody text={selectedReview.body} />
+          <ReplySection path="" line={0} />
         </Modal>
       ) : null}
 
@@ -317,6 +350,56 @@ function GithubSummary(props: { comment: GithubComment; onOpen: (s: Selected) =>
       ) : null}
       <div className="md-clamp mt-0.5">
         <MarkdownBody text={comment.body} />
+      </div>
+    </button>
+  );
+}
+
+function verdictTone(verdict: GithubReview["verdict"]): "moss" | "ember" | "muted" {
+  switch (verdict) {
+    case "approved":
+      return "moss";
+    case "changes_requested":
+      return "ember";
+    case "commented":
+    case "dismissed":
+    case "pending":
+      return "muted";
+  }
+}
+
+/** A GitHub review event that carried body text (mentions often live
+ * here — they're invisible on the checks pills otherwise). */
+function ReviewSummary(props: { review: GithubReview; onOpen: (s: Selected) => void }) {
+  const { review } = props;
+  const viewer = useAppStore((s) => s.viewer);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        props.onOpen({ kind: "review", id: review.id });
+      }}
+      className="animate-fade-up block w-full rounded-lg border border-edge border-l-4 border-l-fur/70 bg-fur/10 p-2.5 text-left transition-all hover:border-sky/40"
+    >
+      <div className="mb-1 flex items-center gap-1.5 text-[11px]">
+        <span className="inline-flex items-center gap-1 font-medium text-cream">
+          <User size={11} /> {review.author.login}
+        </span>
+        <Pill tone="github">
+          <GithubMark size={9} /> review
+        </Pill>
+        <Pill tone={verdictTone(review.verdict)}>{review.verdict.replace("_", " ")}</Pill>
+        {mentionsUser(review.body, viewer) ? (
+          <Pill tone="amber">
+            <AtSign size={9} /> you
+          </Pill>
+        ) : null}
+        <span className="ml-auto text-[10px] text-muted">
+          {review.submitted_at ? relativeTime(review.submitted_at) : ""}
+        </span>
+      </div>
+      <div className="md-clamp mt-0.5">
+        <MarkdownBody text={review.body} />
       </div>
     </button>
   );

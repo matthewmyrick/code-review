@@ -151,6 +151,8 @@ impl From<WireCheckRun> for CheckRun {
 
 #[derive(Debug, Deserialize)]
 pub struct WireReview {
+    #[serde(default)]
+    pub id: u64,
     pub user: WireUser,
     pub state: String,
     pub body: Option<String>,
@@ -167,6 +169,7 @@ impl From<WireReview> for GithubReview {
             _ => ReviewVerdict::Pending,
         };
         Self {
+            id: w.id,
             author: w.user.into(),
             verdict,
             body: w.body.unwrap_or_default(),
@@ -248,6 +251,7 @@ mod tests {
     #[test]
     fn effective_reviews_dedupe_and_dismiss() {
         let review = |login: &str, verdict: ReviewVerdict, minute: u32| GithubReview {
+            id: u64::from(minute),
             author: User {
                 login: login.into(),
                 avatar_url: None,
