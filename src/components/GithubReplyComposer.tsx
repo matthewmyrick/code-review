@@ -12,6 +12,8 @@ import { Button, Spinner } from "./ui";
 interface GithubReplyComposerProps {
   /** Review-comment id to thread under; omit for a plain PR comment. */
   reviewCommentId?: number;
+  /** Anchor a brand-new inline comment to a diff line. */
+  anchor?: { path: string; line: number; sideNew: boolean };
   onDone?: () => void;
 }
 
@@ -28,12 +30,15 @@ export function GithubReplyComposer(props: GithubReplyComposerProps) {
   const post = () => {
     setWorking(true);
     void ipc
-      .replyOnGithub(
-        `${pr.repo.owner}/${pr.repo.name}`,
-        pr.number,
-        body.trim(),
-        props.reviewCommentId ?? null,
-      )
+      .replyOnGithub({
+        repo: `${pr.repo.owner}/${pr.repo.name}`,
+        number: pr.number,
+        body: body.trim(),
+        review_comment_id: props.reviewCommentId ?? null,
+        path: props.anchor?.path ?? null,
+        line: props.anchor?.line ?? null,
+        side_new: props.anchor?.sideNew ?? null,
+      })
       .then(async () => {
         setBody("");
         setConfirming(false);

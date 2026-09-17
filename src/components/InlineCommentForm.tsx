@@ -6,8 +6,71 @@ import { useState } from "react";
 
 import type { CommentSeverity, DiffSide } from "../lib/types";
 import { useAppStore } from "../state/store";
+import { GithubReplyComposer } from "./GithubReplyComposer";
 import { extractMentions, MentionInput } from "./MentionInput";
 import { Button } from "./ui";
+
+/** Inline composer with the local/github mode toggle, for diff lines:
+ * draft a local thread, or drop a raw review comment straight on the
+ * line and discuss it locally after it syncs back. */
+export function InlineComposerSection(props: {
+  path: string;
+  line: number;
+  side: DiffSide;
+  endLine?: number;
+  onEndLineChange?: (end: number) => void;
+  /** Existing GitHub review comment this composer hangs off. */
+  githubCommentId?: number;
+  onDone: () => void;
+}) {
+  const [mode, setMode] = useState<"local" | "github">("local");
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5">
+        {(["local", "github"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setMode(m);
+            }}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+              mode === m ? "bg-sky/20 text-sky" : "bg-panel-2 text-muted hover:text-cream"
+            }`}
+          >
+            {m === "local" ? "comment locally" : "comment on github"}
+          </button>
+        ))}
+        <span className="ml-auto text-[10px] text-muted">
+          {mode === "local"
+            ? "stays in Tandem until you post it"
+            : "posts inline on this line after confirm"}
+        </span>
+      </div>
+      {mode === "local" ? (
+        <InlineCommentForm
+          path={props.path}
+          line={props.line}
+          side={props.side}
+          endLine={props.endLine}
+          onEndLineChange={props.onEndLineChange}
+          githubCommentId={props.githubCommentId}
+          onDone={props.onDone}
+        />
+      ) : (
+        <GithubReplyComposer
+          reviewCommentId={props.githubCommentId}
+          anchor={
+            props.githubCommentId === undefined
+              ? { path: props.path, line: props.line, sideNew: props.side === "new" }
+              : undefined
+          }
+          onDone={props.onDone}
+        />
+      )}
+    </div>
+  );
+}
 
 export function InlineCommentForm(props: {
   path: string;

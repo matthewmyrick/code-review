@@ -104,27 +104,68 @@ pub async fn approve_pr(
         .await
 }
 
-/// Post a reply straight to GitHub with no local thread involved —
-/// still strictly an explicit user action.
+/// Post straight to GitHub with no local thread involved — still
+/// strictly an explicit user action. Routing: reply into a review
+/// thread, a new inline comment on a diff line, or a plain PR comment.
+#[derive(Debug, serde::Deserialize)]
+pub struct DirectReply {
+    pub repo: String,
+    pub number: u64,
+    pub body: String,
+    pub review_comment_id: Option<u64>,
+    pub path: Option<String>,
+    pub line: Option<u64>,
+    pub side_new: Option<bool>,
+}
+
 #[tauri::command]
 pub async fn reply_on_github(
     state: State<'_, AppState>,
-    repo: String,
-    number: u64,
-    body: String,
-    review_comment_id: Option<u64>,
+    request: DirectReply,
 ) -> Result<u64, TandemError> {
+    let DirectReply {
+        repo,
+        number,
+        body,
+        review_comment_id,
+        path,
+        line,
+        side_new,
+    } = request;
     if body.trim().is_empty() {
         return Err(TandemError::Config("reply cannot be empty".into()));
     }
     let repo = parse_repo(&repo)?;
     let client = state.github_client().await?;
-    match review_comment_id {
-        Some(id) => {
-            client
-                .reply_to_review_comment(&repo, number, id, &body)
-                .await
-        }
-        None => client.post_issue_comment(&repo, number, &body).await,
+    if let Some(id) = review_comment_id {
+        return client
+            .reply_to_review_comment(&repo, number, id, &body)
+            .await;
     }
+    if let (Some(path), Some(line)) = (path.as_deref(), line) {
+        if !path.is_empty() && line > 0 {
+            let head_sha = {
+                let cache = state.cache.lock().await;
+                cache
+                    .get_pr_detail(&repo, number)?
+                    .ok_or_else(|| TandemError::Agent("PR not synced yet — open it first".into()))?
+                    .pull_request
+                    .head_sha
+            };
+            return client
+                .create_review_comment(
+                    &repo,
+                    number,
+                    NewInlineComment {
+                        commit_id: &head_sha,
+                        path,
+                        line,
+                        right_side: side_new.unwrap_or(true),
+                        body: &body,
+                    },
+                )
+                .await;
+        }
+    }
+    client.post_issue_comment(&repo, number, &body).await
 }

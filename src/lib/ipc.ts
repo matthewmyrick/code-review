@@ -65,8 +65,15 @@ export const ipc = {
     invoke<number>("post_comment_to_github", { commentId }),
   approvePr: (repo: string, number: number, body: string | null) =>
     invoke<null>("approve_pr", { repo, number, body }),
-  replyOnGithub: (repo: string, number: number, body: string, reviewCommentId: number | null) =>
-    invoke<number>("reply_on_github", { repo, number, body, reviewCommentId }),
+  replyOnGithub: (request: {
+    repo: string;
+    number: number;
+    body: string;
+    review_comment_id: number | null;
+    path: string | null;
+    line: number | null;
+    side_new: boolean | null;
+  }) => invoke<number>("reply_on_github", { request }),
 
   // text utilities
   polishText: (text: string) => invoke<string>("polish_text", { text }),

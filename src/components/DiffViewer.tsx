@@ -9,7 +9,7 @@ import { fileAnchorId } from "../lib/format";
 import { highlightLine, languageForPath } from "../lib/highlight";
 import type { FileDiff, GithubComment, LocalComment } from "../lib/types";
 import { CommentThread, GithubCommentCard, groupThreads } from "./comments";
-import { InlineCommentForm } from "./InlineCommentForm";
+import { InlineComposerSection } from "./InlineCommentForm";
 import { Pill } from "./ui";
 
 interface DiffViewerProps {
@@ -244,15 +244,15 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
             commentAt.end === anchorLine &&
             commentAt.side === anchorSide ? (
               <div className="border-y border-sky/30 bg-panel-2 px-4 py-2">
-                <InlineCommentForm
+                <InlineComposerSection
                   path={path}
                   line={commentAt.line}
                   side={commentAt.side}
+                  githubCommentId={commentAt.githubCommentId}
                   endLine={commentAt.end}
                   onEndLineChange={(end) => {
                     setCommentAt({ ...commentAt, end });
                   }}
-                  githubCommentId={commentAt.githubCommentId}
                   onDone={() => {
                     setCommentAt(null);
                   }}
