@@ -64,6 +64,17 @@ export function CommentThread({ root, replies }: { root: LocalComment; replies: 
           />
         </div>
       ) : null}
+      {!replying && replies.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => {
+            setReplying(true);
+          }}
+          className="ml-3 flex items-center gap-1.5 rounded-md border-l-2 border-edge/70 py-1.5 pl-3 text-left text-[11px] text-muted transition-colors hover:text-cream"
+        >
+          <Reply size={11} /> reply to thread…
+        </button>
+      ) : null}
     </div>
   );
 }
