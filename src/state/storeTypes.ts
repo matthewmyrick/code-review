@@ -44,6 +44,7 @@ export interface AppStore {
   prSort: PrSort;
   inboxAllRepos: boolean;
   viewer: string | null;
+  collaborators: string[];
 
   init: () => Promise<void>;
   setView: (view: View) => void;

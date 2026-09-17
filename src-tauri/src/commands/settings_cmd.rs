@@ -56,3 +56,13 @@ pub async fn file_config_info(
 ) -> Result<Option<crate::file_config::FileConfigInfo>, TandemError> {
     Ok(state.file_config.clone())
 }
+
+#[tauri::command]
+pub async fn list_collaborators(
+    state: State<'_, AppState>,
+    repo: String,
+) -> Result<Vec<String>, TandemError> {
+    let repo = crate::commands::parse_repo(&repo)?;
+    let client = state.github_client().await?;
+    client.list_collaborators(&repo).await
+}

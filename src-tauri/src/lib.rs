@@ -62,6 +62,7 @@ pub fn run() {
             settings_cmd::file_config_info,
             settings_cmd::list_github_owners,
             settings_cmd::list_github_repos,
+            settings_cmd::list_collaborators,
             text_tools::polish_text,
         ])
         .run(tauri::generate_context!());

@@ -2,7 +2,7 @@
 // configured agents; selecting inserts "@name ". Mentions are how you
 // summon an agent into a thread it didn't start.
 
-import { Bot, Loader, Sparkles } from "lucide-react";
+import { Bot, Loader, Sparkles, User } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -35,8 +35,16 @@ function activeMention(value: string, caret: number): { start: number; query: st
   return { start: caret - (match[2]?.length ?? 0) - 1, query: match[2] ?? "" };
 }
 
+interface Suggestion {
+  name: string;
+  kind: "agent" | "person";
+  detail: string;
+}
+
 export function MentionInput(props: MentionInputProps) {
   const specs = useAppStore((s) => s.agentSpecs);
+  const collaborators = useAppStore((s) => s.collaborators);
+  const bundle = useAppStore((s) => s.bundle);
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
   const [highlight, setHighlight] = useState(0);
@@ -58,8 +66,28 @@ export function MentionInput(props: MentionInputProps) {
       });
   };
 
-  const suggestions = mention
-    ? specs.filter((s) => s.name.toLowerCase().startsWith(mention.query.toLowerCase()))
+  const people = (() => {
+    const names = new Set<string>(collaborators);
+    if (bundle) {
+      names.add(bundle.detail.pull_request.author.login);
+      for (const c of bundle.detail.comments) names.add(c.author.login);
+      for (const r of bundle.detail.reviews) names.add(r.author.login);
+      for (const r of bundle.detail.review_bodies) names.add(r.author.login);
+    }
+    for (const spec of specs) names.delete(spec.name);
+    return [...names].sort();
+  })();
+
+  const suggestions: Suggestion[] = mention
+    ? [
+        ...specs
+          .filter((s) => s.name.toLowerCase().startsWith(mention.query.toLowerCase()))
+          .map((s) => ({ name: s.name, kind: "agent" as const, detail: s.runner.kind })),
+        ...people
+          .filter((login) => login.toLowerCase().startsWith(mention.query.toLowerCase()))
+          .slice(0, 8)
+          .map((login) => ({ name: login, kind: "person" as const, detail: "github" })),
+      ]
     : [];
 
   const refresh = () => {
@@ -147,21 +175,26 @@ export function MentionInput(props: MentionInputProps) {
       </button>
       {mention && suggestions.length > 0 ? (
         <div className="animate-fade-in absolute left-2 top-full z-50 -mt-1 w-56 overflow-hidden rounded-lg border border-edge bg-panel shadow-xl">
-          {suggestions.map((spec, i) => (
+          {suggestions.map((item, i) => (
             <button
-              key={spec.name}
+              key={`${item.kind}:${item.name}`}
               type="button"
               onMouseDown={(e) => {
                 e.preventDefault();
-                insert(spec.name);
+                insert(item.name);
               }}
               className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs ${
                 i === highlight ? "bg-sky/15 text-cream" : "text-muted hover:bg-panel-2"
               }`}
+              title={
+                item.kind === "agent"
+                  ? "agent — will join this thread and reply"
+                  : "github user — becomes a real @mention when posted"
+              }
             >
-              <Bot size={12} />
-              <span className="font-medium">{spec.name}</span>
-              <span className="ml-auto truncate text-[10px] opacity-70">{spec.runner.kind}</span>
+              {item.kind === "agent" ? <Bot size={12} /> : <User size={12} />}
+              <span className="font-medium">{item.name}</span>
+              <span className="ml-auto truncate text-[10px] opacity-70">{item.detail}</span>
             </button>
           ))}
         </div>

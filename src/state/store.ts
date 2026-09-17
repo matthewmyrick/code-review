@@ -9,6 +9,7 @@ import type { RunEvent, SyncEvent } from "../lib/types";
 import { EMPTY_FILTERS } from "../lib/types";
 
 import { sanitizePrSort } from "../lib/sort";
+import { agentActions } from "./agentActions";
 import { applyTheme, loadPinned, loadTheme } from "./persist";
 import type { AppStore } from "./storeTypes";
 
@@ -60,6 +61,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     prSort: "opened-desc",
     inboxAllRepos: false,
     viewer: null,
+    collaborators: [],
 
     init: async () => {
       if (initStarted) return;
@@ -189,25 +191,6 @@ export const useAppStore = create<AppStore>((set, get) => {
       set({ [key]: value } as Partial<AppStore>);
     },
 
-    replyToComment: async (commentId, body, agentName) => {
-      try {
-        await ipc.replyToComment(agentName, commentId, body);
-        await reloadComments();
-        await reloadRuns();
-      } catch (e) {
-        fail(e);
-      }
-    },
-
-    mentionAgent: async (agentName, commentId) => {
-      try {
-        await ipc.mentionAgent(agentName, commentId);
-        await reloadRuns();
-      } catch (e) {
-        fail(e);
-      }
-    },
-
     postToGithub: async (commentId) => {
       try {
         await ipc.postCommentToGithub(commentId);
@@ -241,7 +224,15 @@ export const useAppStore = create<AppStore>((set, get) => {
         // Re-seed per-repo view state from the saved defaults.
         filters: get().settings?.pr_filters ?? EMPTY_FILTERS,
         prSort: sanitizePrSort(get().settings?.pr_sort ?? "opened-desc"),
+        collaborators: [],
       });
+      // People autocomplete for @mentions; quiet failure (needs perms).
+      ipc
+        .listCollaborators(slug)
+        .then((collaborators) => {
+          set({ collaborators });
+        })
+        .catch(console.warn);
       try {
         const cached = await ipc.getPullRequests(slug);
         set({ prs: cached, archivedPrs: await ipc.listArchivedPrs(slug) });
@@ -352,44 +343,7 @@ export const useAppStore = create<AppStore>((set, get) => {
       }
     },
 
-    saveAgentSpec: async (spec) => {
-      try {
-        await ipc.saveAgentSpec(spec);
-        set({ agentSpecs: await ipc.listAgentSpecs() });
-      } catch (e) {
-        fail(e);
-      }
-    },
-
-    deleteAgentSpec: async (name) => {
-      try {
-        await ipc.deleteAgentSpec(name);
-        set({ agentSpecs: await ipc.listAgentSpecs() });
-      } catch (e) {
-        fail(e);
-      }
-    },
-
-    startAgentReview: async (agentName) => {
-      const { selectedRepo, selectedPr } = get();
-      if (!selectedRepo || selectedPr === null) return;
-      try {
-        set({ agentEvents: [] });
-        await ipc.startAgentReview(agentName, selectedRepo, selectedPr);
-        await reloadRuns();
-      } catch (e) {
-        fail(e);
-      }
-    },
-
-    cancelRun: async (runId) => {
-      try {
-        await ipc.cancelAgentRun(runId);
-        await reloadRuns();
-      } catch (e) {
-        fail(e);
-      }
-    },
+    ...agentActions(set, get, fail, reloadComments, reloadRuns),
 
     clearError: () => {
       set({ lastError: null });

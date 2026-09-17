@@ -77,5 +77,6 @@ export const ipc = {
   listGithubOwners: () => invoke<OwnerList>("list_github_owners"),
   listGithubRepos: (owner: string, isViewer: boolean) =>
     invoke<RepoSummary[]>("list_github_repos", { owner, isViewer }),
+  listCollaborators: (repo: string) => invoke<string[]>("list_collaborators", { repo }),
   updateSettings: (settings: Settings) => invoke<Settings>("update_settings", { settings }),
 };

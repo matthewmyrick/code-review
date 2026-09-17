@@ -233,6 +233,23 @@ impl GithubClient {
         Ok(prs)
     }
 
+    /// Collaborator logins for a repo (used for @people autocomplete).
+    /// Listing needs push access on some repos — callers treat failure
+    /// as "no extra names", not an error.
+    pub async fn list_collaborators(&self, repo: &RepoRef) -> Result<Vec<String>> {
+        #[derive(serde::Deserialize)]
+        struct Collaborator {
+            login: String,
+        }
+        let people: Vec<Collaborator> = self
+            .get_json(&format!(
+                "/repos/{}/{}/collaborators?per_page=100",
+                repo.owner, repo.name
+            ))
+            .await?;
+        Ok(people.into_iter().map(|c| c.login).collect())
+    }
+
     /// Login of the authenticated user (used to seed the repo browser).
     pub async fn viewer_login(&self) -> Result<String> {
         #[derive(serde::Deserialize)]
