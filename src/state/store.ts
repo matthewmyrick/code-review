@@ -57,7 +57,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     filters: EMPTY_FILTERS,
     searchResults: null,
     inbox: {},
-    prSort: "opened-asc",
+    prSort: "opened-desc",
     inboxAllRepos: false,
     viewer: null,
 
@@ -240,7 +240,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         inbox: {},
         // Re-seed per-repo view state from the saved defaults.
         filters: get().settings?.pr_filters ?? EMPTY_FILTERS,
-        prSort: sanitizePrSort(get().settings?.pr_sort ?? "opened-asc"),
+        prSort: sanitizePrSort(get().settings?.pr_sort ?? "opened-desc"),
       });
       try {
         const cached = await ipc.getPullRequests(slug);

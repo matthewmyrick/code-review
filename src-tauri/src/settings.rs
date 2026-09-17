@@ -10,7 +10,7 @@ use tandem_core::{Result, TandemError};
 use tandem_github::GithubConfig;
 
 /// Bump when a migration in [`Settings::load`] needs to run once.
-const SETTINGS_VERSION: u32 = 1;
+const SETTINGS_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -31,7 +31,7 @@ pub struct Settings {
 }
 
 fn default_pr_sort() -> String {
-    "opened-asc".to_owned()
+    "opened-desc".to_owned()
 }
 
 impl Default for Settings {
@@ -123,6 +123,13 @@ impl Settings {
                 // intended default exactly once.
                 if settings.version < 1 {
                     settings.pr_filters.hide_drafts = true;
+                }
+                // v1 -> v2: the default ordering changed to newest-opened;
+                // carry files that still hold the old default across.
+                if settings.version < 2 && settings.pr_sort == "opened-asc" {
+                    settings.pr_sort = "opened-desc".to_owned();
+                }
+                if settings.version < SETTINGS_VERSION {
                     settings.version = SETTINGS_VERSION;
                 }
                 Ok(settings)

@@ -36,5 +36,5 @@ export function sanitizePrSort(sort: string): PrSort {
     "number-asc",
     "number-desc",
   ];
-  return valid.includes(sort as PrSort) ? (sort as PrSort) : "opened-asc";
+  return valid.includes(sort as PrSort) ? (sort as PrSort) : "opened-desc";
 }

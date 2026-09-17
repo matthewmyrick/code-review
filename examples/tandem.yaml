@@ -17,7 +17,7 @@ pr_filters:
   hide_drafts: true
 
 # opened-asc | opened-desc | updated-desc | number-asc | number-desc
-pr_sort: opened-asc
+pr_sort: opened-desc
 
 # false = inbox tabs scope to the selected repo
 inbox_all_repos: false
