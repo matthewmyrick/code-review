@@ -48,11 +48,17 @@ pub async fn post_comment_to_github(
     let repo = comment.repo.clone();
     let number = comment.pr_number;
 
-    let github_id = if let Some(thread_id) = thread_gh_id {
+    // PR-level threads (no code anchor) always post as plain PR
+    // comments — GitHub has no threaded replies for those.
+    let github_id = if comment.path.is_empty() || comment.line == 0 {
+        client
+            .post_issue_comment(&repo, number, &comment.body)
+            .await?
+    } else if let Some(thread_id) = thread_gh_id {
         client
             .reply_to_review_comment(&repo, number, thread_id, &comment.body)
             .await?
-    } else if !comment.path.is_empty() && comment.line > 0 {
+    } else {
         client
             .create_review_comment(
                 &repo,
@@ -65,10 +71,6 @@ pub async fn post_comment_to_github(
                     body: &comment.body,
                 },
             )
-            .await?
-    } else {
-        client
-            .post_issue_comment(&repo, number, &comment.body)
             .await?
     };
 

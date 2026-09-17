@@ -1,15 +1,20 @@
 // Markdown renderer for comment bodies (GitHub-flavored: tables, code
-// fences, task lists). react-markdown never injects raw HTML, so agent
-// output is safe to render. Element styling lives in styles.css
-// (.md-body) so it follows the theme.
+// fences, task lists). Inline HTML (e.g. <sub> from bots) renders via
+// rehype-raw and is sanitized; HTML comments are stripped. Styling in
+// styles.css (.md-body).
 
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
 export function MarkdownBody({ text }: { text: string }) {
+  const cleaned = text.replace(/<!--[\s\S]*?-->/g, "");
   return (
     <div className="md-body">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, rehypeSanitize]}>
+        {cleaned}
+      </ReactMarkdown>
     </div>
   );
 }

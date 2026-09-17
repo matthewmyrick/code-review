@@ -195,7 +195,7 @@ export function Modal(props: { title: ReactNode; onClose: () => void; children: 
         if (e.target === e.currentTarget) props.onClose();
       }}
     >
-      <div className="animate-fade-up flex max-h-[82vh] w-[min(92vw,46rem)] flex-col overflow-hidden rounded-2xl border border-edge bg-panel shadow-2xl">
+      <div className="animate-fade-up flex h-[85vh] w-[min(85vw,80rem)] flex-col overflow-hidden rounded-2xl border border-edge bg-panel shadow-2xl">
         <div className="flex items-center gap-2 border-b border-edge px-4 py-2.5">
           <div className="min-w-0 flex-1 text-xs font-medium text-cream">{props.title}</div>
           <button

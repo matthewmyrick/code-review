@@ -3,21 +3,23 @@
 // opens the full thread in a centered floating pane with replies and
 // actions. Sections: open / triaged / archived / on github.
 
-import { Bot, MessageSquare, Send, User } from "lucide-react";
+import { Bot, MessageSquare, MessageSquarePlus, Send, User } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
 import type { GithubComment, LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { CommentThread, GithubCommentCard, groupThreads } from "./comments";
-import { GithubMark, Modal, Pill, severityTone } from "./ui";
+import { InlineCommentForm } from "./InlineCommentForm";
+import { Button, GithubMark, Modal, Pill, severityTone } from "./ui";
 
 interface Thread {
   root: LocalComment;
   replies: LocalComment[];
 }
 
-type Selected = { kind: "local"; id: string } | { kind: "github"; id: number } | null;
+type Selected =
+  { kind: "local"; id: string } | { kind: "github"; id: number } | { kind: "new-general" } | null;
 
 /** Plain-text preview of a (possibly huge) markdown body. */
 function preview(body: string): string {
@@ -49,16 +51,21 @@ export function CommentsPanel() {
   const selectedGithub =
     selected?.kind === "github" ? (githubComments.find((c) => c.id === selected.id) ?? null) : null;
 
-  if (threads.length === 0 && githubComments.length === 0) {
-    return (
-      <div className="p-4 text-center text-xs leading-relaxed text-muted">
-        no comments yet — hover a diff line and hit +, or run an agent review
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-1.5 p-3">
+      <Button
+        onClick={() => {
+          setSelected({ kind: "new-general" });
+        }}
+        title="a PR-level local comment, not tied to any code line"
+      >
+        <MessageSquarePlus size={12} /> general comment
+      </Button>
+      {threads.length === 0 && githubComments.length === 0 ? (
+        <div className="p-4 text-center text-xs leading-relaxed text-muted">
+          no comments yet — hover a diff line and hit +, or run an agent review
+        </div>
+      ) : null}
       {open.length > 0 ? <SectionLabel text={`open (${String(open.length)})`} /> : null}
       {open.map((t) => (
         <ThreadSummary key={t.root.id} thread={t} onOpen={setSelected} />
@@ -68,6 +75,15 @@ export function CommentsPanel() {
       {triaged.map((t) => (
         <ThreadSummary key={t.root.id} thread={t} onOpen={setSelected} />
       ))}
+
+      {githubComments.length > 0 ? (
+        <>
+          <SectionLabel text={`on github (${String(githubComments.length)})`} />
+          {githubComments.map((c) => (
+            <GithubSummary key={c.id} comment={c} onOpen={setSelected} />
+          ))}
+        </>
+      ) : null}
 
       {archived.length > 0 ? (
         <details className="mt-1">
@@ -82,21 +98,16 @@ export function CommentsPanel() {
         </details>
       ) : null}
 
-      {githubComments.length > 0 ? (
-        <>
-          <SectionLabel text={`on github (${String(githubComments.length)})`} />
-          {githubComments.map((c) => (
-            <GithubSummary key={c.id} comment={c} onOpen={setSelected} />
-          ))}
-        </>
-      ) : null}
-
       {selectedThread ? (
         <Modal
           title={
-            <span className="font-mono text-sky">
-              {selectedThread.root.path}:{selectedThread.root.line}
-            </span>
+            selectedThread.root.path ? (
+              <span className="font-mono text-sky">
+                {selectedThread.root.path}:{selectedThread.root.line}
+              </span>
+            ) : (
+              "PR comment (local)"
+            )
           }
           onClose={() => {
             setSelected(null);
@@ -126,9 +137,67 @@ export function CommentsPanel() {
           }}
         >
           <GithubCommentCard comment={selectedGithub} />
+          {threads
+            .filter((t) => t.root.github_comment_id === selectedGithub.id)
+            .map((t) => (
+              <div key={t.root.id} className="mt-3 rounded-lg border border-edge bg-panel-2/40 p-3">
+                <CommentThread root={t.root} replies={t.replies} />
+              </div>
+            ))}
+          <div className="mt-4 border-t border-edge pt-3">
+            <div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted">
+              reply locally — post to github when you choose
+            </div>
+            <FreshComposer
+              path={selectedGithub.path ?? ""}
+              line={selectedGithub.line ?? 0}
+              githubCommentId={selectedGithub.id}
+            />
+          </div>
+        </Modal>
+      ) : null}
+
+      {selected?.kind === "new-general" ? (
+        <Modal
+          title="new general comment (local)"
+          onClose={() => {
+            setSelected(null);
+          }}
+        >
+          <FreshComposer
+            path=""
+            line={0}
+            onDone={() => {
+              setSelected(null);
+            }}
+          />
         </Modal>
       ) : null}
     </div>
+  );
+}
+
+/** Composer that resets itself after each send so it can live inside a
+ * modal permanently. */
+function FreshComposer(props: {
+  path: string;
+  line: number;
+  githubCommentId?: number;
+  onDone?: () => void;
+}) {
+  const [generation, setGeneration] = useState(0);
+  return (
+    <InlineCommentForm
+      key={generation}
+      path={props.path}
+      line={props.line}
+      side="new"
+      githubCommentId={props.githubCommentId}
+      onDone={() => {
+        setGeneration((g) => g + 1);
+        props.onDone?.();
+      }}
+    />
   );
 }
 
@@ -161,7 +230,7 @@ function ThreadSummary(props: { thread: Thread; onOpen: (s: Selected) => void })
         <span className="ml-auto text-[10px] text-muted">{relativeTime(root.created_at)}</span>
       </div>
       <div className="truncate font-mono text-[10px] text-sky">
-        {root.path}:{root.line}
+        {root.path ? `${root.path}:${String(root.line)}` : "PR comment"}
       </div>
       <div className="mt-0.5 line-clamp-2 text-xs leading-snug text-cream/85">
         {preview(root.body)}
