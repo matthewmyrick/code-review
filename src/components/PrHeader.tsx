@@ -1,10 +1,11 @@
 // PR title bar: branches, checks, reviews/approvers, labels — everything
 // pulled from GitHub, read-only.
 
-import { Check, ExternalLink, FileText, RefreshCw, X } from "lucide-react";
+import { Check, ExternalLink, FileText, Loader, RefreshCw, Sparkles, X } from "lucide-react";
 import { useState } from "react";
 
 import { shortSha } from "../lib/format";
+import { ipc } from "../lib/ipc";
 import { openExternal, prUrl } from "../lib/open";
 import { MarkdownBody } from "./Markdown";
 import type { PrDetail } from "../lib/types";
@@ -114,62 +115,108 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
   );
 }
 
-/// Two-step "approve on GitHub" — an explicit user action.
+/// Approve on GitHub via a popover: optional multi-line markdown review
+/// body (with AI polish), explicit confirm.
 function ApproveButton() {
   const approvePr = useAppStore((s) => s.approvePr);
-  const [confirming, setConfirming] = useState(false);
+  const [open, setOpen] = useState(false);
   const [working, setWorking] = useState(false);
+  const [polishing, setPolishing] = useState(false);
   const [body, setBody] = useState("");
 
-  if (working) return <Spinner label="approving…" />;
-  if (confirming) {
-    return (
-      <span className="flex items-center gap-1.5">
-        <input
-          autoFocus
-          value={body}
-          onChange={(e) => {
-            setBody(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setConfirming(false);
-          }}
-          placeholder="optional approval comment…"
-          className="w-48 rounded-md border border-edge bg-ground px-2 py-1 text-xs text-cream outline-none focus:border-sky"
-        />
-        <Button
-          kind="danger"
-          title="this WILL submit an approving review on GitHub"
-          onClick={() => {
-            setWorking(true);
-            void approvePr(body.trim() ? body.trim() : null).then(() => {
-              setWorking(false);
-              setConfirming(false);
-              setBody("");
-            });
-          }}
-        >
-          <Check size={12} /> confirm
-        </Button>
-        <Button
-          onClick={() => {
-            setConfirming(false);
-          }}
-        >
-          cancel
-        </Button>
-      </span>
-    );
-  }
+  const submit = () => {
+    setWorking(true);
+    void approvePr(body.trim() ? body.trim() : null).then(() => {
+      setWorking(false);
+      setOpen(false);
+      setBody("");
+    });
+  };
+
+  const polish = () => {
+    if (!body.trim() || polishing) return;
+    setPolishing(true);
+    ipc
+      .polishText(body)
+      .then(setBody)
+      .catch((e: unknown) => {
+        console.error("polish failed", e);
+      })
+      .finally(() => {
+        setPolishing(false);
+      });
+  };
+
   return (
-    <Button
-      kind="primary"
-      title="approve this PR on GitHub (asks to confirm)"
-      onClick={() => {
-        setConfirming(true);
-      }}
-    >
-      <Check size={12} /> approve
-    </Button>
+    <span className="relative">
+      <Button
+        kind="primary"
+        title="approve this PR on GitHub (opens a confirm panel)"
+        onClick={() => {
+          setOpen((o) => !o);
+        }}
+      >
+        <Check size={12} /> approve
+      </Button>
+
+      {open ? (
+        <div className="animate-fade-up absolute right-0 top-full z-40 mt-2 w-96 rounded-xl border border-edge bg-panel p-3 shadow-2xl">
+          <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
+            approve on github
+          </div>
+          <div className="relative">
+            <textarea
+              autoFocus
+              value={body}
+              onChange={(e) => {
+                setBody(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+                if (e.key === "Escape") setOpen(false);
+              }}
+              placeholder={
+                "optional review comment — markdown supported\n(posted as your review body, \u2318\u21B5 to approve)"
+              }
+              className="min-h-28 w-full resize-y rounded-md border border-edge bg-ground p-2 pr-8 text-xs leading-relaxed text-cream outline-none focus:border-sky"
+            />
+            <button
+              type="button"
+              onClick={polish}
+              disabled={polishing || !body.trim()}
+              title="polish — fix typos & grammar with AI"
+              className="absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-amber disabled:pointer-events-none disabled:opacity-30"
+            >
+              {polishing ? <Loader size={12} className="animate-spin" /> : <Sparkles size={12} />}
+            </button>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            {working ? (
+              <Spinner label="approving…" />
+            ) : (
+              <>
+                <Button
+                  kind="danger"
+                  title="this WILL submit an approving review on GitHub"
+                  onClick={submit}
+                >
+                  <Check size={12} /> confirm approve
+                </Button>
+                <Button
+                  onClick={() => {
+                    setOpen(false);
+                  }}
+                >
+                  cancel
+                </Button>
+              </>
+            )}
+            <span className="ml-auto text-[10px] text-muted">
+              {body.trim() ? `${String(body.trim().length)} chars` : "no comment"}
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </span>
   );
 }
