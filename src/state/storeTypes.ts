@@ -62,6 +62,7 @@ export interface AppStore {
   loadInbox: (scope: InboxScope, force?: boolean) => Promise<void>;
   setPrSort: (sort: PrSort) => void;
   toggleInboxAllRepos: () => void;
+  setInboxAllRepos: (value: boolean) => void;
   openPr: (repoSlug: string, number: number) => Promise<void>;
   selectRepo: (slug: string) => Promise<void>;
   selectPr: (number: number) => Promise<void>;

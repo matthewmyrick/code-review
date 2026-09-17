@@ -8,10 +8,15 @@ import { ipc } from "../lib/ipc";
 import type { RunEvent, SyncEvent } from "../lib/types";
 import { EMPTY_FILTERS } from "../lib/types";
 
-import { applyTheme, loadPinned, loadPrSort, loadTheme, PR_SORT_KEY } from "./persist";
+import { applyTheme, loadPinned, loadTheme } from "./persist";
 import type { AppStore } from "./storeTypes";
 
 export type { Theme, View } from "./storeTypes";
+
+function sanitizeSort(sort: string): AppStore["prSort"] {
+  const valid = ["opened-asc", "opened-desc", "updated-desc", "number-asc", "number-desc"];
+  return valid.includes(sort) ? (sort as AppStore["prSort"]) : "opened-asc";
+}
 
 // React StrictMode double-invokes effects in dev; without this guard the
 // event listeners register twice and every log line shows up duplicated.
@@ -56,8 +61,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     filters: EMPTY_FILTERS,
     searchResults: null,
     inbox: {},
-    prSort: loadPrSort(),
-    inboxAllRepos: localStorage.getItem("tandem-inbox-all") === "true",
+    prSort: "opened-asc",
+    inboxAllRepos: false,
 
     init: async () => {
       if (initStarted) return;
@@ -83,7 +88,13 @@ export const useAppStore = create<AppStore>((set, get) => {
       try {
         const settings = await ipc.getSettings();
         const agentSpecs = await ipc.listAgentSpecs();
-        set({ settings, agentSpecs, filters: settings.pr_filters });
+        set({
+          settings,
+          agentSpecs,
+          filters: settings.pr_filters,
+          prSort: sanitizeSort(settings.pr_sort),
+          inboxAllRepos: settings.inbox_all_repos,
+        });
         const first = settings.repos[0];
         if (first) await get().selectRepo(first);
         // Prefetch the review-request inbox for the tab badge (scoped
@@ -126,7 +137,6 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     setPrSort: (sort) => {
-      localStorage.setItem(PR_SORT_KEY, sort);
       set({ prSort: sort });
     },
 
@@ -142,10 +152,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     toggleInboxAllRepos: () => {
-      const next = !get().inboxAllRepos;
-      localStorage.setItem("tandem-inbox-all", String(next));
+      get().setInboxAllRepos(!get().inboxAllRepos);
+    },
+
+    setInboxAllRepos: (value) => {
+      if (value === get().inboxAllRepos) return;
       // Drop cached results so every tab refetches at the new scope.
-      set({ inboxAllRepos: next, inbox: {} });
+      set({ inboxAllRepos: value, inbox: {} });
     },
 
     openPr: async (repoSlug, number) => {
@@ -219,10 +232,11 @@ export const useAppStore = create<AppStore>((set, get) => {
         prs: [],
         prPage: 1,
         archivedPrs: [],
-        filters: EMPTY_FILTERS,
         searchResults: null,
         inbox: {},
-        prSort: loadPrSort(),
+        // Re-seed per-repo view state from the saved defaults.
+        filters: get().settings?.pr_filters ?? EMPTY_FILTERS,
+        prSort: sanitizeSort(get().settings?.pr_sort ?? "opened-asc"),
       });
       try {
         const cached = await ipc.getPullRequests(slug);

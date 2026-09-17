@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ipc } from "../lib/ipc";
+import { PR_SORTS } from "../lib/sort";
 import type { GithubAuth, PrFilters, Settings } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
@@ -112,15 +113,19 @@ function GithubSection({ settings }: { settings: Settings }) {
 function FiltersSection({ settings }: { settings: Settings }) {
   const saveSettings = useAppStore((s) => s.saveSettings);
   const setRuntimeFilters = useAppStore((s) => s.setFilters);
+  const setPrSort = useAppStore((s) => s.setPrSort);
+  const setInboxAllRepos = useAppStore((s) => s.setInboxAllRepos);
   const [filters, setFilters] = useState<PrFilters>(settings.pr_filters);
+  const [sort, setSort] = useState(settings.pr_sort);
+  const [allRepos, setAllRepos] = useState(settings.inbox_all_repos);
   const patch = (p: Partial<PrFilters>) => {
     setFilters((f) => ({ ...f, ...p }));
   };
 
   return (
     <Section
-      title="Default PR filters"
-      hint="applied to the PR list whenever you open a repo — adjust or clear them there anytime"
+      title="Default PR view"
+      hint="filters, ordering and inbox scope applied whenever you open a repo — adjustable in the sidebar anytime"
     >
       <div className="flex flex-col gap-2 text-xs">
         <div className="grid grid-cols-3 gap-2">
@@ -174,12 +179,47 @@ function FiltersSection({ settings }: { settings: Settings }) {
           />
           hide draft PRs by default
         </label>
+        <div className="grid grid-cols-2 items-center gap-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-muted">default sort order</span>
+            <select
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value);
+              }}
+              className={inputClass}
+            >
+              {PR_SORTS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="mt-4 flex items-center gap-2 text-muted">
+            <input
+              type="checkbox"
+              checked={allRepos}
+              onChange={(e) => {
+                setAllRepos(e.target.checked);
+              }}
+            />
+            inbox tabs search all repos
+          </label>
+        </div>
         <div>
           <Button
             kind="primary"
             onClick={() => {
-              void saveSettings({ ...settings, pr_filters: filters });
+              void saveSettings({
+                ...settings,
+                pr_filters: filters,
+                pr_sort: sort,
+                inbox_all_repos: allRepos,
+              });
               setRuntimeFilters(filters);
+              setPrSort(sort as Parameters<typeof setPrSort>[0]);
+              setInboxAllRepos(allRepos);
             }}
           >
             save defaults

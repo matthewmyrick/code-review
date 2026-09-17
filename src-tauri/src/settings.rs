@@ -21,8 +21,17 @@ pub struct Settings {
     /// Default PR-list filters, applied whenever a repo is opened; the
     /// user can adjust or clear them at runtime without saving.
     pub pr_filters: PrFilters,
+    /// Default ordering for PR lists ("opened-asc", "updated-desc", ...).
+    #[serde(default = "default_pr_sort")]
+    pub pr_sort: String,
+    /// Whether inbox tabs search every repo instead of the selected one.
+    pub inbox_all_repos: bool,
     /// Settings schema version (for one-time migrations on load).
     pub version: u32,
+}
+
+fn default_pr_sort() -> String {
+    "opened-asc".to_owned()
 }
 
 impl Default for Settings {
@@ -31,6 +40,8 @@ impl Default for Settings {
             github: GithubConfig::default(),
             repos: Vec::new(),
             pr_filters: PrFilters::default(),
+            pr_sort: default_pr_sort(),
+            inbox_all_repos: false,
             version: SETTINGS_VERSION,
         }
     }

@@ -1,10 +1,8 @@
-// localStorage-backed UI preferences (theme, pane pins, sort order).
+// localStorage-backed UI preferences (theme, pane pins).
 
-import type { PrSort } from "../lib/sort";
 import type { Theme } from "./storeTypes";
 
 const THEME_KEY = "tandem-theme";
-export const PR_SORT_KEY = "tandem-pr-sort";
 
 export function loadTheme(): Theme {
   // Light is the default; dark only when explicitly chosen.
@@ -18,16 +16,4 @@ export function applyTheme(theme: Theme) {
 
 export function loadPinned(key: string): boolean {
   return localStorage.getItem(key) !== "false";
-}
-
-export function loadPrSort(): PrSort {
-  const saved = localStorage.getItem(PR_SORT_KEY);
-  const valid: PrSort[] = [
-    "opened-asc",
-    "opened-desc",
-    "updated-desc",
-    "number-asc",
-    "number-desc",
-  ];
-  return valid.includes(saved as PrSort) ? (saved as PrSort) : "opened-asc";
 }
