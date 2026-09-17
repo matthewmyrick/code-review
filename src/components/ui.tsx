@@ -1,7 +1,8 @@
 // Tiny shared UI primitives, styled for the Tandem theme.
 
-import { GitPullRequest } from "lucide-react";
+import { GitPullRequest, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 
 import type { CheckState, CommentSeverity, RunStatus } from "../lib/types";
 
@@ -171,4 +172,43 @@ export function EmptyState(props: {
 
 export function Skeleton(props: { className?: string }) {
   return <div className={`skeleton ${props.className ?? ""}`} />;
+}
+
+/** Centered floating pane over a dimmed backdrop. Escape or clicking
+ * the backdrop closes it. */
+export function Modal(props: { title: ReactNode; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") props.onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onClose();
+      }}
+    >
+      <div className="animate-fade-up flex max-h-[82vh] w-[min(92vw,46rem)] flex-col overflow-hidden rounded-2xl border border-edge bg-panel shadow-2xl">
+        <div className="flex items-center gap-2 border-b border-edge px-4 py-2.5">
+          <div className="min-w-0 flex-1 text-xs font-medium text-cream">{props.title}</div>
+          <button
+            type="button"
+            onClick={props.onClose}
+            title="close (esc)"
+            className="inline-flex size-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-panel-2 hover:text-cream"
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">{props.children}</div>
+      </div>
+    </div>
+  );
 }
