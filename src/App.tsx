@@ -96,6 +96,7 @@ function ReviewLayout() {
   const [tab, setTab] = useState<"comments" | "agents">("agents");
 
   const agentRunning = runs.some((r) => r.status === "starting" || r.status === "running");
+  const commentCount = bundle ? bundle.comments.length + bundle.detail.comments.length : 0;
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prKey = `${selectedRepo ?? ""}#${String(selectedPr ?? "")}`;
 
@@ -185,9 +186,9 @@ function ReviewLayout() {
                 <Bot size={16} />
                 {agentRunning ? <span className="run-dot" /> : null}
               </span>
-              {bundle.comments.length > 0 ? (
+              {commentCount > 0 ? (
                 <span className="rounded-full bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold text-cream">
-                  {bundle.comments.length}
+                  {commentCount}
                 </span>
               ) : null}
             </>
@@ -207,7 +208,7 @@ function ReviewLayout() {
                   }`}
                 >
                   {t === "agents" ? <Bot size={13} /> : <MessageSquare size={13} />}
-                  {t === "agents" ? "agents" : `comments (${String(bundle.comments.length)})`}
+                  {t === "agents" ? "agents" : `comments (${String(commentCount)})`}
                 </button>
               ))}
             </div>
