@@ -25,6 +25,9 @@ interface MentionInputProps {
   onSubmit?: () => void;
   onCancel?: () => void;
   mono?: boolean;
+  /** Suggest only GitHub users — for composers that post to GitHub,
+   * where an agent mention would be meaningless (or ping a stranger). */
+  peopleOnly?: boolean;
 }
 
 /** The "@token" being typed at the caret, if any. */
@@ -80,7 +83,7 @@ export function MentionInput(props: MentionInputProps) {
 
   const suggestions: Suggestion[] = mention
     ? [
-        ...specs
+        ...(props.peopleOnly ? [] : specs)
           .filter((s) => s.name.toLowerCase().startsWith(mention.query.toLowerCase()))
           .map((s) => ({ name: s.name, kind: "agent" as const, detail: s.runner.kind })),
         ...people
