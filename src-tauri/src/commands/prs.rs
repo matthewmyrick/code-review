@@ -181,15 +181,16 @@ pub async fn list_my_prs(
     state: State<'_, AppState>,
     scope: String,
 ) -> Result<Vec<PullRequest>, TandemError> {
+    let client = state.github_client().await?;
     let query = match scope.as_str() {
         "requested" => "review-requested:@me",
         "mentions" => "mentions:@me",
         "involved" => "involves:@me",
+        "approved" => return client.approved_by_me().await,
         other => {
             return Err(TandemError::Config(format!("unknown inbox scope: {other}")));
         }
     };
-    let client = state.github_client().await?;
     client.search_global_prs(query).await
 }
 

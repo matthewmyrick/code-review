@@ -195,10 +195,33 @@ impl From<WireComment> for GithubComment {
     }
 }
 
+/// Collapse raw review events into each reviewer's effective verdict:
+/// the latest APPROVED / CHANGES_REQUESTED per author, cleared by a
+/// later DISMISSED. Comment-only reviews never override a verdict.
+pub fn effective_reviews(mut reviews: Vec<GithubReview>) -> Vec<GithubReview> {
+    reviews.sort_by_key(|r| r.submitted_at);
+    let mut latest: Vec<GithubReview> = Vec::new();
+    for review in reviews {
+        let author = review.author.login.clone();
+        match review.verdict {
+            ReviewVerdict::Approved | ReviewVerdict::ChangesRequested => {
+                latest.retain(|r| r.author.login != author);
+                latest.push(review);
+            }
+            ReviewVerdict::Dismissed => {
+                latest.retain(|r| r.author.login != author);
+            }
+            ReviewVerdict::Commented | ReviewVerdict::Pending => {}
+        }
+    }
+    latest
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     #[test]
     fn pull_state_normalization() {
@@ -217,6 +240,37 @@ mod tests {
         assert_eq!(pr.state, PrState::Merged);
         assert_eq!(pr.body, "");
         assert_eq!(pr.head_sha, "abc");
+    }
+
+    #[test]
+    fn effective_reviews_dedupe_and_dismiss() {
+        let review = |login: &str, verdict: ReviewVerdict, minute: u32| GithubReview {
+            author: User {
+                login: login.into(),
+                avatar_url: None,
+            },
+            verdict,
+            body: String::new(),
+            submitted_at: chrono::Utc
+                .with_ymd_and_hms(2026, 1, 1, 0, minute, 0)
+                .single(),
+        };
+        let effective = effective_reviews(vec![
+            review("matt", ReviewVerdict::Approved, 1),
+            review("matt", ReviewVerdict::Approved, 2),
+            review("sam", ReviewVerdict::ChangesRequested, 3),
+            review("sam", ReviewVerdict::Approved, 4),
+            review("kai", ReviewVerdict::Approved, 5),
+            review("kai", ReviewVerdict::Dismissed, 6),
+            review("lee", ReviewVerdict::Commented, 7),
+        ]);
+        assert_eq!(effective.len(), 2);
+        assert!(effective
+            .iter()
+            .any(|r| r.author.login == "matt" && r.verdict == ReviewVerdict::Approved));
+        assert!(effective
+            .iter()
+            .any(|r| r.author.login == "sam" && r.verdict == ReviewVerdict::Approved));
     }
 
     #[test]

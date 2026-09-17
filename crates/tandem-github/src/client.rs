@@ -7,11 +7,15 @@
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use tandem_core::diff::FileDiff;
 use tandem_core::diff_parse::parse_unified_diff;
-use tandem_core::github::{GithubComment, PrDetail, PullRequest, RepoRef};
+use tandem_core::github::{
+    GithubComment, GithubReview, PrDetail, PullRequest, RepoRef, ReviewVerdict,
+};
 use tandem_core::{Result, TandemError};
 
 use crate::auth::GithubConfig;
-use crate::wire::{RepoSummary, WireCheckRunList, WireComment, WirePull, WireReview, WireSearch};
+use crate::wire::{
+    effective_reviews, RepoSummary, WireCheckRunList, WireComment, WirePull, WireReview, WireSearch,
+};
 use crate::write::urlenc;
 
 pub(crate) const JSON_ACCEPT: &str = "application/vnd.github+json";
@@ -184,6 +188,47 @@ impl GithubClient {
         Ok(prs)
     }
 
+    /// Raw review events on one PR.
+    async fn pr_reviews(&self, repo: &RepoRef, number: u64) -> Result<Vec<GithubReview>> {
+        let raw: Vec<WireReview> = self
+            .get_json(&format!(
+                "/repos/{}/{}/pulls/{number}/reviews?per_page=100",
+                repo.owner, repo.name
+            ))
+            .await?;
+        Ok(raw.into_iter().map(Into::into).collect())
+    }
+
+    /// Open PRs the authenticated user has APPROVED that are still open
+    /// (i.e. waiting on other reviewers or the author). Search can't
+    /// express "approved by me", so candidates come from reviewed-by:@me
+    /// and each one's reviews are checked for your effective approval.
+    pub async fn approved_by_me(&self) -> Result<Vec<PullRequest>> {
+        let viewer = self.viewer_login().await?;
+        let candidates = self.search_global_prs("reviewed-by:@me").await?;
+
+        let mut set = tokio::task::JoinSet::new();
+        for pr in candidates {
+            let client = self.clone();
+            let viewer = viewer.clone();
+            set.spawn(async move {
+                let reviews = client.pr_reviews(&pr.repo, pr.number).await.ok()?;
+                let approved = effective_reviews(reviews)
+                    .into_iter()
+                    .any(|r| r.author.login == viewer && r.verdict == ReviewVerdict::Approved);
+                approved.then_some(pr)
+            });
+        }
+        let mut prs = Vec::new();
+        while let Some(joined) = set.join_next().await {
+            if let Ok(Some(pr)) = joined {
+                prs.push(pr);
+            }
+        }
+        prs.sort_by_key(|p| std::cmp::Reverse(p.updated_at));
+        Ok(prs)
+    }
+
     /// Login of the authenticated user (used to seed the repo browser).
     pub async fn viewer_login(&self) -> Result<String> {
         #[derive(serde::Deserialize)]
@@ -259,7 +304,7 @@ impl GithubClient {
         Ok(PrDetail {
             pull_request,
             checks: checks.check_runs.into_iter().map(Into::into).collect(),
-            reviews: reviews.into_iter().map(Into::into).collect(),
+            reviews: effective_reviews(reviews.into_iter().map(Into::into).collect()),
             comments,
         })
     }
