@@ -70,6 +70,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     archivedPrs: [],
     filters: EMPTY_FILTERS,
     searchResults: null,
+    reviewRequests: [],
 
     init: async () => {
       if (initStarted) return;
@@ -96,6 +97,14 @@ export const useAppStore = create<AppStore>((set, get) => {
         const settings = await ipc.getSettings();
         const agentSpecs = await ipc.listAgentSpecs();
         set({ settings, agentSpecs, filters: settings.pr_filters });
+        // Account-wide "review requested" list; auth-dependent, so a
+        // failure here (e.g. anonymous mode) is quiet, not an error bar.
+        ipc
+          .listReviewRequests()
+          .then((reviewRequests) => {
+            set({ reviewRequests });
+          })
+          .catch(console.warn);
         const first = settings.repos[0];
         if (first) await get().selectRepo(first);
       } catch (e) {
@@ -132,6 +141,21 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     clearSearch: () => {
       set({ searchResults: null });
+    },
+
+    loadReviewRequests: async () => {
+      try {
+        set({ reviewRequests: await ipc.listReviewRequests() });
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    openPr: async (repoSlug, number) => {
+      if (get().selectedRepo !== repoSlug) {
+        await get().selectRepo(repoSlug);
+      }
+      await get().selectPr(number);
     },
 
     toggleTheme: () => {
@@ -200,6 +224,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         archivedPrs: [],
         filters: EMPTY_FILTERS,
         searchResults: null,
+        reviewRequests: [],
       });
       try {
         const cached = await ipc.getPullRequests(slug);

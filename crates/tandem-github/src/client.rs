@@ -154,6 +154,36 @@ impl GithubClient {
         Ok(prs)
     }
 
+    /// Open PRs across ALL repos where the authenticated user's review
+    /// is requested, hydrated in full and newest-activity first.
+    pub async fn review_requested_prs(&self) -> Result<Vec<PullRequest>> {
+        let q = urlenc("is:pr is:open review-requested:@me");
+        let path = format!("/search/issues?q={q}&per_page=30&sort=updated");
+        let found: WireSearch = self.get_json(&path).await?;
+
+        let mut set = tokio::task::JoinSet::new();
+        for item in found.items {
+            let Some(repo) = item
+                .repository_url
+                .as_deref()
+                .and_then(|u| u.split_once("/repos/"))
+                .and_then(|(_, slug)| RepoRef::parse(slug))
+            else {
+                continue;
+            };
+            let client = self.clone();
+            set.spawn(async move { client.pull_request(&repo, item.number).await });
+        }
+        let mut prs = Vec::new();
+        while let Some(joined) = set.join_next().await {
+            if let Ok(Ok(pr)) = joined {
+                prs.push(pr);
+            }
+        }
+        prs.sort_by_key(|p| std::cmp::Reverse(p.updated_at));
+        Ok(prs)
+    }
+
     /// Login of the authenticated user (used to seed the repo browser).
     pub async fn viewer_login(&self) -> Result<String> {
         #[derive(serde::Deserialize)]

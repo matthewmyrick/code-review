@@ -38,6 +38,7 @@ export interface AppStore {
   archivedPrs: ArchivedPr[];
   filters: PrFilters;
   searchResults: PullRequest[] | null;
+  reviewRequests: PullRequest[];
 
   init: () => Promise<void>;
   setView: (view: View) => void;
@@ -54,6 +55,8 @@ export interface AppStore {
   clearFilters: () => void;
   searchPrs: () => Promise<void>;
   clearSearch: () => void;
+  loadReviewRequests: () => Promise<void>;
+  openPr: (repoSlug: string, number: number) => Promise<void>;
   selectRepo: (slug: string) => Promise<void>;
   selectPr: (number: number) => Promise<void>;
   refreshPrs: () => Promise<void>;

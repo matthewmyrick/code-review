@@ -2,7 +2,7 @@
 // held in the 3-day archive. (The changed-files tree lives inside the
 // PR view.)
 
-import { Archive, Search, SlidersHorizontal, X } from "lucide-react";
+import { Archive, Inbox, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { relativeTime } from "../lib/format";
 import { fuzzyScore } from "../lib/fuzzy";
@@ -38,10 +38,60 @@ export function Sidebar() {
 
       <FilterBar />
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <ReviewRequestsSection />
         <PrList />
         <ArchivedList />
       </div>
     </div>
+  );
+}
+
+/** Open PRs across all repos waiting on your review (account-wide). */
+function ReviewRequestsSection() {
+  const requests = useAppStore((s) => s.reviewRequests);
+  const loadReviewRequests = useAppStore((s) => s.loadReviewRequests);
+  const openPr = useAppStore((s) => s.openPr);
+  if (requests.length === 0) return null;
+
+  return (
+    <details open className="border-b border-edge/60 px-2 py-2">
+      <summary className="flex cursor-pointer items-center gap-1.5 px-1 py-1 text-[11px] uppercase tracking-wide text-amber hover:text-cream">
+        <Inbox size={11} /> review requested ({requests.length})
+        <button
+          type="button"
+          title="refresh review requests"
+          onClick={(e) => {
+            e.preventDefault();
+            void loadReviewRequests();
+          }}
+          className="ml-auto inline-flex size-5 items-center justify-center rounded text-muted hover:bg-panel-2 hover:text-cream"
+        >
+          <RefreshCw size={10} />
+        </button>
+      </summary>
+      <div className="mt-1 space-y-1">
+        {requests.map((pr) => (
+          <button
+            key={`${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`}
+            type="button"
+            onClick={() => {
+              void openPr(`${pr.repo.owner}/${pr.repo.name}`, pr.number);
+            }}
+            className="block w-full rounded-lg border border-transparent px-3 py-2 text-left transition-all hover:border-edge hover:bg-panel-2/60"
+          >
+            <div className="mb-0.5 flex items-center gap-2 text-[10px] text-muted">
+              <span className="truncate font-mono">
+                {pr.repo.owner}/{pr.repo.name}
+              </span>
+              <span className="ml-auto">{relativeTime(pr.updated_at)}</span>
+            </div>
+            <div className="line-clamp-1 text-[12px] text-cream">
+              <span className="font-medium text-amber">#{pr.number}</span> {pr.title}
+            </div>
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
 

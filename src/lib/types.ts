@@ -215,6 +215,7 @@ export interface Settings {
   github: GithubConfig;
   repos: string[];
   pr_filters: PrFilters;
+  version: number;
 }
 
 export interface PrBundle {

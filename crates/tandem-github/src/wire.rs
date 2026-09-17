@@ -19,6 +19,10 @@ pub struct WireSearch {
 #[derive(Debug, Deserialize)]
 pub struct WireSearchItem {
     pub number: u64,
+    /// e.g. https://api.github.com/repos/owner/name — present in global
+    /// searches where the repo isn't implied by the query.
+    #[serde(default)]
+    pub repository_url: Option<String>,
 }
 
 /// Slim repo row for the settings repo browser.

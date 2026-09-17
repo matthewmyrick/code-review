@@ -9,7 +9,10 @@ use std::path::{Path, PathBuf};
 use tandem_core::{Result, TandemError};
 use tandem_github::GithubConfig;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// Bump when a migration in [`Settings::load`] needs to run once.
+const SETTINGS_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub github: GithubConfig,
@@ -18,6 +21,19 @@ pub struct Settings {
     /// Default PR-list filters, applied whenever a repo is opened; the
     /// user can adjust or clear them at runtime without saving.
     pub pr_filters: PrFilters,
+    /// Settings schema version (for one-time migrations on load).
+    pub version: u32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            github: GithubConfig::default(),
+            repos: Vec::new(),
+            pr_filters: PrFilters::default(),
+            version: SETTINGS_VERSION,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,7 +105,17 @@ fn migrate_legacy_dir(old: &Path, new: &Path) {
 impl Settings {
     pub fn load(path: &Path) -> Result<Self> {
         match std::fs::read_to_string(path) {
-            Ok(contents) => Ok(serde_json::from_str(&contents)?),
+            Ok(contents) => {
+                let mut settings: Self = serde_json::from_str(&contents)?;
+                // v0 -> v1: files saved before the filters UI existed may
+                // carry an unintended hide_drafts=false — restore the
+                // intended default exactly once.
+                if settings.version < 1 {
+                    settings.pr_filters.hide_drafts = true;
+                    settings.version = SETTINGS_VERSION;
+                }
+                Ok(settings)
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(e.into()),
         }

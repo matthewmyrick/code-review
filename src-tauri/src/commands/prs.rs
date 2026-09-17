@@ -175,6 +175,15 @@ pub async fn search_prs(
     result
 }
 
+/// PRs across all repos waiting on the authenticated user's review.
+#[tauri::command]
+pub async fn list_review_requests(
+    state: State<'_, AppState>,
+) -> Result<Vec<PullRequest>, TandemError> {
+    let client = state.github_client().await?;
+    client.review_requested_prs().await
+}
+
 #[tauri::command]
 pub async fn list_archived_prs(
     state: State<'_, AppState>,

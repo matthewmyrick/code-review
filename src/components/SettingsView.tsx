@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ipc } from "../lib/ipc";
 import type { GithubAuth, PrFilters, Settings } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
@@ -131,14 +132,29 @@ function FiltersSection({ settings }: { settings: Settings }) {
             placeholder="search text"
             className={inputClass}
           />
-          <input
-            value={filters.author}
-            onChange={(e) => {
-              patch({ author: e.target.value });
-            }}
-            placeholder="author"
-            className={inputClass}
-          />
+          <div className="flex gap-1">
+            <input
+              value={filters.author}
+              onChange={(e) => {
+                patch({ author: e.target.value });
+              }}
+              placeholder="author"
+              className={inputClass}
+            />
+            <Button
+              onClick={() => {
+                void ipc
+                  .listGithubOwners()
+                  .then((o) => {
+                    patch({ author: o.viewer });
+                  })
+                  .catch(console.warn);
+              }}
+              title="use your authenticated GitHub username"
+            >
+              me
+            </Button>
+          </div>
           <input
             value={filters.label}
             onChange={(e) => {

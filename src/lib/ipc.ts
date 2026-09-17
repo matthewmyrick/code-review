@@ -29,6 +29,7 @@ export const ipc = {
     invoke<PrBundle>("sync_pr_bundle", { repo, number }),
   getLastSynced: (key: string) => invoke<string | null>("get_last_synced", { key }),
   searchPrs: (repo: string, query: string) => invoke<PullRequest[]>("search_prs", { repo, query }),
+  listReviewRequests: () => invoke<PullRequest[]>("list_review_requests"),
   listArchivedPrs: (repo: string) => invoke<ArchivedPr[]>("list_archived_prs", { repo }),
 
   // local review comments
