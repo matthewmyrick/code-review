@@ -1,11 +1,12 @@
 // PR title bar: branches, checks, reviews/approvers, labels — everything
 // pulled from GitHub, read-only.
 
-import { Check, ExternalLink, RefreshCw, X } from "lucide-react";
+import { Check, ExternalLink, FileText, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 
 import { shortSha } from "../lib/format";
 import { openExternal, prUrl } from "../lib/open";
+import { MarkdownBody } from "./Markdown";
 import type { PrDetail } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Button, checkTone, Pill, Spinner } from "./ui";
@@ -84,6 +85,17 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
         ))}
       </div>
 
+      {pr.body.trim() ? (
+        <details className="mt-2">
+          <summary className="flex cursor-pointer items-center gap-1 text-[11px] text-muted hover:text-cream">
+            <FileText size={10} /> description
+          </summary>
+          <div className="mt-2 max-h-72 overflow-y-auto rounded-lg border border-edge/60 bg-panel-2/40 p-3">
+            <MarkdownBody text={pr.body} />
+          </div>
+        </details>
+      ) : null}
+
       {detail.checks.length > 0 ? (
         <details className="mt-2">
           <summary className="cursor-pointer text-[11px] text-muted hover:text-cream">
@@ -107,23 +119,37 @@ function ApproveButton() {
   const approvePr = useAppStore((s) => s.approvePr);
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);
+  const [body, setBody] = useState("");
 
   if (working) return <Spinner label="approving…" />;
   if (confirming) {
     return (
-      <>
+      <span className="flex items-center gap-1.5">
+        <input
+          autoFocus
+          value={body}
+          onChange={(e) => {
+            setBody(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setConfirming(false);
+          }}
+          placeholder="optional approval comment…"
+          className="w-48 rounded-md border border-edge bg-ground px-2 py-1 text-xs text-cream outline-none focus:border-sky"
+        />
         <Button
           kind="danger"
           title="this WILL submit an approving review on GitHub"
           onClick={() => {
             setWorking(true);
-            void approvePr(null).then(() => {
+            void approvePr(body.trim() ? body.trim() : null).then(() => {
               setWorking(false);
               setConfirming(false);
+              setBody("");
             });
           }}
         >
-          <Check size={12} /> confirm approve
+          <Check size={12} /> confirm
         </Button>
         <Button
           onClick={() => {
@@ -132,7 +158,7 @@ function ApproveButton() {
         >
           cancel
         </Button>
-      </>
+      </span>
     );
   }
   return (
