@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
 
 import { ipc } from "../lib/ipc";
+import type { PrSort } from "../lib/sort";
 import type { RunEvent, SyncEvent } from "../lib/types";
 import { EMPTY_FILTERS } from "../lib/types";
 
@@ -26,6 +27,20 @@ function loadPinned(key: string): boolean {
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem(THEME_KEY, theme);
+}
+
+const PR_SORT_KEY = "tandem-pr-sort";
+
+function loadPrSort(): PrSort {
+  const saved = localStorage.getItem(PR_SORT_KEY);
+  const valid: PrSort[] = [
+    "opened-asc",
+    "opened-desc",
+    "updated-desc",
+    "number-asc",
+    "number-desc",
+  ];
+  return valid.includes(saved as PrSort) ? (saved as PrSort) : "opened-asc";
 }
 
 // React StrictMode double-invokes effects in dev; without this guard the
@@ -71,6 +86,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     filters: EMPTY_FILTERS,
     searchResults: null,
     inbox: {},
+    prSort: loadPrSort(),
+    inboxAllRepos: localStorage.getItem("tandem-inbox-all") === "true",
 
     init: async () => {
       if (initStarted) return;
@@ -97,16 +114,11 @@ export const useAppStore = create<AppStore>((set, get) => {
         const settings = await ipc.getSettings();
         const agentSpecs = await ipc.listAgentSpecs();
         set({ settings, agentSpecs, filters: settings.pr_filters });
-        // Prefetch the review-request inbox for the tab badge;
-        // auth-dependent, so failures here stay quiet.
-        ipc
-          .listMyPrs("requested")
-          .then((prs) => {
-            set((s) => ({ inbox: { ...s.inbox, requested: prs } }));
-          })
-          .catch(console.warn);
         const first = settings.repos[0];
         if (first) await get().selectRepo(first);
+        // Prefetch the review-request inbox for the tab badge (scoped
+        // like the tabs); auth-dependent, so failures stay quiet.
+        get().loadInbox("requested").catch(console.warn);
       } catch (e) {
         fail(e);
       }
@@ -143,14 +155,27 @@ export const useAppStore = create<AppStore>((set, get) => {
       set({ searchResults: null });
     },
 
+    setPrSort: (sort) => {
+      localStorage.setItem(PR_SORT_KEY, sort);
+      set({ prSort: sort });
+    },
+
     loadInbox: async (scope, force) => {
       if (!force && get().inbox[scope]) return;
       try {
-        const prs = await ipc.listMyPrs(scope);
+        const repo = get().inboxAllRepos ? null : get().selectedRepo;
+        const prs = await ipc.listMyPrs(scope, repo);
         set((s) => ({ inbox: { ...s.inbox, [scope]: prs } }));
       } catch (e) {
         fail(e);
       }
+    },
+
+    toggleInboxAllRepos: () => {
+      const next = !get().inboxAllRepos;
+      localStorage.setItem("tandem-inbox-all", String(next));
+      // Drop cached results so every tab refetches at the new scope.
+      set({ inboxAllRepos: next, inbox: {} });
     },
 
     openPr: async (repoSlug, number) => {
@@ -227,6 +252,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         filters: EMPTY_FILTERS,
         searchResults: null,
         inbox: {},
+        prSort: loadPrSort(),
       });
       try {
         const cached = await ipc.getPullRequests(slug);

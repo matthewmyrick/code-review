@@ -203,9 +203,13 @@ impl GithubClient {
     /// (i.e. waiting on other reviewers or the author). Search can't
     /// express "approved by me", so candidates come from reviewed-by:@me
     /// and each one's reviews are checked for your effective approval.
-    pub async fn approved_by_me(&self) -> Result<Vec<PullRequest>> {
+    pub async fn approved_by_me(&self, repo: Option<&str>) -> Result<Vec<PullRequest>> {
         let viewer = self.viewer_login().await?;
-        let candidates = self.search_global_prs("reviewed-by:@me").await?;
+        let query = match repo {
+            Some(slug) => format!("reviewed-by:@me repo:{slug}"),
+            None => "reviewed-by:@me".to_owned(),
+        };
+        let candidates = self.search_global_prs(&query).await?;
 
         let mut set = tokio::task::JoinSet::new();
         for pr in candidates {

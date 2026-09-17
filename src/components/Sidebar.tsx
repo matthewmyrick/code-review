@@ -4,6 +4,7 @@
 
 import {
   Archive,
+  ArrowUpDown,
   AtSign,
   GitPullRequest,
   Inbox,
@@ -16,6 +17,7 @@ import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
 import { fuzzyScore } from "../lib/fuzzy";
+import { PR_SORTS, sortPrs } from "../lib/sort";
 import type { ArchivedPr, InboxScope, PrFilters, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { InboxList } from "./InboxList";
@@ -91,6 +93,11 @@ export function Sidebar() {
         ))}
       </div>
 
+      <div className="flex items-center gap-1.5 border-b border-edge/60 px-3 py-1.5">
+        <ArrowUpDown size={11} className="shrink-0 text-muted" />
+        <SortSelect />
+      </div>
+
       {tab === "open" ? (
         <>
           <FilterBar />
@@ -152,6 +159,27 @@ function ArchivedItem(props: { archived: ArchivedPr; onOpen: (n: number) => Prom
       </div>
       <div className="line-clamp-1 text-[12px] text-cream/80">{pr.title}</div>
     </button>
+  );
+}
+
+function SortSelect() {
+  const prSort = useAppStore((s) => s.prSort);
+  const setPrSort = useAppStore((s) => s.setPrSort);
+  return (
+    <select
+      value={prSort}
+      onChange={(e) => {
+        setPrSort(e.target.value as typeof prSort);
+      }}
+      title="ordering for all PR lists"
+      className="w-full rounded-md border border-transparent bg-transparent py-0.5 text-[11px] text-muted transition-colors hover:text-cream focus:border-edge"
+    >
+      {PR_SORTS.map(([value, label]) => (
+        <option key={value} value={value}>
+          {label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -265,12 +293,19 @@ function PrList() {
   const searchResults = useAppStore((s) => s.searchResults);
   const repoSyncing = selectedRepo ? (syncing[`prs:${selectedRepo}`] ?? false) : false;
 
+  const prSort = useAppStore((s) => s.prSort);
   const searching = searchResults !== null;
-  const visible = (searchResults ?? prs)
+  const matched = (searchResults ?? prs)
     .map((pr) => ({ pr, rank: filterRank(pr, filters, !searching) }))
-    .filter((x): x is { pr: PullRequest; rank: number } => x.rank !== null)
-    .sort((a, b) => b.rank - a.rank)
-    .map((x) => x.pr);
+    .filter((x): x is { pr: PullRequest; rank: number } => x.rank !== null);
+  // With an active fuzzy query, relevance wins; otherwise the chosen sort.
+  const visible =
+    !searching && filters.query.trim()
+      ? matched.sort((a, b) => b.rank - a.rank).map((x) => x.pr)
+      : sortPrs(
+          matched.map((x) => x.pr),
+          prSort,
+        );
 
   return (
     <>

@@ -1,6 +1,7 @@
 // The AppStore contract — state shape + actions. Implementation lives
 // in store.ts; kept separate so both stay under the 400-line rule.
 
+import type { PrSort } from "../lib/sort";
 import type {
   AgentRun,
   AgentSpec,
@@ -40,6 +41,8 @@ export interface AppStore {
   filters: PrFilters;
   searchResults: PullRequest[] | null;
   inbox: Partial<Record<InboxScope, PullRequest[]>>;
+  prSort: PrSort;
+  inboxAllRepos: boolean;
 
   init: () => Promise<void>;
   setView: (view: View) => void;
@@ -57,6 +60,8 @@ export interface AppStore {
   searchPrs: () => Promise<void>;
   clearSearch: () => void;
   loadInbox: (scope: InboxScope, force?: boolean) => Promise<void>;
+  setPrSort: (sort: PrSort) => void;
+  toggleInboxAllRepos: () => void;
   openPr: (repoSlug: string, number: number) => Promise<void>;
   selectRepo: (slug: string) => Promise<void>;
   selectPr: (number: number) => Promise<void>;

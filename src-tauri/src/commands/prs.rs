@@ -180,18 +180,23 @@ pub async fn search_prs(
 pub async fn list_my_prs(
     state: State<'_, AppState>,
     scope: String,
+    repo: Option<String>,
 ) -> Result<Vec<PullRequest>, TandemError> {
     let client = state.github_client().await?;
-    let query = match scope.as_str() {
+    let base = match scope.as_str() {
         "requested" => "review-requested:@me",
         "mentions" => "mentions:@me",
         "involved" => "involves:@me",
-        "approved" => return client.approved_by_me().await,
+        "approved" => return client.approved_by_me(repo.as_deref()).await,
         other => {
             return Err(TandemError::Config(format!("unknown inbox scope: {other}")));
         }
     };
-    client.search_global_prs(query).await
+    let query = match &repo {
+        Some(slug) => format!("{base} repo:{slug}"),
+        None => base.to_owned(),
+    };
+    client.search_global_prs(&query).await
 }
 
 #[tauri::command]

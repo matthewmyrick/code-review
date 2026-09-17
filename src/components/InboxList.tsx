@@ -6,6 +6,7 @@ import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
 
 import { relativeTime } from "../lib/format";
+import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Spinner } from "./ui";
@@ -18,8 +19,13 @@ const SCOPE_HINT: Record<InboxScope, string> = {
 };
 
 export function InboxList({ scope }: { scope: InboxScope }) {
-  const prs = useAppStore((s) => s.inbox[scope]);
+  const raw = useAppStore((s) => s.inbox[scope]);
+  const prSort = useAppStore((s) => s.prSort);
   const loadInbox = useAppStore((s) => s.loadInbox);
+  const allRepos = useAppStore((s) => s.inboxAllRepos);
+  const toggleInboxAllRepos = useAppStore((s) => s.toggleInboxAllRepos);
+  const selectedRepo = useAppStore((s) => s.selectedRepo);
+  const prs = raw === undefined ? undefined : sortPrs(raw, prSort);
 
   useEffect(() => {
     void loadInbox(scope);
@@ -33,11 +39,25 @@ export function InboxList({ scope }: { scope: InboxScope }) {
         </span>
         <button
           type="button"
+          onClick={toggleInboxAllRepos}
+          title={
+            allRepos
+              ? "searching every repo — click to scope to the selected repo"
+              : "scoped to the selected repo — click to search every repo"
+          }
+          className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+            allRepos ? "bg-amber/15 text-amber" : "bg-sky/15 text-sky"
+          }`}
+        >
+          {allRepos ? "all repos" : (selectedRepo ?? "all repos")}
+        </button>
+        <button
+          type="button"
           title="refresh"
           onClick={() => {
             void loadInbox(scope, true);
           }}
-          className="ml-auto inline-flex size-5 shrink-0 items-center justify-center rounded text-muted hover:bg-panel-2 hover:text-cream"
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded text-muted hover:bg-panel-2 hover:text-cream"
         >
           <RefreshCw size={10} />
         </button>
@@ -96,8 +116,10 @@ function InboxRow({ pr }: { pr: PullRequest }) {
 /** Bottom of the requested tab: PRs you already approved that are
  * still open — handy for "did that ever merge?" follow-ups. */
 function ApprovedFooter() {
-  const prs = useAppStore((s) => s.inbox.approved);
+  const raw = useAppStore((s) => s.inbox.approved);
+  const prSort = useAppStore((s) => s.prSort);
   const loadInbox = useAppStore((s) => s.loadInbox);
+  const prs = raw === undefined ? undefined : sortPrs(raw, prSort);
 
   useEffect(() => {
     void loadInbox("approved");
