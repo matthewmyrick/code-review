@@ -10,6 +10,8 @@ import { mentionsUser, relativeTime } from "../lib/format";
 import type { GithubComment, LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { CommentThread, GithubCommentCard, groupThreads } from "./comments";
+import { GithubReplyComposer } from "./GithubReplyComposer";
+import { MarkdownBody } from "./Markdown";
 import { InlineCommentForm } from "./InlineCommentForm";
 import { Button, GithubMark, Modal, Pill, severityTone } from "./ui";
 
@@ -20,18 +22,6 @@ interface Thread {
 
 type Selected =
   { kind: "local"; id: string } | { kind: "github"; id: number } | { kind: "new-general" } | null;
-
-/** Plain-text preview of a (possibly huge) markdown body. */
-function preview(body: string): string {
-  return body
-    .split("\n")
-    .filter((line) => !line.trim().startsWith("```"))
-    .join(" ")
-    .replace(/[`#>*_|-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 220);
-}
 
 export function CommentsPanel() {
   const bundle = useAppStore((s) => s.bundle);
@@ -144,16 +134,12 @@ export function CommentsPanel() {
                 <CommentThread root={t.root} replies={t.replies} />
               </div>
             ))}
-          <div className="mt-4 border-t border-edge pt-3">
-            <div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted">
-              reply locally — post to github when you choose
-            </div>
-            <FreshComposer
-              path={selectedGithub.path ?? ""}
-              line={selectedGithub.line ?? 0}
-              githubCommentId={selectedGithub.id}
-            />
-          </div>
+          <ReplySection
+            path={selectedGithub.path ?? ""}
+            line={selectedGithub.line ?? 0}
+            githubCommentId={selectedGithub.id}
+            reviewCommentId={selectedGithub.path !== null ? selectedGithub.id : undefined}
+          />
         </Modal>
       ) : null}
 
@@ -164,7 +150,7 @@ export function CommentsPanel() {
             setSelected(null);
           }}
         >
-          <FreshComposer
+          <ReplySection
             path=""
             line={0}
             onDone={() => {
@@ -173,6 +159,53 @@ export function CommentsPanel() {
           />
         </Modal>
       ) : null}
+    </div>
+  );
+}
+
+/** Composer area with a mode toggle: draft a local thread (default) or
+ * reply straight on GitHub. */
+function ReplySection(props: {
+  path: string;
+  line: number;
+  githubCommentId?: number;
+  reviewCommentId?: number;
+  onDone?: () => void;
+}) {
+  const [mode, setMode] = useState<"local" | "github">("local");
+  return (
+    <div className="mt-4 border-t border-edge pt-3">
+      <div className="mb-2 flex items-center gap-1.5">
+        {(["local", "github"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setMode(m);
+            }}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+              mode === m ? "bg-sky/20 text-sky" : "bg-panel-2 text-muted hover:text-cream"
+            }`}
+          >
+            {m === "local" ? "reply locally" : "reply on github"}
+          </button>
+        ))}
+        <span className="ml-auto text-[10px] text-muted">
+          {mode === "local"
+            ? "stays in Tandem until you post it"
+            : "posts under your account after confirm"}
+        </span>
+      </div>
+      {mode === "local" ? (
+        <FreshComposer
+          path={props.path}
+          line={props.line}
+          githubCommentId={props.githubCommentId}
+          onDone={props.onDone}
+        />
+      ) : (
+        <GithubReplyComposer reviewCommentId={props.reviewCommentId} onDone={props.onDone} />
+      )}
     </div>
   );
 }
@@ -239,8 +272,8 @@ function ThreadSummary(props: { thread: Thread; onOpen: (s: Selected) => void })
       <div className="truncate font-mono text-[10px] text-sky">
         {root.path ? `${root.path}:${String(root.line)}` : "PR comment"}
       </div>
-      <div className="mt-0.5 line-clamp-2 text-xs leading-snug text-cream/85">
-        {preview(root.body)}
+      <div className="md-clamp mt-0.5">
+        <MarkdownBody text={root.body} />
       </div>
       {replies.length > 0 ? (
         <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted">
@@ -282,8 +315,8 @@ function GithubSummary(props: { comment: GithubComment; onOpen: (s: Selected) =>
           {comment.line !== null ? `:${String(comment.line)}` : ""}
         </div>
       ) : null}
-      <div className="mt-0.5 line-clamp-2 text-xs leading-snug text-cream/85">
-        {preview(comment.body)}
+      <div className="md-clamp mt-0.5">
+        <MarkdownBody text={comment.body} />
       </div>
     </button>
   );

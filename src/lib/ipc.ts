@@ -65,6 +65,8 @@ export const ipc = {
     invoke<number>("post_comment_to_github", { commentId }),
   approvePr: (repo: string, number: number, body: string | null) =>
     invoke<null>("approve_pr", { repo, number, body }),
+  replyOnGithub: (repo: string, number: number, body: string, reviewCommentId: number | null) =>
+    invoke<number>("reply_on_github", { repo, number, body, reviewCommentId }),
 
   // text utilities
   polishText: (text: string) => invoke<string>("polish_text", { text }),

@@ -56,6 +56,7 @@ pub fn run() {
             threads::mention_agent,
             github_write::post_comment_to_github,
             github_write::approve_pr,
+            github_write::reply_on_github,
             settings_cmd::get_settings,
             settings_cmd::update_settings,
             settings_cmd::file_config_info,

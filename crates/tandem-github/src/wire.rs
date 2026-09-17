@@ -82,6 +82,8 @@ pub struct WirePull {
     pub updated_at: DateTime<Utc>,
     #[serde(default)]
     pub labels: Vec<WireLabel>,
+    #[serde(default)]
+    pub mergeable_state: Option<String>,
 }
 
 impl WirePull {
@@ -110,6 +112,7 @@ impl WirePull {
             created_at: self.created_at,
             updated_at: self.updated_at,
             labels: self.labels.into_iter().map(|l| l.name).collect(),
+            mergeable_state: self.mergeable_state,
         }
     }
 }

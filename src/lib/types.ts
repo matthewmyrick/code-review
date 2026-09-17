@@ -31,6 +31,7 @@ export interface PullRequest {
   created_at: string;
   updated_at: string;
   labels: string[];
+  mergeable_state: string | null;
 }
 
 export type CheckState = "pending" | "success" | "failure" | "neutral" | "cancelled" | "skipped";

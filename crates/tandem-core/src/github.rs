@@ -60,6 +60,10 @@ pub struct PullRequest {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub labels: Vec<String>,
+    /// GitHub's merge-readiness verdict for the detail view: clean,
+    /// blocked, dirty (conflicts), behind, unstable, draft, ...
+    #[serde(default)]
+    pub mergeable_state: Option<String>,
 }
 
 /// Combined commit status / check-run conclusion, normalized.

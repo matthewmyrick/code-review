@@ -103,3 +103,28 @@ pub async fn approve_pr(
         )
         .await
 }
+
+/// Post a reply straight to GitHub with no local thread involved —
+/// still strictly an explicit user action.
+#[tauri::command]
+pub async fn reply_on_github(
+    state: State<'_, AppState>,
+    repo: String,
+    number: u64,
+    body: String,
+    review_comment_id: Option<u64>,
+) -> Result<u64, TandemError> {
+    if body.trim().is_empty() {
+        return Err(TandemError::Config("reply cannot be empty".into()));
+    }
+    let repo = parse_repo(&repo)?;
+    let client = state.github_client().await?;
+    match review_comment_id {
+        Some(id) => {
+            client
+                .reply_to_review_comment(&repo, number, id, &body)
+                .await
+        }
+        None => client.post_issue_comment(&repo, number, &body).await,
+    }
+}
