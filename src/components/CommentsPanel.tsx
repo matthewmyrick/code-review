@@ -51,12 +51,14 @@ export function CommentsPanel() {
           no comments yet — hover a diff line and hit +, or run an agent review
         </div>
       ) : null}
-      {open.length > 0 ? <SectionLabel text={`open (${String(open.length)})`} /> : null}
+      {open.length > 0 ? <SectionLabel text={`open · local (${String(open.length)})`} /> : null}
       {open.map((t) => (
         <ThreadSummary key={t.root.id} thread={t} onOpen={setSelected} />
       ))}
 
-      {triaged.length > 0 ? <SectionLabel text={`triaged (${String(triaged.length)})`} /> : null}
+      {triaged.length > 0 ? (
+        <SectionLabel text={`triaged · local (${String(triaged.length)})`} />
+      ) : null}
       {triaged.map((t) => (
         <ThreadSummary key={t.root.id} thread={t} onOpen={setSelected} />
       ))}
@@ -78,7 +80,7 @@ export function CommentsPanel() {
       {archived.length > 0 ? (
         <details className="mt-1">
           <summary className="cursor-pointer text-[11px] uppercase tracking-wide text-muted hover:text-cream">
-            archived ({archived.length})
+            archived · local ({archived.length})
           </summary>
           <div className="mt-1.5 flex flex-col gap-1.5 opacity-75">
             {archived.map((t) => (
