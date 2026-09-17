@@ -154,10 +154,10 @@ impl GithubClient {
         Ok(prs)
     }
 
-    /// Open PRs across ALL repos where the authenticated user's review
-    /// is requested, hydrated in full and newest-activity first.
-    pub async fn review_requested_prs(&self) -> Result<Vec<PullRequest>> {
-        let q = urlenc("is:pr is:open review-requested:@me");
+    /// Open PRs across ALL repos matching a global search query (e.g.
+    /// `review-requested:@me`), hydrated in full, newest-activity first.
+    pub async fn search_global_prs(&self, query: &str) -> Result<Vec<PullRequest>> {
+        let q = urlenc(&format!("is:pr is:open {query}"));
         let path = format!("/search/issues?q={q}&per_page=30&sort=updated");
         let found: WireSearch = self.get_json(&path).await?;
 

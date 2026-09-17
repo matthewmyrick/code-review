@@ -175,13 +175,22 @@ pub async fn search_prs(
     result
 }
 
-/// PRs across all repos waiting on the authenticated user's review.
+/// Account-wide PR inbox: PRs across all repos where you're wanted.
 #[tauri::command]
-pub async fn list_review_requests(
+pub async fn list_my_prs(
     state: State<'_, AppState>,
+    scope: String,
 ) -> Result<Vec<PullRequest>, TandemError> {
+    let query = match scope.as_str() {
+        "requested" => "review-requested:@me",
+        "mentions" => "mentions:@me",
+        "involved" => "involves:@me",
+        other => {
+            return Err(TandemError::Config(format!("unknown inbox scope: {other}")));
+        }
+    };
     let client = state.github_client().await?;
-    client.review_requested_prs().await
+    client.search_global_prs(query).await
 }
 
 #[tauri::command]

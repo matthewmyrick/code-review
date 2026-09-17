@@ -70,7 +70,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     archivedPrs: [],
     filters: EMPTY_FILTERS,
     searchResults: null,
-    reviewRequests: [],
+    inbox: {},
 
     init: async () => {
       if (initStarted) return;
@@ -97,12 +97,12 @@ export const useAppStore = create<AppStore>((set, get) => {
         const settings = await ipc.getSettings();
         const agentSpecs = await ipc.listAgentSpecs();
         set({ settings, agentSpecs, filters: settings.pr_filters });
-        // Account-wide "review requested" list; auth-dependent, so a
-        // failure here (e.g. anonymous mode) is quiet, not an error bar.
+        // Prefetch the review-request inbox for the tab badge;
+        // auth-dependent, so failures here stay quiet.
         ipc
-          .listReviewRequests()
-          .then((reviewRequests) => {
-            set({ reviewRequests });
+          .listMyPrs("requested")
+          .then((prs) => {
+            set((s) => ({ inbox: { ...s.inbox, requested: prs } }));
           })
           .catch(console.warn);
         const first = settings.repos[0];
@@ -143,9 +143,11 @@ export const useAppStore = create<AppStore>((set, get) => {
       set({ searchResults: null });
     },
 
-    loadReviewRequests: async () => {
+    loadInbox: async (scope, force) => {
+      if (!force && get().inbox[scope]) return;
       try {
-        set({ reviewRequests: await ipc.listReviewRequests() });
+        const prs = await ipc.listMyPrs(scope);
+        set((s) => ({ inbox: { ...s.inbox, [scope]: prs } }));
       } catch (e) {
         fail(e);
       }
@@ -224,7 +226,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         archivedPrs: [],
         filters: EMPTY_FILTERS,
         searchResults: null,
-        reviewRequests: [],
+        inbox: {},
       });
       try {
         const cached = await ipc.getPullRequests(slug);

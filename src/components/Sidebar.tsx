@@ -1,19 +1,50 @@
-// Left pane: repo picker + the open-PR list, plus recently merged PRs
-// held in the 3-day archive. (The changed-files tree lives inside the
-// PR view.)
+// Left pane: tabbed PR lists — the selected repo's open PRs (with
+// filters + 3-day merge archive) and account-wide inbox tabs for
+// requested reviews, mentions, and everything you're involved in.
 
-import { Archive, Inbox, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  Archive,
+  AtSign,
+  GitPullRequest,
+  Inbox,
+  Search,
+  SlidersHorizontal,
+  User,
+  X,
+} from "lucide-react";
+import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
 import { fuzzyScore } from "../lib/fuzzy";
-import type { ArchivedPr, PrFilters, PullRequest } from "../lib/types";
+import type { ArchivedPr, InboxScope, PrFilters, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
+import { InboxList } from "./InboxList";
 import { Button, Pill, Skeleton, Spinner } from "./ui";
+
+type SidebarTab = "open" | InboxScope;
+
+const TAB_KEY = "tandem-sidebar-tab";
+
+const TABS: { id: SidebarTab; label: string; icon: typeof Inbox }[] = [
+  { id: "open", label: "open", icon: GitPullRequest },
+  { id: "requested", label: "req", icon: Inbox },
+  { id: "mentions", label: "@me", icon: AtSign },
+  { id: "involved", label: "mine", icon: User },
+];
 
 export function Sidebar() {
   const settings = useAppStore((s) => s.settings);
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectRepo = useAppStore((s) => s.selectRepo);
+  const requestedCount = useAppStore((s) => s.inbox.requested?.length ?? 0);
+  const [tab, setTab] = useState<SidebarTab>(() => {
+    const saved = localStorage.getItem(TAB_KEY);
+    return saved === "requested" || saved === "mentions" || saved === "involved" ? saved : "open";
+  });
+  const pick = (t: SidebarTab) => {
+    setTab(t);
+    localStorage.setItem(TAB_KEY, t);
+  };
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -36,62 +67,44 @@ export function Sidebar() {
         </select>
       </div>
 
-      <FilterBar />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <ReviewRequestsSection />
-        <PrList />
-        <ArchivedList />
-      </div>
-    </div>
-  );
-}
-
-/** Open PRs across all repos waiting on your review (account-wide). */
-function ReviewRequestsSection() {
-  const requests = useAppStore((s) => s.reviewRequests);
-  const loadReviewRequests = useAppStore((s) => s.loadReviewRequests);
-  const openPr = useAppStore((s) => s.openPr);
-  if (requests.length === 0) return null;
-
-  return (
-    <details open className="border-b border-edge/60 px-2 py-2">
-      <summary className="flex cursor-pointer items-center gap-1.5 px-1 py-1 text-[11px] uppercase tracking-wide text-amber hover:text-cream">
-        <Inbox size={11} /> review requested ({requests.length})
-        <button
-          type="button"
-          title="refresh review requests"
-          onClick={(e) => {
-            e.preventDefault();
-            void loadReviewRequests();
-          }}
-          className="ml-auto inline-flex size-5 items-center justify-center rounded text-muted hover:bg-panel-2 hover:text-cream"
-        >
-          <RefreshCw size={10} />
-        </button>
-      </summary>
-      <div className="mt-1 space-y-1">
-        {requests.map((pr) => (
+      <div className="flex border-b border-edge">
+        {TABS.map(({ id, label, icon: Icon }) => (
           <button
-            key={`${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`}
+            key={id}
             type="button"
             onClick={() => {
-              void openPr(`${pr.repo.owner}/${pr.repo.name}`, pr.number);
+              pick(id);
             }}
-            className="block w-full rounded-lg border border-transparent px-3 py-2 text-left transition-all hover:border-edge hover:bg-panel-2/60"
+            title={id === "open" ? "open PRs in this repo" : `account-wide: ${id}`}
+            className={`flex flex-1 items-center justify-center gap-1 px-1 py-2 text-[10px] font-medium transition-colors ${
+              tab === id ? "border-b-2 border-sky text-cream" : "text-muted hover:text-cream"
+            }`}
           >
-            <div className="mb-0.5 flex items-center gap-2 text-[10px] text-muted">
-              <span className="truncate font-mono">
-                {pr.repo.owner}/{pr.repo.name}
+            <Icon size={11} />
+            {label}
+            {id === "requested" && requestedCount > 0 ? (
+              <span className="rounded-full bg-amber/20 px-1 text-[9px] font-semibold text-amber">
+                {requestedCount}
               </span>
-              <span className="ml-auto">{relativeTime(pr.updated_at)}</span>
-            </div>
-            <div className="line-clamp-1 text-[12px] text-cream">
-              <span className="font-medium text-amber">#{pr.number}</span> {pr.title}
-            </div>
+            ) : null}
           </button>
         ))}
       </div>
-    </details>
+
+      {tab === "open" ? (
+        <>
+          <FilterBar />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <PrList />
+            <ArchivedList />
+          </div>
+        </>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <InboxList scope={tab} />
+        </div>
+      )}
+    </div>
   );
 }
 

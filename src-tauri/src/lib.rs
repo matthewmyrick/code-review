@@ -39,7 +39,7 @@ pub fn run() {
             prs::get_last_synced,
             prs::list_archived_prs,
             prs::search_prs,
-            prs::list_review_requests,
+            prs::list_my_prs,
             review::list_local_comments,
             review::add_local_comment,
             review::set_comment_status,

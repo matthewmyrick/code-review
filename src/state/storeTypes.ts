@@ -9,6 +9,7 @@ import type {
   LocalComment,
   NewLocalComment,
   PrBundle,
+  InboxScope,
   PrFilters,
   PullRequest,
   RunEvent,
@@ -38,7 +39,7 @@ export interface AppStore {
   archivedPrs: ArchivedPr[];
   filters: PrFilters;
   searchResults: PullRequest[] | null;
-  reviewRequests: PullRequest[];
+  inbox: Partial<Record<InboxScope, PullRequest[]>>;
 
   init: () => Promise<void>;
   setView: (view: View) => void;
@@ -55,7 +56,7 @@ export interface AppStore {
   clearFilters: () => void;
   searchPrs: () => Promise<void>;
   clearSearch: () => void;
-  loadReviewRequests: () => Promise<void>;
+  loadInbox: (scope: InboxScope, force?: boolean) => Promise<void>;
   openPr: (repoSlug: string, number: number) => Promise<void>;
   selectRepo: (slug: string) => Promise<void>;
   selectPr: (number: number) => Promise<void>;

@@ -241,6 +241,8 @@ export interface OwnerList {
   orgs: string[];
 }
 
+export type InboxScope = "requested" | "mentions" | "involved";
+
 export interface PrPage {
   prs: PullRequest[];
   has_more: boolean;
