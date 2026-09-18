@@ -63,6 +63,7 @@ export const ipc = {
   // explicit GitHub writes (user-triggered only)
   postCommentToGithub: (commentId: string) =>
     invoke<number>("post_comment_to_github", { commentId }),
+  commitSuggestion: (commentId: string) => invoke<null>("commit_suggestion", { commentId }),
   approvePr: (repo: string, number: number, body: string | null) =>
     invoke<null>("approve_pr", { repo, number, body }),
   replyOnGithub: (request: {

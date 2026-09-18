@@ -57,6 +57,7 @@ pub fn run() {
             github_write::post_comment_to_github,
             github_write::approve_pr,
             github_write::reply_on_github,
+            github_write::commit_suggestion,
             settings_cmd::get_settings,
             settings_cmd::update_settings,
             settings_cmd::file_config_info,

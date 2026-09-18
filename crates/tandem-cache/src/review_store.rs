@@ -44,6 +44,7 @@ impl ReviewStore for Cache {
             line: new.line,
             end_line: new.end_line,
             body: new.body,
+            suggestion: new.suggestion,
             author_kind: new.author_kind,
             author_name: new.author_name,
             severity: new.severity,
@@ -248,6 +249,7 @@ mod tests {
             run_id: Some("run-1".into()),
             parent_id: None,
             end_line: None,
+            suggestion: None,
             github_comment_id: None,
         }
     }

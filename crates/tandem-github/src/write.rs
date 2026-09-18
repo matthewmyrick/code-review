@@ -2,6 +2,7 @@
 //! explicit user actions in the UI (post a chosen comment, approve a
 //! PR) — agents have no path to them.
 
+use base64::Engine as _;
 use tandem_core::github::RepoRef;
 use tandem_core::{Result, TandemError};
 
@@ -139,4 +140,83 @@ pub(crate) fn urlenc(s: &str) -> String {
             _ => format!("%{b:02X}"),
         })
         .collect()
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct WireContents {
+    content: String,
+    sha: String,
+}
+
+impl GithubClient {
+    /// File text + blob sha at a ref (Contents API; base64-decoded).
+    pub async fn get_file(
+        &self,
+        repo: &RepoRef,
+        path: &str,
+        git_ref: &str,
+    ) -> Result<(String, String)> {
+        let api = format!(
+            "/repos/{}/{}/contents/{}?ref={}",
+            repo.owner,
+            repo.name,
+            path,
+            urlenc(git_ref)
+        );
+        let wire: WireContents = self.get_json(&api).await?;
+        let compact: String = wire.content.split_whitespace().collect();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(compact)
+            .map_err(|e| TandemError::GithubApi {
+                status: 0,
+                message: format!("undecodable file content: {e}"),
+            })?;
+        let text = String::from_utf8(bytes).map_err(|_| TandemError::GithubApi {
+            status: 0,
+            message: "file is not valid UTF-8 — cannot apply a text suggestion".into(),
+        })?;
+        Ok((text, wire.sha))
+    }
+
+    /// Commit new file content to a branch (the "commit suggestion"
+    /// path — an explicit user action, like every write here).
+    pub async fn commit_file(
+        &self,
+        repo: &RepoRef,
+        path: &str,
+        branch: &str,
+        message: &str,
+        content: &str,
+        blob_sha: &str,
+    ) -> Result<()> {
+        let api = format!("/repos/{}/{}/contents/{}", repo.owner, repo.name, path);
+        let url = format!("{}{api}", self.api_base);
+        tracing::info!(%url, "github PUT (explicit user action)");
+        let body = serde_json::json!({
+            "message": message,
+            "content": base64::engine::general_purpose::STANDARD.encode(content),
+            "sha": blob_sha,
+            "branch": branch,
+        });
+        let resp = self
+            .http
+            .put(&url)
+            .headers(self.headers(JSON_ACCEPT)?)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| TandemError::GithubApi {
+                status: 0,
+                message: e.to_string(),
+            })?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(TandemError::GithubApi {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        Ok(())
+    }
 }

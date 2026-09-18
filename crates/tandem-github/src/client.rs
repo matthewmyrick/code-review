@@ -79,7 +79,7 @@ impl GithubClient {
         Ok(resp)
     }
 
-    async fn get_json<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {
+    pub(crate) async fn get_json<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {
         let resp = self.get(path, JSON_ACCEPT).await?;
         resp.json::<T>().await.map_err(|e| TandemError::GithubApi {
             status: 0,

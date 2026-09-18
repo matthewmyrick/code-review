@@ -57,7 +57,7 @@ export function CommentsPanel() {
       ))}
 
       {triaged.length > 0 ? (
-        <SectionLabel text={`triaged · local (${String(triaged.length)})`} />
+        <SectionLabel text={`resolved · local (${String(triaged.length)})`} />
       ) : null}
       {triaged.map((t) => (
         <ThreadSummary key={t.root.id} thread={t} onOpen={setSelected} />

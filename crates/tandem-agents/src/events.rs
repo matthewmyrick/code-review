@@ -24,6 +24,13 @@ pub struct AgentComment {
     /// Set when the comment is a reply within an existing thread.
     #[serde(default)]
     pub parent_id: Option<String>,
+    /// Inclusive end line for a multi-line anchor.
+    #[serde(default)]
+    pub end_line: Option<u64>,
+    /// Exact replacement code for the anchored lines (a committable
+    /// suggested change, GitHub-style).
+    #[serde(default)]
+    pub suggestion: Option<String>,
 }
 
 fn default_side() -> String {
@@ -74,6 +81,8 @@ impl AgentComment {
             "severity": self.severity,
             "body": self.body,
             "parent_id": self.parent_id,
+            "end_line": self.end_line,
+            "suggestion": self.suggestion,
         })
         .to_string()
     }

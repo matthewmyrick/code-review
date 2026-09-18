@@ -3,7 +3,7 @@
 //! agent prompt still forbids posting.
 
 use tandem_cache::ReviewStore;
-use tandem_core::review::DiffSide;
+use tandem_core::review::{CommentStatus, DiffSide};
 use tandem_core::TandemError;
 use tandem_github::NewInlineComment;
 use tauri::{AppHandle, Emitter, State};
@@ -168,4 +168,91 @@ pub async fn reply_on_github(
         }
     }
     client.post_issue_comment(&repo, number, &body).await
+}
+
+/// Apply a comment's suggested change by committing it to the PR
+/// branch via the Contents API — the "commit suggestion" button.
+#[tauri::command]
+pub async fn commit_suggestion(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    comment_id: String,
+) -> Result<(), TandemError> {
+    let comment = {
+        let cache = state.cache.lock().await;
+        cache
+            .get_comment(&comment_id)?
+            .ok_or_else(|| TandemError::Cache(format!("comment not found: {comment_id}")))?
+    };
+    let suggestion = comment
+        .suggestion
+        .clone()
+        .ok_or_else(|| TandemError::Config("comment has no suggestion".into()))?;
+    if comment.side != DiffSide::New || comment.path.is_empty() || comment.line == 0 {
+        return Err(TandemError::Config(
+            "suggestions can only be committed on new-side code lines".into(),
+        ));
+    }
+
+    let detail = {
+        let cache = state.cache.lock().await;
+        cache
+            .get_pr_detail(&comment.repo, comment.pr_number)?
+            .ok_or_else(|| TandemError::Agent("PR not synced yet — open it first".into()))?
+    };
+    if detail.pull_request.head_sha != comment.head_sha {
+        return Err(TandemError::Config(
+            "the PR branch has new commits since this suggestion — refresh and re-review".into(),
+        ));
+    }
+
+    let client = state.github_client().await?;
+    let (content, blob_sha) = client
+        .get_file(&comment.repo, &comment.path, &comment.head_sha)
+        .await?;
+
+    let had_trailing_newline = content.ends_with('\n');
+    let mut lines: Vec<&str> = content.lines().collect();
+    let start = usize::try_from(comment.line).unwrap_or(1) - 1;
+    let end = usize::try_from(comment.end_line.unwrap_or(comment.line)).unwrap_or(1) - 1;
+    if start > end || end >= lines.len() {
+        return Err(TandemError::Config(format!(
+            "suggestion lines {}..{} fall outside {} ({} lines)",
+            comment.line,
+            comment.end_line.unwrap_or(comment.line),
+            comment.path,
+            lines.len()
+        )));
+    }
+    let replacement: Vec<&str> = suggestion.lines().collect();
+    lines.splice(start..=end, replacement);
+    let mut new_content = lines.join("\n");
+    if had_trailing_newline {
+        new_content.push('\n');
+    }
+
+    let message = format!(
+        "Apply suggestion from {} to {}:{}\n\nCommitted via Tandem review of PR #{}",
+        comment.author_name, comment.path, comment.line, comment.pr_number
+    );
+    client
+        .commit_file(
+            &comment.repo,
+            &comment.path,
+            &detail.pull_request.head_ref,
+            &message,
+            &new_content,
+            &blob_sha,
+        )
+        .await?;
+
+    {
+        let cache = state.cache.lock().await;
+        cache.set_comment_status(&comment.id, CommentStatus::Resolved)?;
+    }
+    let payload = serde_json::json!({ "repo": comment.repo.slug(), "number": comment.pr_number });
+    if let Err(e) = app.emit("tandem://comments-updated", payload) {
+        tracing::warn!(error = %e, "failed to emit comments-updated");
+    }
+    Ok(())
 }

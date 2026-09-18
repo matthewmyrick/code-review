@@ -18,6 +18,7 @@ import { useState } from "react";
 import { mentionsUser, relativeTime } from "../lib/format";
 import { githubCommentUrl, openExternal, postedCommentUrl } from "../lib/open";
 import { MarkdownBody } from "./Markdown";
+import { SuggestionBlock } from "./SuggestionBlock";
 import { extractMentions, MentionInput } from "./MentionInput";
 import type { GithubComment, LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -104,6 +105,7 @@ function ReplyComposer({ root, onDone }: { root: LocalComment; onDone: () => voi
       line: root.line,
       end_line: root.end_line,
       body: text,
+      suggestion: null,
       author_kind: "human",
       author_name: "you",
       severity: "info",
@@ -186,26 +188,9 @@ export function CommentCard(props: {
         <span className="ml-auto text-[11px] text-muted">{relativeTime(comment.created_at)}</span>
       </div>
       <MarkdownBody text={comment.body} />
+      {comment.suggestion !== null ? <SuggestionBlock comment={comment} /> : null}
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        {props.isReply ? null : comment.status === "open" ? (
-          <>
-            <Button
-              kind="primary"
-              onClick={() => {
-                void setCommentStatus(comment.id, "accepted");
-              }}
-            >
-              accept
-            </Button>
-            <Button
-              onClick={() => {
-                void setCommentStatus(comment.id, "rejected");
-              }}
-            >
-              reject
-            </Button>
-          </>
-        ) : (
+        {!props.isReply && comment.status !== "open" ? (
           <Button
             onClick={() => {
               void setCommentStatus(comment.id, "open");
@@ -214,7 +199,7 @@ export function CommentCard(props: {
           >
             <RotateCcw size={11} /> reopen
           </Button>
-        )}
+        ) : null}
         {props.onReply ? (
           <Button onClick={props.onReply} title="reply — the agent answers in-thread">
             <Reply size={11} /> reply

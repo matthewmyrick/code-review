@@ -53,6 +53,7 @@ export interface AppStore {
   togglePinned: (side: "left" | "right") => void;
   replyToComment: (commentId: string, body: string, agentName: string) => Promise<void>;
   mentionAgent: (agentName: string, commentId: string) => Promise<void>;
+  commitSuggestion: (commentId: string) => Promise<void>;
   postToGithub: (commentId: string) => Promise<void>;
   approvePr: (body: string | null) => Promise<void>;
   loadMorePrs: () => Promise<void>;

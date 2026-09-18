@@ -119,6 +119,7 @@ export interface LocalComment {
   line: number;
   end_line: number | null;
   body: string;
+  suggestion: string | null;
   author_kind: CommentAuthorKind;
   author_name: string;
   severity: CommentSeverity;
@@ -140,6 +141,7 @@ export interface NewLocalComment {
   line: number;
   end_line: number | null;
   body: string;
+  suggestion: string | null;
   author_kind: CommentAuthorKind;
   author_name: string;
   severity: CommentSeverity;

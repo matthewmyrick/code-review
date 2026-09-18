@@ -34,10 +34,16 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
          path). Alternatively, append the same lines to the file \
          `{comments_file}`.\n\n\
          {{\"type\":\"tandem_comment\",\"path\":\"<file>\",\"side\":\"new|old\",\
-         \"line\":<n>,\"severity\":\"info|suggestion|issue|blocker\",\
-         \"body\":\"<markdown>\"}}\n\n\
+         \"line\":<n>,\"end_line\":<n|null>,\
+         \"severity\":\"info|suggestion|issue|blocker\",\
+         \"body\":\"<markdown>\",\"suggestion\":<null or \"replacement code\">}}\n\n\
          Rules: `line` is the line number in the new file (or old file \
          when side=old) and must be a line that appears in the diff below. \
+         When you can propose an exact fix, set `suggestion` to the \
+         COMPLETE replacement for lines line..=end_line on the new side \
+         (end_line defaults to line; preserve indentation; no code \
+         fences) — the reviewer gets a one-click 'commit suggestion' \
+         button for it. Use null when no concrete fix applies. \
          Do NOT wrap the JSON in code fences. The `body` MUST be \
          well-formatted GitHub-flavored markdown: backticked code spans \
          for identifiers, fenced code blocks for multi-line code, tables \

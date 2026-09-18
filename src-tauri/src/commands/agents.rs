@@ -218,8 +218,9 @@ async fn handle_comment(
             DiffSide::New
         },
         line: parsed.line,
-        end_line: None,
+        end_line: parsed.end_line,
         body: parsed.body,
+        suggestion: parsed.suggestion.clone(),
         author_kind: CommentAuthorKind::Agent,
         author_name: spec.name.clone(),
         severity: parse_severity(&parsed.severity),

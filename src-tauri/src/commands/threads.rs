@@ -38,6 +38,7 @@ pub async fn reply_to_comment(
             line: root.line,
             end_line: root.end_line,
             body: body.clone(),
+            suggestion: None,
             author_kind: CommentAuthorKind::Human,
             author_name: "you".into(),
             severity: CommentSeverity::Info,

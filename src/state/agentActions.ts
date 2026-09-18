@@ -65,6 +65,17 @@ export function agentActions(
       }
     },
 
+    commitSuggestion: async (commentId: string) => {
+      try {
+        await ipc.commitSuggestion(commentId);
+        await reloadComments();
+        // The branch advanced; pull the new head + diff.
+        await get().refreshBundle();
+      } catch (e) {
+        fail(e);
+      }
+    },
+
     mentionAgent: async (agentName: string, commentId: string) => {
       try {
         await ipc.mentionAgent(agentName, commentId);

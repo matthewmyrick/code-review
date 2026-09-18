@@ -62,6 +62,10 @@ pub struct LocalComment {
     #[serde(default)]
     pub end_line: Option<u64>,
     pub body: String,
+    /// Concrete replacement for lines line..=end_line (new side) — the
+    /// agent's proposed fix, committable to the PR branch.
+    #[serde(default)]
+    pub suggestion: Option<String>,
     pub author_kind: CommentAuthorKind,
     /// Human username or agent name (e.g. "claude", "codex").
     pub author_name: String,
@@ -97,6 +101,8 @@ pub struct NewLocalComment {
     #[serde(default)]
     pub end_line: Option<u64>,
     pub body: String,
+    #[serde(default)]
+    pub suggestion: Option<String>,
     pub author_kind: CommentAuthorKind,
     pub author_name: String,
     pub severity: CommentSeverity,
