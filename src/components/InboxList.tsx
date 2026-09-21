@@ -22,8 +22,6 @@ export function InboxList({ scope }: { scope: InboxScope }) {
   const raw = useAppStore((s) => s.inbox[scope]);
   const prSort = useAppStore((s) => s.prSort);
   const loadInbox = useAppStore((s) => s.loadInbox);
-  const allRepos = useAppStore((s) => s.inboxAllRepos);
-  const toggleInboxAllRepos = useAppStore((s) => s.toggleInboxAllRepos);
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prs = raw === undefined ? undefined : sortPrs(raw, prSort);
 
@@ -37,20 +35,12 @@ export function InboxList({ scope }: { scope: InboxScope }) {
         <span className="truncate" title={SCOPE_HINT[scope]}>
           {SCOPE_HINT[scope]}
         </span>
-        <button
-          type="button"
-          onClick={toggleInboxAllRepos}
-          title={
-            allRepos
-              ? "searching every repo — click to scope to the selected repo"
-              : "scoped to the selected repo — click to search every repo"
-          }
-          className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-            allRepos ? "bg-amber/15 text-amber" : "bg-sky/15 text-sky"
-          }`}
+        <span
+          className="ml-auto shrink-0 rounded-full bg-sky/15 px-2 py-0.5 text-[10px] font-medium text-sky"
+          title="scope follows the repository dropdown above"
         >
-          {allRepos ? "all repos" : (selectedRepo ?? "all repos")}
-        </button>
+          {selectedRepo === "*" || selectedRepo === null ? "all repos" : selectedRepo}
+        </span>
         <button
           type="button"
           title="refresh"

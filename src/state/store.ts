@@ -59,7 +59,6 @@ export const useAppStore = create<AppStore>((set, get) => {
     searchResults: null,
     inbox: {},
     prSort: "opened-desc",
-    inboxAllRepos: false,
     viewer: loadViewer(),
     collaborators: [],
 
@@ -92,9 +91,8 @@ export const useAppStore = create<AppStore>((set, get) => {
           agentSpecs,
           filters: settings.pr_filters,
           prSort: sanitizePrSort(settings.pr_sort),
-          inboxAllRepos: settings.inbox_all_repos,
         });
-        const first = settings.repos[0];
+        const first = settings.inbox_all_repos ? "*" : settings.repos[0];
         if (first) await get().selectRepo(first);
         // Prefetch the review-request inbox for the tab badge (scoped
         // like the tabs); auth-dependent, so failures stay quiet.
@@ -132,7 +130,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     searchPrs: async () => {
       const { selectedRepo, filters } = get();
       const query = filters.query.trim();
-      if (!selectedRepo || !query) return;
+      if (!selectedRepo || selectedRepo === "*" || !query) return;
       try {
         set({ searchResults: await ipc.searchPrs(selectedRepo, query) });
       } catch (e) {
@@ -151,22 +149,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     loadInbox: async (scope, force) => {
       if (!force && get().inbox[scope]) return;
       try {
-        const repo = get().inboxAllRepos ? null : get().selectedRepo;
+        const selected = get().selectedRepo;
+        const repo = selected !== null && selected !== "*" ? selected : null;
         const prs = await ipc.listMyPrs(scope, repo);
         set((s) => ({ inbox: { ...s.inbox, [scope]: prs } }));
       } catch (e) {
         fail(e);
       }
-    },
-
-    toggleInboxAllRepos: () => {
-      get().setInboxAllRepos(!get().inboxAllRepos);
-    },
-
-    setInboxAllRepos: (value) => {
-      if (value === get().inboxAllRepos) return;
-      // Drop cached results so every tab refetches at the new scope.
-      set({ inboxAllRepos: value, inbox: {} });
     },
 
     openPr: async (repoSlug, number) => {
@@ -228,6 +217,24 @@ export const useAppStore = create<AppStore>((set, get) => {
         prSort: sanitizePrSort(get().settings?.pr_sort ?? "opened-desc"),
         collaborators: [],
       });
+      // "*" = all repositories: aggregate open PRs across tracked repos;
+      // inbox tabs search account-wide.
+      if (slug === "*") {
+        try {
+          const repos = get().settings?.repos ?? [];
+          const pages = await Promise.all(
+            repos.map((r) => ipc.syncPullRequests(r, 1).catch(() => null)),
+          );
+          set({
+            prs: pages.filter((p) => p !== null).flatMap((p) => p.prs),
+            prHasMore: false,
+            prPage: 1,
+          });
+        } catch (e) {
+          fail(e);
+        }
+        return;
+      }
       // People autocomplete for @mentions; quiet failure (needs perms).
       ipc
         .listCollaborators(slug)

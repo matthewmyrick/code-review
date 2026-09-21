@@ -61,6 +61,7 @@ export function Sidebar() {
           <option value="" disabled>
             select a repository…
           </option>
+          <option value="*">all repositories</option>
           {(settings?.repos ?? []).map((slug) => (
             <option key={slug} value={slug}>
               {slug}
@@ -333,16 +334,19 @@ function PrListSkeleton() {
 }
 
 function PrListItem({ pr }: { pr: PullRequest }) {
+  const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectedPr = useAppStore((s) => s.selectedPr);
-  const selectPr = useAppStore((s) => s.selectPr);
-  const active = selectedPr === pr.number;
+  const openPr = useAppStore((s) => s.openPr);
+  const slug = `${pr.repo.owner}/${pr.repo.name}`;
+  const allMode = selectedRepo === "*";
+  const active = !allMode && selectedPr === pr.number;
   const hasStats = pr.additions > 0 || pr.deletions > 0 || pr.changed_files > 0;
 
   return (
     <button
       type="button"
       onClick={() => {
-        void selectPr(pr.number);
+        void openPr(slug, pr.number);
       }}
       className={`animate-fade-up block w-full rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${
         pr.mergeable_state === "clean" ? "border-l-4 border-l-moss " : ""
@@ -354,6 +358,7 @@ function PrListItem({ pr }: { pr: PullRequest }) {
     >
       <div className="mb-1 flex items-center gap-2">
         <span className="text-xs font-medium text-sky">#{pr.number}</span>
+        {allMode ? <span className="truncate font-mono text-[10px] text-muted">{slug}</span> : null}
         {pr.draft ? <Pill tone="muted">draft</Pill> : null}
         <span className="ml-auto text-[11px] text-muted">{relativeTime(pr.updated_at)}</span>
       </div>

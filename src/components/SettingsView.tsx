@@ -133,7 +133,6 @@ function FiltersSection({ settings }: { settings: Settings }) {
   const saveSettings = useAppStore((s) => s.saveSettings);
   const setRuntimeFilters = useAppStore((s) => s.setFilters);
   const setPrSort = useAppStore((s) => s.setPrSort);
-  const setInboxAllRepos = useAppStore((s) => s.setInboxAllRepos);
   const [filters, setFilters] = useState<PrFilters>(settings.pr_filters);
   const [sort, setSort] = useState(settings.pr_sort);
   const [allRepos, setAllRepos] = useState(settings.inbox_all_repos);
@@ -223,7 +222,7 @@ function FiltersSection({ settings }: { settings: Settings }) {
                 setAllRepos(e.target.checked);
               }}
             />
-            inbox tabs search all repos
+            start in the all-repositories view
           </label>
         </div>
         <div>
@@ -238,7 +237,6 @@ function FiltersSection({ settings }: { settings: Settings }) {
               });
               setRuntimeFilters(filters);
               setPrSort(sort as Parameters<typeof setPrSort>[0]);
-              setInboxAllRepos(allRepos);
             }}
           >
             save defaults
