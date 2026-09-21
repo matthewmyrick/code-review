@@ -5,7 +5,7 @@ use tandem_core::github::RepoRef;
 use tandem_core::Result;
 
 use crate::client::GithubClient;
-use crate::wire::RepoSummary;
+use crate::wire::{MergeOptions, RepoSummary};
 
 impl GithubClient {
     /// Collaborator logins for a repo (used for @people autocomplete).
@@ -54,5 +54,31 @@ impl GithubClient {
             format!("/orgs/{owner}/repos?per_page=100&sort=pushed")
         };
         self.get_json(&path).await
+    }
+
+    /// Which merge methods (and auto-merge) the repo allows. Fields are
+    /// omitted for viewers without push access — default to permissive
+    /// for methods and OFF for auto-merge.
+    pub async fn repo_merge_options(&self, repo: &RepoRef) -> Result<MergeOptions> {
+        #[derive(serde::Deserialize)]
+        struct RepoSettings {
+            #[serde(default)]
+            allow_squash_merge: Option<bool>,
+            #[serde(default)]
+            allow_merge_commit: Option<bool>,
+            #[serde(default)]
+            allow_rebase_merge: Option<bool>,
+            #[serde(default)]
+            allow_auto_merge: Option<bool>,
+        }
+        let settings: RepoSettings = self
+            .get_json(&format!("/repos/{}/{}", repo.owner, repo.name))
+            .await?;
+        Ok(MergeOptions {
+            squash: settings.allow_squash_merge.unwrap_or(true),
+            merge: settings.allow_merge_commit.unwrap_or(true),
+            rebase: settings.allow_rebase_merge.unwrap_or(true),
+            auto_merge: settings.allow_auto_merge.unwrap_or(false),
+        })
     }
 }

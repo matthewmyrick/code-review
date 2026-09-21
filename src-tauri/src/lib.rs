@@ -63,6 +63,7 @@ pub fn run() {
             merge::merge_pr,
             merge::update_pr_branch,
             merge::enable_auto_merge,
+            merge::repo_merge_options,
             settings_cmd::get_settings,
             settings_cmd::update_settings,
             settings_cmd::file_config_info,

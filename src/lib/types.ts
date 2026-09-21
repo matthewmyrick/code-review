@@ -270,6 +270,13 @@ export interface FileConfigInfo {
   overrides: string[];
 }
 
+export interface MergeOptions {
+  squash: boolean;
+  merge: boolean;
+  rebase: boolean;
+  auto_merge: boolean;
+}
+
 export interface PrPage {
   prs: PullRequest[];
   has_more: boolean;

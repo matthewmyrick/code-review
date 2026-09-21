@@ -25,6 +25,15 @@ pub struct WireSearchItem {
     pub repository_url: Option<String>,
 }
 
+/// What merge flows a repository actually allows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeOptions {
+    pub squash: bool,
+    pub merge: bool,
+    pub rebase: bool,
+    pub auto_merge: bool,
+}
+
 /// Slim repo row for the settings repo browser.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepoSummary {

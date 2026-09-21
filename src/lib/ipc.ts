@@ -8,6 +8,7 @@ import type {
   AgentSpec,
   ArchivedPr,
   FileConfigInfo,
+  MergeOptions,
   OwnerList,
   RepoSummary,
   CommentStatus,
@@ -71,6 +72,7 @@ export const ipc = {
     invoke<null>("merge_pr", { repo, number, method }),
   updatePrBranch: (repo: string, number: number) =>
     invoke<null>("update_pr_branch", { repo, number }),
+  repoMergeOptions: (repo: string) => invoke<MergeOptions>("repo_merge_options", { repo }),
   enableAutoMerge: (repo: string, number: number, method: string) =>
     invoke<null>("enable_auto_merge", { repo, number, method }),
   approvePr: (repo: string, number: number, body: string | null) =>

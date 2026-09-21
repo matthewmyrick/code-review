@@ -3,6 +3,7 @@
 //! additionally hides these unless the PR author is the signed-in user.
 
 use tandem_core::TandemError;
+use tandem_github::MergeOptions;
 use tauri::State;
 
 use crate::commands::parse_repo;
@@ -58,4 +59,14 @@ pub async fn enable_auto_merge(
         message: "GitHub did not return a node id for this PR".into(),
     })?;
     client.enable_auto_merge(&node_id, &method).await
+}
+
+#[tauri::command]
+pub async fn repo_merge_options(
+    state: State<'_, AppState>,
+    repo: String,
+) -> Result<MergeOptions, TandemError> {
+    let repo = parse_repo(&repo)?;
+    let client = state.github_client().await?;
+    client.repo_merge_options(&repo).await
 }

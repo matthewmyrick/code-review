@@ -3,14 +3,17 @@
 // repos adds the PR to the queue).
 
 import { GitMerge, RefreshCw, Timer } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ipc } from "../lib/ipc";
 import { isReadyToMerge } from "../lib/ready";
+import type { MergeOptions } from "../lib/types";
 import type { PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { pushGithubError, pushInfo } from "../state/toasts";
 import { Button, Spinner } from "./ui";
+
+const optionsCache = new Map<string, MergeOptions>();
 
 export function MergeControls({ pr }: { pr: PullRequest }) {
   const viewer = useAppStore((s) => s.viewer);
@@ -19,6 +22,31 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
   const refreshPrs = useAppStore((s) => s.refreshPrs);
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState("squash");
+  const repoSlug = `${pr.repo.owner}/${pr.repo.name}`;
+  const [opts, setOpts] = useState<MergeOptions | null>(optionsCache.get(repoSlug) ?? null);
+
+  useEffect(() => {
+    if (!open || opts !== null) return;
+    ipc
+      .repoMergeOptions(repoSlug)
+      .then((fetched) => {
+        optionsCache.set(repoSlug, fetched);
+        setOpts(fetched);
+      })
+      .catch(console.warn);
+  }, [open, opts, repoSlug]);
+
+  // Keep the selected method inside what the repo actually allows.
+  const allowed = [
+    opts?.squash !== false ? "squash" : null,
+    opts?.merge !== false ? "merge" : null,
+    opts?.rebase !== false ? "rebase" : null,
+  ].filter((m): m is string => m !== null);
+  useEffect(() => {
+    if (allowed.length > 0 && !allowed.includes(method)) {
+      setMethod(allowed[0] ?? "squash");
+    }
+  }, [allowed, method]);
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
 
@@ -95,9 +123,9 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
               }}
               className="flex-1 rounded-md border border-edge bg-ground px-2 py-1 text-xs text-cream"
             >
-              <option value="squash">squash</option>
-              <option value="merge">merge commit</option>
-              <option value="rebase">rebase</option>
+              {allowed.includes("squash") ? <option value="squash">squash</option> : null}
+              {allowed.includes("merge") ? <option value="merge">merge commit</option> : null}
+              {allowed.includes("rebase") ? <option value="rebase">rebase</option> : null}
             </select>
           </label>
 
@@ -114,12 +142,18 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
                 <RefreshCw size={11} /> update from base
               </Button>
               <Button
+                disabled={opts !== null && !opts.auto_merge}
                 onClick={() => {
                   run("enabling auto-merge", () => ipc.enableAutoMerge(repo, pr.number, method));
                 }}
-                title="merge automatically once requirements pass (joins the merge queue on queue repos)"
+                title={
+                  opts !== null && !opts.auto_merge
+                    ? "auto-merge is not enabled on this repository (a GitHub repo setting)"
+                    : "merge automatically once requirements pass (joins the merge queue on queue repos)"
+                }
               >
                 <Timer size={11} /> auto-merge when ready
+                {opts !== null && !opts.auto_merge ? " (unavailable)" : ""}
               </Button>
               {!mergeableNow ? (
                 <Button

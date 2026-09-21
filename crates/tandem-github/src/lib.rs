@@ -11,7 +11,7 @@ mod search;
 mod wire;
 mod write;
 
-pub use wire::RepoSummary;
+pub use wire::{MergeOptions, RepoSummary};
 
 pub use auth::{GithubAuth, GithubConfig};
 pub use client::GithubClient;
