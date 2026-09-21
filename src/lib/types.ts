@@ -34,6 +34,8 @@ export interface PullRequest {
   mergeable_state: string | null;
   requested_reviewers: string[];
   node_id: string | null;
+  review_decision: string | null;
+  checks_state: string | null;
 }
 
 export type CheckState = "pending" | "success" | "failure" | "neutral" | "cancelled" | "skipped";

@@ -70,6 +70,14 @@ pub struct PullRequest {
     /// GraphQL node id — needed for auto-merge mutations.
     #[serde(default)]
     pub node_id: Option<String>,
+    /// GraphQL reviewDecision: APPROVED / REVIEW_REQUIRED /
+    /// CHANGES_REQUESTED (None when the repo requires no reviews).
+    #[serde(default)]
+    pub review_decision: Option<String>,
+    /// Status-check rollup for the head commit: SUCCESS / FAILURE /
+    /// PENDING / ERROR / EXPECTED.
+    #[serde(default)]
+    pub checks_state: Option<String>,
 }
 
 /// Combined commit status / check-run conclusion, normalized.

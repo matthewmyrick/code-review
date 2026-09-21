@@ -4,6 +4,7 @@
 
 import {
   ArrowUpDown,
+  RefreshCw,
   AtSign,
   GitPullRequest,
   Inbox,
@@ -16,6 +17,7 @@ import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
 import { fuzzyScore } from "../lib/fuzzy";
+import { isReadyToMerge } from "../lib/ready";
 import { PR_SORTS, sortPrs } from "../lib/sort";
 import type { InboxScope, PrFilters, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -97,6 +99,7 @@ export function Sidebar() {
       <div className="flex items-center gap-1.5 border-b border-edge/60 px-3 py-1.5">
         <ArrowUpDown size={11} className="shrink-0 text-muted" />
         <SortSelect />
+        <RefreshButton tab={tab} />
       </div>
 
       {tab === "open" ? (
@@ -113,6 +116,24 @@ export function Sidebar() {
         </div>
       )}
     </div>
+  );
+}
+
+function RefreshButton({ tab }: { tab: SidebarTab }) {
+  const refreshPrs = useAppStore((s) => s.refreshPrs);
+  const loadInbox = useAppStore((s) => s.loadInbox);
+  return (
+    <button
+      type="button"
+      title="refresh this list"
+      onClick={() => {
+        if (tab === "open") void refreshPrs();
+        else void loadInbox(tab, true);
+      }}
+      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-panel-2 hover:text-cream"
+    >
+      <RefreshCw size={11} />
+    </button>
   );
 }
 
@@ -261,8 +282,8 @@ function PrList() {
           prSort,
         );
 
-  const ready = visible.filter((pr) => pr.mergeable_state === "clean");
-  const rest = visible.filter((pr) => pr.mergeable_state !== "clean");
+  const ready = visible.filter(isReadyToMerge);
+  const rest = visible.filter((pr) => !isReadyToMerge(pr));
 
   return (
     <>
@@ -349,7 +370,7 @@ function PrListItem({ pr }: { pr: PullRequest }) {
         void openPr(slug, pr.number);
       }}
       className={`animate-fade-up block w-full rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${
-        pr.mergeable_state === "clean" ? "border-l-4 border-l-moss " : ""
+        isReadyToMerge(pr) ? "border-l-4 border-l-moss " : ""
       }${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"

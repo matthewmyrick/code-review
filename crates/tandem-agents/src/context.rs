@@ -176,6 +176,8 @@ mod tests {
             mergeable_state: None,
             requested_reviewers: vec![],
             node_id: None,
+            review_decision: None,
+            checks_state: None,
         };
         let ctx = ReviewContext {
             run_id: "run-1".into(),

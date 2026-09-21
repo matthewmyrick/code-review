@@ -6,23 +6,16 @@ import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
 
 import { relativeTime } from "../lib/format";
+import { isReadyToMerge } from "../lib/ready";
 import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Spinner } from "./ui";
 
-const SCOPE_HINT: Record<InboxScope, string> = {
-  requested: "PRs waiting on your review",
-  mentions: "PRs where you were mentioned",
-  involved: "requested, mentioned, authored or commented — everything with your name on it",
-  approved: "approved by you, still open",
-};
-
 export function InboxList({ scope }: { scope: InboxScope }) {
   const raw = useAppStore((s) => s.inbox[scope]);
   const prSort = useAppStore((s) => s.prSort);
   const loadInbox = useAppStore((s) => s.loadInbox);
-  const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prs = raw === undefined ? undefined : sortPrs(raw, prSort);
 
   useEffect(() => {
@@ -31,28 +24,6 @@ export function InboxList({ scope }: { scope: InboxScope }) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 px-3 py-2 text-[11px] uppercase tracking-wide text-muted">
-        <span className="truncate" title={SCOPE_HINT[scope]}>
-          {SCOPE_HINT[scope]}
-        </span>
-        <span
-          className="ml-auto shrink-0 rounded-full bg-sky/15 px-2 py-0.5 text-[10px] font-medium text-sky"
-          title="scope follows the repository dropdown above"
-        >
-          {selectedRepo === "*" || selectedRepo === null ? "all repos" : selectedRepo}
-        </span>
-        <button
-          type="button"
-          title="refresh"
-          onClick={() => {
-            void loadInbox(scope, true);
-          }}
-          className="inline-flex size-5 shrink-0 items-center justify-center rounded text-muted hover:bg-panel-2 hover:text-cream"
-        >
-          <RefreshCw size={10} />
-        </button>
-      </div>
-
       <div className="space-y-1 px-2 pb-2">
         {prs === undefined ? (
           <div className="px-3 py-4">
@@ -86,7 +57,7 @@ function InboxRow({ pr }: { pr: PullRequest }) {
         void openPr(slug, pr.number);
       }}
       className={`animate-fade-up block w-full rounded-lg border px-3 py-2 text-left transition-all ${
-        pr.mergeable_state === "clean" ? "border-l-4 border-l-moss " : ""
+        isReadyToMerge(pr) ? "border-l-4 border-l-moss " : ""
       }${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"

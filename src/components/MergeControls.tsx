@@ -6,6 +6,7 @@ import { GitMerge, RefreshCw, Timer } from "lucide-react";
 import { useState } from "react";
 
 import { ipc } from "../lib/ipc";
+import { isReadyToMerge } from "../lib/ready";
 import type { PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Button, Spinner } from "./ui";
@@ -27,9 +28,11 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
   if (!canMerge) return null;
   const repo = `${pr.repo.owner}/${pr.repo.name}`;
   const state = pr.mergeable_state ?? "";
+  const ready = isReadyToMerge(pr);
   const mergeableNow = ["clean", "has_hooks", "unstable", "behind", ""].includes(state);
-  const readiness =
-    state === "clean"
+  const readiness = ready
+    ? { label: "approved and green — ready to merge", cls: "text-moss" }
+    : state === "clean"
       ? { label: "ready to merge", cls: "text-moss" }
       : state === "blocked"
         ? { label: "blocked — approvals or checks still required", cls: "text-ember" }
@@ -64,14 +67,14 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
   return (
     <span className="relative">
       <Button
-        kind={state === "clean" ? "primary" : "ghost"}
+        kind={ready ? "primary" : "ghost"}
         onClick={() => {
           setOpen((o) => !o);
         }}
         title={
-          state === "clean"
+          ready
             ? "ready — merge controls"
-            : `not mergeable yet (${state || "state unknown"}) — auto-merge available inside`
+            : `not ready yet (${state || "state unknown"}) — auto-merge available inside`
         }
       >
         <GitMerge size={12} /> merge…

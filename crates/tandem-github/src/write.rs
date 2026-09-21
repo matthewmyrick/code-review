@@ -19,7 +19,11 @@ pub struct NewInlineComment<'a> {
 }
 
 impl GithubClient {
-    async fn post_json(&self, path: &str, body: serde_json::Value) -> Result<serde_json::Value> {
+    pub(crate) async fn post_json(
+        &self,
+        path: &str,
+        body: serde_json::Value,
+    ) -> Result<serde_json::Value> {
         let url = format!("{}{path}", self.api_base);
         tracing::info!(%url, "github POST (explicit user action)");
         let resp = self

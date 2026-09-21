@@ -127,7 +127,45 @@ impl GithubClient {
                 *pr = detail;
             }
         }
+        self.augment_review_status(repo, &mut prs).await;
         Ok(prs)
+    }
+
+    /// One GraphQL query per page filling reviewDecision + check
+    /// rollup — the reliable "approved and green" signal that
+    /// mergeable_state can't provide on merge-queue repos. Best-effort:
+    /// failures leave the fields None.
+    async fn augment_review_status(&self, repo: &RepoRef, prs: &mut [PullRequest]) {
+        const QUERY: &str = "query($owner:String!,$name:String!){\
+            repository(owner:$owner,name:$name){\
+            pullRequests(states:OPEN,first:50,orderBy:{field:UPDATED_AT,direction:DESC}){\
+            nodes{number reviewDecision \
+            commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}";
+        let body = serde_json::json!({
+            "query": QUERY,
+            "variables": { "owner": repo.owner, "name": repo.name },
+        });
+        let Ok(value) = self.post_json("/graphql", body).await else {
+            return;
+        };
+        let nodes = value
+            .pointer("/data/repository/pullRequests/nodes")
+            .and_then(|n| n.as_array());
+        for node in nodes.into_iter().flatten() {
+            let Some(number) = node.get("number").and_then(serde_json::Value::as_u64) else {
+                continue;
+            };
+            if let Some(pr) = prs.iter_mut().find(|p| p.number == number) {
+                pr.review_decision = node
+                    .get("reviewDecision")
+                    .and_then(|d| d.as_str())
+                    .map(str::to_owned);
+                pr.checks_state = node
+                    .pointer("/commits/nodes/0/commit/statusCheckRollup/state")
+                    .and_then(|s| s.as_str())
+                    .map(str::to_owned);
+            }
+        }
     }
 
     /// Server-side search across ALL open PRs of a repo (title + body),

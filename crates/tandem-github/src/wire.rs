@@ -123,6 +123,8 @@ impl WirePull {
                 .map(|u| u.login)
                 .collect(),
             node_id: self.node_id,
+            review_decision: None,
+            checks_state: None,
         }
     }
 }

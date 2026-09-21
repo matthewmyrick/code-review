@@ -256,6 +256,8 @@ mod tests {
             mergeable_state: None,
             requested_reviewers: vec![],
             node_id: None,
+            review_decision: None,
+            checks_state: None,
         }
     }
 
