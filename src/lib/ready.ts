@@ -11,7 +11,10 @@ export function isReadyToMerge(pr: PullRequest): boolean {
   if (pr.unresolved_threads > 0) return false;
   if (pr.review_decision !== null || pr.checks_state !== null) {
     const approved = (pr.review_decision ?? "APPROVED") === "APPROVED";
-    const green = pr.checks_state === "SUCCESS";
+    // A null rollup means no check suites on the head commit — GitHub
+    // reports that even on repos whose "checks" live elsewhere. Only an
+    // actual non-success rollup blocks readiness.
+    const green = pr.checks_state === "SUCCESS" || pr.checks_state === null;
     return approved && green;
   }
   return pr.mergeable_state === "clean";

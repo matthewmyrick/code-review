@@ -65,19 +65,7 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
           >
             <ExternalLink size={12} /> github
           </Button>
-          <Button
-            onClick={() => {
-              navigator.clipboard
-                .writeText(prUrl(pr.repo, pr.number))
-                .then(() => {
-                  pushInfo("PR URL copied");
-                })
-                .catch(console.warn);
-            }}
-            title="copy the PR URL"
-          >
-            <Link size={12} />
-          </Button>
+          <CopyUrlButton url={prUrl(pr.repo, pr.number)} />
           <MergeControls pr={pr} />
           {viewer !== null && viewer === pr.author.login ? null : <ApproveButton />}
           <Button
@@ -157,6 +145,30 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
 
 /// Approve on GitHub via a popover: optional multi-line markdown review
 /// body (with AI polish), explicit confirm.
+/** Copy-URL with a transient success check in place of the link icon. */
+function CopyUrlButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      onClick={() => {
+        navigator.clipboard
+          .writeText(url)
+          .then(() => {
+            setCopied(true);
+            pushInfo("PR URL copied");
+            setTimeout(() => {
+              setCopied(false);
+            }, 1500);
+          })
+          .catch(console.warn);
+      }}
+      title="copy the PR URL"
+    >
+      {copied ? <Check size={12} className="text-moss" /> : <Link size={12} />}
+    </Button>
+  );
+}
+
 function ApproveButton() {
   const approvePr = useAppStore((s) => s.approvePr);
   const [open, setOpen] = useState(false);
