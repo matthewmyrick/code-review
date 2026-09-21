@@ -13,12 +13,18 @@ import { Button, Spinner } from "./ui";
 
 export function ConflictHelper({ pr }: { pr: PullRequest }) {
   const specs = useAppStore((s) => s.agentSpecs);
+  const runs = useAppStore((s) => s.runs);
   const [agent, setAgent] = useState("");
   const [working, setWorking] = useState(false);
 
   if (pr.mergeable_state !== "dirty" || specs.length === 0) return null;
   const agentName = agent || (specs[0]?.name ?? "");
   const repo = `${pr.repo.owner}/${pr.repo.name}`;
+  // One conflict analysis at a time — no piling up five runs on the
+  // same conflict.
+  const alreadyRunning = runs.some(
+    (r) => r.purpose === "conflict analysis" && (r.status === "starting" || r.status === "running"),
+  );
 
   const start = () => {
     setWorking(true);
@@ -55,6 +61,8 @@ export function ConflictHelper({ pr }: { pr: PullRequest }) {
       ) : null}
       {working ? (
         <Spinner label="starting analysis…" />
+      ) : alreadyRunning ? (
+        <Spinner label="analysis in progress — discussion will open in comments" />
       ) : (
         <Button onClick={start} disabled={!agentName}>
           <GitPullRequestArrow size={11} /> resolve with agent

@@ -1,16 +1,19 @@
-// Agent panel: pick a configured agent, run it against the open PR, and
-// watch a human-readable feed of what it's doing. Comments it emits land
-// in the diff as local comments.
+// Agent panel: pick a configured agent and run it against the open PR.
+// Several runs can execute at once — each row has its own stop button,
+// and clicking a row expands that run's live log (hidden by default).
 
 import {
   Bot,
   Brain,
   Check,
+  ChevronDown,
+  ChevronRight,
   Clock,
   CornerDownLeft,
   Dot,
   Flag,
   Loader,
+  Loader2,
   MessageCircle,
   MessageSquare,
   Play,
@@ -23,10 +26,10 @@ import { useEffect, useRef, useState } from "react";
 import type { LogIcon } from "../lib/agentEvents";
 import { summarizeEvent } from "../lib/agentEvents";
 import { relativeTime } from "../lib/format";
-import type { RunEvent } from "../lib/types";
+import type { AgentRun, RunEvent } from "../lib/types";
 import { useHighlight } from "../state/notifications";
 import { useAppStore } from "../state/store";
-import { Button, Pill, runTone, Spinner } from "./ui";
+import { Button, IconButton, Pill, runTone } from "./ui";
 
 const LOG_ICONS: Record<LogIcon, typeof Check> = {
   loader: Loader,
@@ -44,6 +47,8 @@ const LOG_ICONS: Record<LogIcon, typeof Check> = {
   dot: Dot,
 };
 
+const isWorking = (r: AgentRun) => r.status === "starting" || r.status === "running";
+
 export function AgentPanel() {
   const specs = useAppStore((s) => s.agentSpecs);
   const runs = useAppStore((s) => s.runs);
@@ -53,8 +58,14 @@ export function AgentPanel() {
   const setView = useAppStore((s) => s.setView);
   const highlightedRun = useHighlight((s) => s.runId);
   const [selected, setSelected] = useState<string>("");
+  const [openLog, setOpenLog] = useState<string | null>(null);
 
-  const activeRun = runs.find((r) => r.status === "starting" || r.status === "running");
+  // A jump from the dashboard / bell lands on a run row — open its log
+  // so errors are inspectable without an extra click.
+  useEffect(() => {
+    if (highlightedRun !== null) setOpenLog(highlightedRun);
+  }, [highlightedRun]);
+
   const agentName = selected || (specs[0]?.name ?? "");
 
   if (specs.length === 0) {
@@ -92,67 +103,84 @@ export function AgentPanel() {
             </option>
           ))}
         </select>
-        {activeRun ? (
-          <Button
-            kind="danger"
-            onClick={() => {
-              void cancelRun(activeRun.run_id);
-            }}
-          >
-            <Square size={11} /> cancel
-          </Button>
-        ) : (
-          <Button
-            kind="primary"
-            disabled={!agentName}
-            onClick={() => {
-              void startAgentReview(agentName);
-            }}
-          >
-            <Play size={11} /> review
-          </Button>
-        )}
+        <Button
+          kind="primary"
+          disabled={!agentName}
+          onClick={() => {
+            void startAgentReview(agentName);
+          }}
+        >
+          <Play size={11} /> review
+        </Button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeRun ? (
-          <div className="animate-fade-in flex items-center gap-2 border-b border-edge/60 px-3 py-2.5">
-            <Spinner label={`${activeRun.agent_name} is reviewing…`} />
-            <span className="ml-auto">
-              <Pill tone="sky">
-                <MessageSquare size={11} /> {activeRun.comment_count}
-              </Pill>
-            </span>
-          </div>
-        ) : null}
-
-        <EventLog events={events} />
-
-        <div className="px-3 pb-1 pt-3 text-[11px] uppercase tracking-wide text-muted">
-          past runs
-        </div>
+        <div className="px-3 pb-1 pt-3 text-[11px] uppercase tracking-wide text-muted">runs</div>
         {runs.length === 0 ? (
           <div className="px-3 py-2 text-xs text-muted">none yet</div>
         ) : (
           runs.map((run) => (
-            <div
+            <RunRow
               key={run.run_id}
-              className={`flex items-center gap-2 border-b border-edge/40 px-3 py-2 text-xs ${
-                highlightedRun === run.run_id ? "flash-target" : ""
-              }`}
-            >
-              <span className="truncate text-cream">{run.agent_name}</span>
-              <Pill tone={runTone(run.status)}>{run.status.replace("_", " ")}</Pill>
-              <Pill tone="muted">
-                <MessageSquare size={11} /> {run.comment_count}
-              </Pill>
-              <span className="ml-auto shrink-0 text-[11px] text-muted">
-                {relativeTime(run.started_at)}
-              </span>
-            </div>
+              run={run}
+              flash={highlightedRun === run.run_id}
+              logOpen={openLog === run.run_id}
+              events={events}
+              onToggleLog={() => {
+                setOpenLog((cur) => (cur === run.run_id ? null : run.run_id));
+              }}
+              onStop={() => {
+                void cancelRun(run.run_id);
+              }}
+            />
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+function RunRow({
+  run,
+  flash,
+  logOpen,
+  events,
+  onToggleLog,
+  onStop,
+}: {
+  run: AgentRun;
+  flash: boolean;
+  logOpen: boolean;
+  events: RunEvent[];
+  onToggleLog: () => void;
+  onStop: () => void;
+}) {
+  const Chevron = logOpen ? ChevronDown : ChevronRight;
+  return (
+    <div className={`border-b border-edge/40 ${flash ? "flash-target" : ""}`}>
+      <div className="flex items-center gap-2 px-3 py-2 text-xs">
+        <button
+          type="button"
+          onClick={onToggleLog}
+          title={logOpen ? "hide log" : "show this run's log"}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <Chevron size={12} className="shrink-0 text-muted" />
+          {isWorking(run) ? <Loader2 size={12} className="shrink-0 animate-spin text-sky" /> : null}
+          <span className="truncate text-cream">{run.agent_name}</span>
+          <Pill tone={runTone(run.status)}>{run.status.replace("_", " ")}</Pill>
+          <Pill tone="muted">
+            <MessageSquare size={11} /> {run.comment_count}
+          </Pill>
+        </button>
+        {isWorking(run) ? (
+          <IconButton onClick={onStop} title={`stop ${run.agent_name}`}>
+            <Square size={12} />
+          </IconButton>
+        ) : null}
+        <span className="shrink-0 text-[11px] text-muted">{relativeTime(run.started_at)}</span>
+      </div>
+      {logOpen ? <EventLog events={events.filter((e) => e.run_id === run.run_id)} /> : null}
     </div>
   );
 }
@@ -171,11 +199,17 @@ function EventLog({ events }: { events: RunEvent[] }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [lines.length]);
 
-  if (lines.length === 0) return null;
+  if (lines.length === 0) {
+    return (
+      <div className="border-t border-edge/40 bg-ground/70 px-3 py-2 text-[11px] text-muted">
+        no live log from this session for this run
+      </div>
+    );
+  }
   return (
     <div
       ref={scrollRef}
-      className="max-h-72 overflow-y-auto border-b border-edge/60 bg-ground/70 px-3 py-2 font-mono text-[11px] leading-relaxed"
+      className="max-h-72 overflow-y-auto border-t border-edge/40 bg-ground/70 px-3 py-2 font-mono text-[11px] leading-relaxed"
     >
       {lines.slice(-150).map((line) => {
         const Icon = LOG_ICONS[line.icon];

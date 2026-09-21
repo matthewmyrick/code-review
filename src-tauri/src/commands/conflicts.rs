@@ -4,6 +4,7 @@
 
 use tandem_agents::context::{build_conflict_prompt, ConflictContext, ConflictFile};
 use tandem_cache::ReviewStore;
+use tandem_core::agent::RunStatus;
 use tandem_core::TandemError;
 use tauri::{AppHandle, State};
 
@@ -24,6 +25,16 @@ pub async fn start_conflict_resolution(
     let repo = parse_repo(&repo)?;
     let (spec, pr, raw_diff) = {
         let cache = state.cache.lock().await;
+        // One conflict analysis per PR at a time.
+        let already_running = cache.list_agent_runs(&repo, number)?.into_iter().any(|r| {
+            r.purpose == "conflict analysis"
+                && matches!(r.status, RunStatus::Starting | RunStatus::Running)
+        });
+        if already_running {
+            return Err(TandemError::Config(
+                "a conflict analysis is already running for this PR".into(),
+            ));
+        }
         let spec = cache
             .list_agent_specs()?
             .into_iter()

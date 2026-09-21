@@ -38,7 +38,6 @@ export function agentActions(
       const { selectedRepo, selectedPr } = get();
       if (!selectedRepo || selectedPr === null) return;
       try {
-        set({ agentEvents: [] });
         await ipc.startAgentReview(agentName, selectedRepo, selectedPr);
         await reloadRuns();
       } catch (e) {
