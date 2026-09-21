@@ -14,3 +14,14 @@ export function isReadyToMerge(pr: PullRequest): boolean {
   }
   return pr.mergeable_state === "clean";
 }
+
+export function checksFailing(pr: PullRequest): boolean {
+  return pr.checks_state === "FAILURE" || pr.checks_state === "ERROR";
+}
+
+/** Left-edge accent: green = ready to merge, red = checks failing. */
+export function prEdgeClass(pr: PullRequest): string {
+  if (isReadyToMerge(pr)) return "border-l-4 border-l-moss ";
+  if (checksFailing(pr)) return "border-l-4 border-l-ember ";
+  return "";
+}

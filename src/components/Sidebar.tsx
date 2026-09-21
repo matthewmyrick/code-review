@@ -1,13 +1,13 @@
 // Left pane: tabbed PR lists — the selected repo's open PRs (with
 // filters + 3-day merge archive) and account-wide inbox tabs for
-// requested reviews, mentions, and everything you're involved in.
+// requested reviews, mentions, and PRs you authored.
 
-import { ArrowUpDown, AtSign, GitPullRequest, Inbox, RefreshCw, User, Users } from "lucide-react";
+import { ArrowUpDown, AtSign, GitPullRequest, Inbox, RefreshCw, User } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
 import { fuzzyScore } from "../lib/fuzzy";
-import { isReadyToMerge } from "../lib/ready";
+import { prEdgeClass } from "../lib/ready";
 import { PR_SORTS, sortPrs } from "../lib/sort";
 import type { InboxScope, PrFilters, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -25,7 +25,6 @@ const TABS: { id: SidebarTab; label: string; icon: typeof Inbox }[] = [
   { id: "requested", label: "req", icon: Inbox },
   { id: "mentions", label: "@me", icon: AtSign },
   { id: "authored", label: "mine", icon: User },
-  { id: "involved", label: "inv", icon: Users },
 ];
 
 export function Sidebar() {
@@ -35,7 +34,7 @@ export function Sidebar() {
   const requestedCount = useAppStore((s) => s.inbox.requested?.length ?? 0);
   const [tab, setTab] = useState<SidebarTab>(() => {
     const saved = localStorage.getItem(TAB_KEY);
-    return saved === "requested" || saved === "mentions" || saved === "involved" ? saved : "open";
+    return saved === "requested" || saved === "mentions" || saved === "authored" ? saved : "open";
   });
   const pick = (t: SidebarTab) => {
     setTab(t);
@@ -77,9 +76,7 @@ export function Sidebar() {
                 ? "open PRs in the selected scope"
                 : id === "authored"
                   ? "PRs you opened"
-                  : id === "involved"
-                    ? "involved: requested, mentioned, authored or commented"
-                    : `scope: ${id}`
+                  : `scope: ${id}`
             }
             className={`flex flex-1 items-center justify-center gap-1 px-1 py-2 text-[10px] font-medium transition-colors ${
               tab === id ? "border-b-2 border-sky text-cream" : "text-muted hover:text-cream"
@@ -266,9 +263,9 @@ function PrListItem({ pr }: { pr: PullRequest }) {
       onClick={() => {
         void openPr(slug, pr.number);
       }}
-      className={`animate-fade-up block w-full rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${
-        isReadyToMerge(pr) ? "border-l-4 border-l-moss " : ""
-      }${
+      className={`animate-fade-up block w-full rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${prEdgeClass(
+        pr,
+      )}${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"
           : "border-transparent hover:border-edge hover:bg-panel-2/60"

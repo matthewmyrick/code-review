@@ -252,7 +252,7 @@ export interface OwnerList {
   orgs: string[];
 }
 
-export type InboxScope = "requested" | "mentions" | "authored" | "involved" | "approved";
+export type InboxScope = "requested" | "mentions" | "authored" | "approved";
 
 export interface FileConfigInfo {
   path: string;

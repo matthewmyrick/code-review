@@ -6,7 +6,7 @@ import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
 
 import { relativeTime } from "../lib/format";
-import { isReadyToMerge } from "../lib/ready";
+import { isReadyToMerge, prEdgeClass } from "../lib/ready";
 import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -40,21 +40,24 @@ export function InboxList({ scope }: { scope: InboxScope }) {
   );
 }
 
-/** Ready-to-merge PRs first, a subtle divider, then everything else in
- * the chosen sort order. */
+/** Three groups, each keeping the chosen sort order, separated by
+ * subtle dividers: ready to merge, then open-not-approved, then
+ * drafts last. */
 function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
-  const ready = prs.filter(isReadyToMerge);
-  const rest = prs.filter((pr) => !isReadyToMerge(pr));
+  const groups = [
+    prs.filter(isReadyToMerge),
+    prs.filter((pr) => !isReadyToMerge(pr) && !pr.draft),
+    prs.filter((pr) => !isReadyToMerge(pr) && pr.draft),
+  ].filter((g) => g.length > 0);
   return (
     <>
-      {ready.map((pr) => (
-        <InboxRow key={rowKey(pr)} pr={pr} />
-      ))}
-      {ready.length > 0 && rest.length > 0 ? (
-        <div className="mx-3 my-2 border-t border-edge/70" />
-      ) : null}
-      {rest.map((pr) => (
-        <InboxRow key={rowKey(pr)} pr={pr} />
+      {groups.map((group, i) => (
+        <div key={`group-${String(i)}-${group[0] ? rowKey(group[0]) : ""}`} className="space-y-1">
+          {i > 0 ? <div className="mx-3 my-2 border-t border-edge/70" /> : null}
+          {group.map((pr) => (
+            <InboxRow key={rowKey(pr)} pr={pr} />
+          ))}
+        </div>
       ))}
     </>
   );
@@ -76,9 +79,9 @@ function InboxRow({ pr }: { pr: PullRequest }) {
       onClick={() => {
         void openPr(slug, pr.number);
       }}
-      className={`animate-fade-up block w-full rounded-lg border px-3 py-2 text-left transition-all ${
-        isReadyToMerge(pr) ? "border-l-4 border-l-moss " : ""
-      }${
+      className={`animate-fade-up block w-full rounded-lg border px-3 py-2 text-left transition-all ${prEdgeClass(
+        pr,
+      )}${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"
           : "border-transparent hover:border-edge hover:bg-panel-2/60"
