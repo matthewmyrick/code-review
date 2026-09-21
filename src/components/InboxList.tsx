@@ -24,7 +24,7 @@ export function InboxList({ scope }: { scope: InboxScope }) {
 
   return (
     <div>
-      <div className="space-y-1 px-2 pb-2">
+      <div className="space-y-1 px-2 py-2">
         {prs === undefined ? (
           <div className="px-3 py-4">
             <Spinner label="searching github…" />
@@ -32,11 +32,31 @@ export function InboxList({ scope }: { scope: InboxScope }) {
         ) : prs.length === 0 ? (
           <div className="px-3 py-6 text-center text-xs text-muted">nothing here — all clear</div>
         ) : (
-          prs.map((pr) => <InboxRow key={rowKey(pr)} pr={pr} />)
+          <ReadyGroupedRows prs={prs} />
         )}
       </div>
       {scope === "requested" ? <ApprovedFooter /> : null}
     </div>
+  );
+}
+
+/** Ready-to-merge PRs first, a subtle divider, then everything else in
+ * the chosen sort order. */
+function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
+  const ready = prs.filter(isReadyToMerge);
+  const rest = prs.filter((pr) => !isReadyToMerge(pr));
+  return (
+    <>
+      {ready.map((pr) => (
+        <InboxRow key={rowKey(pr)} pr={pr} />
+      ))}
+      {ready.length > 0 && rest.length > 0 ? (
+        <div className="mx-3 my-2 border-t border-edge/70" />
+      ) : null}
+      {rest.map((pr) => (
+        <InboxRow key={rowKey(pr)} pr={pr} />
+      ))}
+    </>
   );
 }
 
