@@ -7,8 +7,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { fileAnchorId } from "../lib/format";
 import { highlightLine, languageForPath } from "../lib/highlight";
-import type { FileDiff, GithubComment, LocalComment } from "../lib/types";
-import { CommentThread, groupThreads } from "./comments";
+import type { FileDiff, GithubComment, LocalComment, ReviewThreadMeta } from "../lib/types";
+import { groupThreads } from "./comments";
+import { LocalThreadBox } from "./LocalThreadBox";
 import { GithubThread } from "./GithubThread";
 import { InlineComposerSection } from "./InlineCommentForm";
 import { Pill } from "./ui";
@@ -17,9 +18,10 @@ interface DiffViewerProps {
   diff: FileDiff[];
   comments: LocalComment[];
   githubComments: GithubComment[];
+  reviewThreads: ReviewThreadMeta[];
 }
 
-export function DiffViewer({ diff, comments, githubComments }: DiffViewerProps) {
+export function DiffViewer({ diff, comments, githubComments, reviewThreads }: DiffViewerProps) {
   if (diff.length === 0) {
     return <div className="p-6 text-center text-xs text-muted">diff not loaded yet</div>;
   }
@@ -33,6 +35,7 @@ export function DiffViewer({ diff, comments, githubComments }: DiffViewerProps) 
           githubComments={githubComments.filter(
             (c) => c.path === file.new_path || c.path === file.old_path,
           )}
+          reviewThreads={reviewThreads}
         />
       ))}
     </div>
@@ -56,9 +59,10 @@ interface FileCardProps {
   file: FileDiff;
   comments: LocalComment[];
   githubComments: GithubComment[];
+  reviewThreads: ReviewThreadMeta[];
 }
 
-function FileCard({ file, comments, githubComments }: FileCardProps) {
+function FileCard({ file, comments, githubComments, reviewThreads }: FileCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const displayPath = file.status === "removed" ? file.old_path : file.new_path;
   const language = languageForPath(displayPath);
@@ -108,6 +112,7 @@ function FileCard({ file, comments, githubComments }: FileCardProps) {
             hunk={hunk}
             comments={comments}
             githubComments={githubComments}
+            reviewThreads={reviewThreads}
           />
         ))
       )}
@@ -121,6 +126,7 @@ interface HunkProps {
   hunk: FileDiff["hunks"][number];
   comments: LocalComment[];
   githubComments: GithubComment[];
+  reviewThreads: ReviewThreadMeta[];
 }
 
 interface ComposerAnchor {
@@ -130,7 +136,7 @@ interface ComposerAnchor {
   githubCommentId?: number;
 }
 
-function HunkView({ path, language, hunk, comments, githubComments }: HunkProps) {
+function HunkView({ path, language, hunk, comments, githubComments, reviewThreads }: HunkProps) {
   const [commentAt, setCommentAt] = useState<ComposerAnchor | null>(null);
   // Click-drag across line numbers selects a range for the comment.
   const [dragging, setDragging] = useState(false);
@@ -235,6 +241,10 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
                 root={ghRoot}
                 replies={ghReplies}
                 outdated={outdated}
+                resolved={
+                  reviewThreads.find((m) => m.root_comment_id === ghRoot.id)?.resolved ?? false
+                }
+                threadId={reviewThreads.find((m) => m.root_comment_id === ghRoot.id)?.id ?? null}
                 localThreads={threads.filter(
                   (t) => t.root.github_comment_id !== null && ghIds.has(t.root.github_comment_id),
                 )}
@@ -249,12 +259,7 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
                 (t) => t.root.github_comment_id === null || !ghIds.has(t.root.github_comment_id),
               )
               .map((thread) => (
-                <div
-                  key={thread.root.id}
-                  className="border-y border-edge/60 bg-panel-2/70 px-4 py-2"
-                >
-                  <CommentThread root={thread.root} replies={thread.replies} />
-                </div>
+                <LocalThreadBox key={thread.root.id} thread={thread} />
               ))}
 
             {!dragging &&

@@ -152,6 +152,16 @@ pub struct ArchivedPr {
     pub purge_after: DateTime<Utc>,
 }
 
+/// One GitHub review thread's resolution state, keyed by its root
+/// review-comment id (REST databaseId).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewThreadMeta {
+    /// GraphQL thread node id — needed for the resolve mutation.
+    pub id: String,
+    pub resolved: bool,
+    pub root_comment_id: u64,
+}
+
 /// Everything Tandem knows about one PR, bundled for the UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrDetail {
@@ -164,6 +174,9 @@ pub struct PrDetail {
     /// in these, so the UI lists them alongside comments.
     #[serde(default)]
     pub review_bodies: Vec<GithubReview>,
+    /// Review-thread resolution states (drives collapse + resolve).
+    #[serde(default)]
+    pub review_threads: Vec<ReviewThreadMeta>,
 }
 
 #[cfg(test)]

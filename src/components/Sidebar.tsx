@@ -23,7 +23,7 @@ const TAB_KEY = "tandem-sidebar-tab";
 const TABS: { id: SidebarTab; label: string; icon: typeof Inbox }[] = [
   { id: "open", label: "open", icon: GitPullRequest },
   { id: "requested", label: "req", icon: Inbox },
-  { id: "mentions", label: "@me", icon: AtSign },
+  { id: "mentions", label: "mentions", icon: AtSign },
   { id: "authored", label: "mine", icon: User },
 ];
 

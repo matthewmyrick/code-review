@@ -59,6 +59,7 @@ pub fn run() {
             github_write::approve_pr,
             github_write::reply_on_github,
             github_write::commit_suggestion,
+            github_write::resolve_github_thread,
             merge::merge_pr,
             merge::update_pr_branch,
             merge::enable_auto_merge,

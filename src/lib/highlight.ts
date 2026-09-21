@@ -45,6 +45,27 @@ hljs.registerLanguage("typescript", typescript);
 hljs.registerLanguage("xml", xml);
 hljs.registerLanguage("yaml", yaml);
 
+// highlight.js ships no HCL grammar — register a lightweight one.
+hljs.registerLanguage("terraform", (h) => ({
+  name: "Terraform",
+  aliases: ["tf", "hcl"],
+  keywords: {
+    keyword:
+      "resource variable module provider output data locals terraform " +
+      "for in if else dynamic content lifecycle depends_on count for_each",
+    literal: "true false null",
+  },
+  contains: [
+    h.COMMENT(/#/, /$/),
+    h.COMMENT(/\/\//, /$/),
+    h.COMMENT(/\/\*/, /\*\//),
+    h.QUOTE_STRING_MODE,
+    h.C_NUMBER_MODE,
+    { className: "variable", begin: /\b(var|local|each|module|self)\./ },
+    { className: "attr", begin: /^\s*[a-zA-Z_][\w-]*(?=\s*=)/ },
+  ],
+}));
+
 const EXT_TO_LANG: Record<string, string> = {
   sh: "bash",
   bash: "bash",
@@ -81,6 +102,9 @@ const EXT_TO_LANG: Record<string, string> = {
   svg: "xml",
   yml: "yaml",
   yaml: "yaml",
+  tf: "terraform",
+  tfvars: "terraform",
+  hcl: "terraform",
 };
 
 export function languageForPath(path: string): string | null {

@@ -29,25 +29,29 @@ const checkCache = new Map<string, string[]>();
 interface Tip {
   x: number;
   y: number;
-  names: string[] | null;
+  failing: string[] | null;
 }
 
-/** Row handlers + floating tip for failing-check details on hover. */
+/** Row handlers + floating box explaining every colored stripe: ready,
+ * failing checks (with names), pending checks, review state, and
+ * unresolved comment threads. */
 export function useFailingChecksTip(pr: PullRequest) {
   const [tip, setTip] = useState<Tip | null>(null);
   const slug = `${pr.repo.owner}/${pr.repo.name}`;
   const key = `${slug}#${String(pr.number)}@${pr.head_sha}`;
+  const failing = checksFailing(pr);
+  const hasStripes = failing || isReadyToMerge(pr) || pr.unresolved_threads > 0;
 
   const onMouseEnter = (e: React.MouseEvent) => {
-    if (!checksFailing(pr)) return;
+    if (!hasStripes) return;
     const cached = checkCache.get(key);
-    setTip({ x: e.clientX, y: e.clientY, names: cached ?? null });
-    if (!cached) {
+    setTip({ x: e.clientX, y: e.clientY, failing: cached ?? null });
+    if (failing && !cached) {
       ipc
         .listFailingChecks(slug, pr.number)
         .then((names) => {
           checkCache.set(key, names);
-          setTip((t) => (t ? { ...t, names } : t));
+          setTip((t) => (t ? { ...t, failing: names } : t));
         })
         .catch(console.warn);
     }
@@ -56,30 +60,53 @@ export function useFailingChecksTip(pr: PullRequest) {
     setTip(null);
   };
 
+  const lines: { text: string; cls: string }[] = [];
+  if (isReadyToMerge(pr)) {
+    lines.push({ text: "ready to merge", cls: "text-moss" });
+  } else {
+    if (pr.review_decision === "CHANGES_REQUESTED")
+      lines.push({ text: "changes requested", cls: "text-ember" });
+    else if (pr.review_decision === "REVIEW_REQUIRED")
+      lines.push({ text: "review required — not approved yet", cls: "text-amber" });
+    if (pr.checks_state === "PENDING")
+      lines.push({ text: "checks still running", cls: "text-amber" });
+  }
+  if (pr.unresolved_threads > 0) {
+    lines.push({
+      text: `${String(pr.unresolved_threads)} unresolved comment thread${
+        pr.unresolved_threads === 1 ? "" : "s"
+      }`,
+      cls: "text-amber",
+    });
+  }
+
   const tipEl = tip ? (
     <div
-      className="animate-fade-in fixed z-[90] max-w-72 rounded-lg border border-ember/40 bg-panel px-3 py-2 text-left shadow-2xl"
+      className="animate-fade-in fixed z-[90] max-w-72 rounded-lg border border-edge bg-panel px-3 py-2 text-left shadow-2xl"
       style={{ left: tip.x + 14, top: tip.y + 10 }}
     >
-      <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-ember">
-        failing checks
-      </div>
-      {tip.names === null ? (
-        <div className="text-[11px] text-muted">loading…</div>
-      ) : tip.names.length === 0 ? (
-        <div className="text-[11px] text-muted">rollup failed — no individual check names</div>
-      ) : (
-        <ul className="space-y-0.5 text-[11px] text-cream">
-          {tip.names.slice(0, 8).map((name) => (
-            <li key={name} className="truncate">
-              {name}
-            </li>
-          ))}
-          {tip.names.length > 8 ? (
-            <li className="text-muted">+{tip.names.length - 8} more</li>
-          ) : null}
-        </ul>
-      )}
+      <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted">status</div>
+      <ul className="space-y-0.5 text-[11px]">
+        {lines.map((line) => (
+          <li key={line.text} className={line.cls}>
+            {line.text}
+          </li>
+        ))}
+        {failing ? (
+          tip.failing === null ? (
+            <li className="text-muted">loading failing checks…</li>
+          ) : (
+            tip.failing.slice(0, 8).map((name) => (
+              <li key={name} className="truncate text-ember">
+                ✗ {name}
+              </li>
+            ))
+          )
+        ) : null}
+        {failing && tip.failing !== null && tip.failing.length > 8 ? (
+          <li className="text-muted">+{tip.failing.length - 8} more</li>
+        ) : null}
+      </ul>
     </div>
   ) : null;
 

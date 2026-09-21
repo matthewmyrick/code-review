@@ -7,6 +7,8 @@ import type { PullRequest } from "./types";
 export function isReadyToMerge(pr: PullRequest): boolean {
   if (pr.draft) return false;
   if (pr.mergeable_state === "dirty") return false;
+  // Unresolved review threads gate merging in most orgs — not ready.
+  if (pr.unresolved_threads > 0) return false;
   if (pr.review_decision !== null || pr.checks_state !== null) {
     const approved = (pr.review_decision ?? "APPROVED") === "APPROVED";
     const green = pr.checks_state === "SUCCESS";

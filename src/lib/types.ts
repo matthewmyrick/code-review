@@ -69,12 +69,19 @@ export interface GithubComment {
   created_at: string;
 }
 
+export interface ReviewThreadMeta {
+  id: string;
+  resolved: boolean;
+  root_comment_id: number;
+}
+
 export interface PrDetail {
   pull_request: PullRequest;
   checks: CheckRun[];
   reviews: GithubReview[];
   comments: GithubComment[];
   review_bodies: GithubReview[];
+  review_threads: ReviewThreadMeta[];
 }
 
 // ---- diff ----------------------------------------------------------------

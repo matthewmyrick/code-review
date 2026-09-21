@@ -147,6 +147,7 @@ function ReviewLayout() {
                   diff={bundle.diff}
                   comments={bundle.comments}
                   githubComments={bundle.detail.comments}
+                  reviewThreads={bundle.detail.review_threads}
                 />
               </div>
             </div>

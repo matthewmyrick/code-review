@@ -256,3 +256,13 @@ pub async fn commit_suggestion(
     }
     Ok(())
 }
+
+/// Resolve a GitHub review thread (explicit user action).
+#[tauri::command]
+pub async fn resolve_github_thread(
+    state: State<'_, AppState>,
+    thread_id: String,
+) -> Result<(), TandemError> {
+    let client = state.github_client().await?;
+    client.resolve_review_thread(&thread_id).await
+}

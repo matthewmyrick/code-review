@@ -191,6 +191,39 @@ impl GithubClient {
         Ok(pull.into_domain(repo))
     }
 
+    /// Review-thread resolution states via GraphQL (best-effort).
+    async fn fetch_thread_meta(
+        &self,
+        repo: &RepoRef,
+        number: u64,
+    ) -> Vec<tandem_core::github::ReviewThreadMeta> {
+        const QUERY: &str = "query($owner:String!,$name:String!,$number:Int!){\
+            repository(owner:$owner,name:$name){pullRequest(number:$number){\
+            reviewThreads(first:100){nodes{id isResolved \
+            comments(first:1){nodes{databaseId}}}}}}}";
+        let body = serde_json::json!({
+            "query": QUERY,
+            "variables": { "owner": repo.owner, "name": repo.name, "number": number },
+        });
+        let Ok(value) = self.post_json("/graphql", body).await else {
+            return Vec::new();
+        };
+        let nodes = value
+            .pointer("/data/repository/pullRequest/reviewThreads/nodes")
+            .and_then(|n| n.as_array());
+        nodes
+            .into_iter()
+            .flatten()
+            .filter_map(|node| {
+                Some(tandem_core::github::ReviewThreadMeta {
+                    id: node.get("id")?.as_str()?.to_owned(),
+                    resolved: node.get("isResolved")?.as_bool()?,
+                    root_comment_id: node.pointer("/comments/nodes/0/databaseId")?.as_u64()?,
+                })
+            })
+            .collect()
+    }
+
     /// Names of currently failing check runs (for the hover tip).
     pub async fn failing_checks(&self, repo: &RepoRef, number: u64) -> Result<Vec<String>> {
         use tandem_core::github::CheckState;
@@ -277,12 +310,15 @@ impl GithubClient {
             .collect();
         review_bodies.sort_by_key(|r| r.submitted_at);
 
+        let review_threads = self.fetch_thread_meta(repo, number).await;
+
         Ok(PrDetail {
             pull_request,
             checks: checks.check_runs.into_iter().map(Into::into).collect(),
             reviews: effective_reviews(all_reviews),
             comments,
             review_bodies,
+            review_threads,
         })
     }
 

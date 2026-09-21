@@ -3,11 +3,15 @@
 // via original_line). Local discussion attached to the thread renders
 // BELOW the GitHub comments, and the composer can continue either.
 
-import { MessageSquare, Reply } from "lucide-react";
+import { Check, MessageSquare, Reply } from "lucide-react";
+import { useState } from "react";
 
+import { ipc } from "../lib/ipc";
+import { useAppStore } from "../state/store";
+import { pushGithubError, pushInfo } from "../state/toasts";
 import type { GithubComment, LocalComment } from "../lib/types";
 import { CommentThread, GithubCommentCard } from "./comments";
-import { Button, GithubMark } from "./ui";
+import { Button, GithubMark, Spinner } from "./ui";
 
 interface Thread {
   root: LocalComment;
@@ -19,12 +23,36 @@ interface GithubThreadProps {
   replies: GithubComment[];
   localThreads: Thread[];
   outdated: boolean;
+  /** GraphQL thread meta when known: resolution + node id. */
+  resolved: boolean;
+  threadId: string | null;
   onDiscuss: () => void;
 }
 
 export function GithubThread(props: GithubThreadProps) {
   const { root, replies, localThreads } = props;
+  const refreshBundle = useAppStore((s) => s.refreshBundle);
+  // Unresolved threads start expanded; resolved ones start collapsed.
+  const [open, setOpen] = useState(!props.resolved);
+  const [resolving, setResolving] = useState(false);
   const count = 1 + replies.length;
+
+  const resolve = () => {
+    if (!props.threadId) return;
+    setResolving(true);
+    void ipc
+      .resolveGithubThread(props.threadId)
+      .then(async () => {
+        pushInfo("thread resolved on github");
+        await refreshBundle();
+      })
+      .catch((e: unknown) => {
+        pushGithubError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setResolving(false);
+      });
+  };
   const preview = root.body
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/[`#>*_|-]+/g, " ")
@@ -33,7 +61,13 @@ export function GithubThread(props: GithubThreadProps) {
     .slice(0, 90);
 
   return (
-    <details className="border-y border-edge/60 border-l-4 border-l-fur/70 bg-fur/10">
+    <details
+      open={open}
+      onToggle={(e) => {
+        setOpen(e.currentTarget.open);
+      }}
+      className="border-y border-edge/60 border-l-4 border-l-fur/70 bg-fur/10"
+    >
       <summary className="flex cursor-pointer items-center gap-2 px-4 py-1.5 text-[11px] text-muted hover:text-cream">
         <GithubMark size={10} />
         <span className="font-medium text-cream">{root.author.login}</span>
@@ -43,6 +77,11 @@ export function GithubThread(props: GithubThreadProps) {
         {props.outdated ? (
           <span className="rounded-full bg-edge/60 px-1.5 py-0.5 text-[9px] uppercase">
             outdated
+          </span>
+        ) : null}
+        {props.resolved ? (
+          <span className="rounded-full bg-moss/15 px-1.5 py-0.5 text-[9px] uppercase text-moss">
+            resolved
           </span>
         ) : null}
         {localThreads.length > 0 ? (
@@ -64,9 +103,20 @@ export function GithubThread(props: GithubThreadProps) {
             <CommentThread root={thread.root} replies={thread.replies} />
           </div>
         ))}
-        <Button onClick={props.onDiscuss} title="reply locally or straight on github">
-          <Reply size={11} /> discuss
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button onClick={props.onDiscuss} title="reply locally or straight on github">
+            <Reply size={11} /> discuss
+          </Button>
+          {!props.resolved && props.threadId !== null ? (
+            resolving ? (
+              <Spinner label="resolving…" />
+            ) : (
+              <Button onClick={resolve} title="mark this thread resolved on GitHub">
+                <Check size={11} /> resolve
+              </Button>
+            )
+          ) : null}
+        </div>
       </div>
     </details>
   );

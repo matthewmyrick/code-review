@@ -289,6 +289,31 @@ impl GithubClient {
         Ok(())
     }
 
+    /// Resolve a review thread (GraphQL) — explicit user action.
+    pub async fn resolve_review_thread(&self, thread_id: &str) -> Result<()> {
+        let mutation = "mutation($id: ID!) {\
+            resolveReviewThread(input: {threadId: $id}) { clientMutationId } }";
+        let value = self
+            .post_json(
+                "/graphql",
+                serde_json::json!({ "query": mutation, "variables": { "id": thread_id } }),
+            )
+            .await?;
+        if let Some(errors) = value.get("errors").and_then(|e| e.as_array()) {
+            if let Some(first) = errors.first() {
+                let msg = first
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("resolve mutation failed");
+                return Err(TandemError::GithubApi {
+                    status: 0,
+                    message: msg.to_owned(),
+                });
+            }
+        }
+        Ok(())
+    }
+
     /// Enable auto-merge (GraphQL — on merge-queue repos this enqueues).
     pub async fn enable_auto_merge(&self, node_id: &str, method: &str) -> Result<()> {
         let mutation = "mutation($id: ID!, $method: PullRequestMergeMethod!) {\
