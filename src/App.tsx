@@ -2,7 +2,17 @@
 // settings views. The main page is always the pull-request review view;
 // settings is a secondary screen behind the gear.
 
-import { ArrowLeft, Bot, GitPullRequest, MessageSquare, Moon, Settings, Sun } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  GitPullRequest,
+  MessageSquare,
+  Moon,
+  Settings,
+  Sun,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AgentPanel } from "./components/AgentPanel";
@@ -15,6 +25,7 @@ import { Sidebar } from "./components/Sidebar";
 import { SidePane } from "./components/SidePane";
 import { ToastHost } from "./components/ToastHost";
 import { Button, EmptyState, IconButton, TandemMark } from "./components/ui";
+import { applyZoom, loadZoom } from "./state/persist";
 import { useAppStore } from "./state/store";
 
 export default function App() {
@@ -25,8 +36,35 @@ export default function App() {
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
 
+  const [zoom, setZoom] = useState(loadZoom);
+  const changeZoom = (delta: number) => {
+    setZoom((z) => {
+      const next = delta === 0 ? 100 : Math.min(160, Math.max(70, z + delta));
+      applyZoom(next);
+      return next;
+    });
+  };
+
   useEffect(() => {
     void init();
+    applyZoom(loadZoom());
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "=" || e.key === "+") {
+        e.preventDefault();
+        changeZoom(10);
+      } else if (e.key === "-") {
+        e.preventDefault();
+        changeZoom(-10);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        changeZoom(0);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [init]);
 
   return (
@@ -44,6 +82,34 @@ export default function App() {
           <span className="text-sm font-semibold tracking-wide text-cream">Tandem</span>
         </button>
         <div className="ml-auto flex items-center gap-1.5">
+          <span className="flex items-center gap-0.5 rounded-lg bg-panel-2/60 px-1">
+            <IconButton
+              onClick={() => {
+                changeZoom(-10);
+              }}
+              title="zoom out (⌘-)"
+            >
+              <ZoomOut size={13} />
+            </IconButton>
+            <button
+              type="button"
+              onClick={() => {
+                changeZoom(0);
+              }}
+              title="reset zoom (⌘0)"
+              className="w-9 text-center text-[10px] text-muted transition-colors hover:text-cream"
+            >
+              {zoom}%
+            </button>
+            <IconButton
+              onClick={() => {
+                changeZoom(10);
+              }}
+              title="zoom in (⌘+)"
+            >
+              <ZoomIn size={13} />
+            </IconButton>
+          </span>
           <IconButton onClick={toggleTheme} title="toggle light/dark theme">
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </IconButton>

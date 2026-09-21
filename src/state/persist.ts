@@ -27,3 +27,16 @@ export function loadViewer(): string | null {
 export function saveViewer(login: string) {
   localStorage.setItem(VIEWER_KEY, login);
 }
+
+const ZOOM_KEY = "tandem-zoom";
+
+export function loadZoom(): number {
+  const saved = Number(localStorage.getItem(ZOOM_KEY));
+  return Number.isFinite(saved) && saved >= 70 && saved <= 160 ? saved : 100;
+}
+
+export function applyZoom(zoom: number) {
+  localStorage.setItem(ZOOM_KEY, String(zoom));
+  // WebKit honors CSS zoom; scales the whole UI like a browser zoom.
+  (document.body.style as CSSStyleDeclaration & { zoom: string }).zoom = `${String(zoom)}%`;
+}
