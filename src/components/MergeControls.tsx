@@ -12,6 +12,7 @@ import { Button, Spinner } from "./ui";
 
 export function MergeControls({ pr }: { pr: PullRequest }) {
   const viewer = useAppStore((s) => s.viewer);
+  const collaborators = useAppStore((s) => s.collaborators);
   const refreshBundle = useAppStore((s) => s.refreshBundle);
   const refreshPrs = useAppStore((s) => s.refreshPrs);
   const [open, setOpen] = useState(false);
@@ -20,8 +21,27 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
   const [working, setWorking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (!viewer || viewer !== pr.author.login) return null;
+  // Match GitHub: the author or anyone with push access can merge.
+  const canMerge =
+    viewer !== null && (viewer === pr.author.login || collaborators.includes(viewer));
+  if (!canMerge) return null;
   const repo = `${pr.repo.owner}/${pr.repo.name}`;
+  const state = pr.mergeable_state ?? "";
+  const mergeableNow = ["clean", "has_hooks", "unstable", "behind", ""].includes(state);
+  const readiness =
+    state === "clean"
+      ? { label: "ready to merge", cls: "text-moss" }
+      : state === "blocked"
+        ? { label: "blocked — approvals or checks still required", cls: "text-ember" }
+        : state === "dirty"
+          ? { label: "merge conflicts with base", cls: "text-ember" }
+          : state === "behind"
+            ? { label: "behind base — update first", cls: "text-amber" }
+            : state === "unstable"
+              ? { label: "checks still running", cls: "text-amber" }
+              : state === "draft"
+                ? { label: "draft PR — mark ready on GitHub first", cls: "text-muted" }
+                : { label: "merge state unknown — GitHub decides on submit", cls: "text-muted" };
 
   const run = (label: string, action: () => Promise<null>) => {
     setWorking(label);
@@ -48,16 +68,17 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
         onClick={() => {
           setOpen((o) => !o);
         }}
-        title="merge controls — this is your PR"
+        title="merge controls"
       >
         <GitMerge size={12} /> merge…
       </Button>
 
       {open ? (
         <div className="animate-fade-up absolute right-0 top-full z-40 mt-2 w-80 rounded-xl border border-edge bg-panel p-3 shadow-2xl">
-          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted">
-            your PR · merge controls
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+            merge controls
           </div>
+          <div className={`mb-2 text-[11px] ${readiness.cls}`}>{readiness.label}</div>
           <label className="mb-2 flex items-center gap-2 text-xs text-muted">
             method
             <select
@@ -93,7 +114,17 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
               >
                 <Timer size={11} /> auto-merge when ready
               </Button>
-              {confirming ? (
+              {!mergeableNow ? (
+                <Button
+                  disabled
+                  onClick={() => {
+                    /* gated by merge state */
+                  }}
+                  title="GitHub reports this PR can't merge right now — use auto-merge instead"
+                >
+                  <GitMerge size={11} /> merge now
+                </Button>
+              ) : confirming ? (
                 <div className="flex gap-1.5">
                   <Button
                     kind="danger"

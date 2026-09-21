@@ -277,7 +277,11 @@ function PrList() {
           </div>
         </>
       ) : null}
-      <div className="flex items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted">
+      <div
+        className={`flex items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted ${
+          ready.length > 0 ? "mt-2 border-t border-edge/70 pt-3" : ""
+        }`}
+      >
         <span>{searching ? "search results (all open PRs)" : "Open pull requests"}</span>
         {repoSyncing ? <Spinner /> : <span>{rest.length}</span>}
       </div>

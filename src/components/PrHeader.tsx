@@ -26,6 +26,7 @@ import { Button, checkTone, Pill, Spinner } from "./ui";
 export function PrHeader({ detail }: { detail: PrDetail }) {
   const pr = detail.pull_request;
   const refreshBundle = useAppStore((s) => s.refreshBundle);
+  const viewer = useAppStore((s) => s.viewer);
   const syncing = useAppStore((s) => s.syncing);
   const busy = syncing[`pr:${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`] ?? false;
 
@@ -52,7 +53,7 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
             <span>{pr.changed_files} files</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {busy ? <Spinner label="syncing" /> : null}
           <Button
             onClick={() => {
@@ -63,7 +64,7 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
             <ExternalLink size={12} /> github
           </Button>
           <MergeControls pr={pr} />
-          <ApproveButton />
+          {viewer !== null && viewer === pr.author.login ? null : <ApproveButton />}
           <Button
             onClick={() => {
               void refreshBundle();
