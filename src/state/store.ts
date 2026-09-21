@@ -10,6 +10,7 @@ import { EMPTY_FILTERS } from "../lib/types";
 
 import { sanitizePrSort } from "../lib/sort";
 import { recordRunUpdate } from "./notifications";
+import { useRunBoard } from "./runBoard";
 import { pushGithubError } from "./toasts";
 import { agentActions } from "./agentActions";
 import { applyTheme, loadPinned, loadTheme, loadViewer, saveViewer } from "./persist";
@@ -82,8 +83,16 @@ export const useAppStore = create<AppStore>((set, get) => {
       });
       await listen<import("../lib/types").AgentRun>("tandem://run-updated", (event) => {
         recordRunUpdate(event.payload);
+        useRunBoard.getState().ingest(event.payload);
         void reloadRuns().catch(console.error);
       });
+      // Seed the agents dashboard + header badge with recent history.
+      ipc
+        .listAllAgentRuns()
+        .then((runs) => {
+          useRunBoard.getState().ingestMany(runs);
+        })
+        .catch(console.warn);
 
       try {
         const settings = await ipc.getSettings();

@@ -55,6 +55,7 @@ export const ipc = {
   deleteAgentSpec: (name: string) => invoke<null>("delete_agent_spec", { name }),
   listAgentRuns: (repo: string, number: number) =>
     invoke<AgentRun[]>("list_agent_runs", { repo, number }),
+  listAllAgentRuns: () => invoke<AgentRun[]>("list_all_agent_runs"),
   startAgentReview: (agentName: string, repo: string, number: number) =>
     invoke<string>("start_agent_review", { agentName, repo, number }),
   cancelAgentRun: (runId: string) => invoke<null>("cancel_agent_run", { runId }),

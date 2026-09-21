@@ -49,6 +49,12 @@ pub async fn list_agent_runs(
     state.cache.lock().await.list_agent_runs(&repo, number)
 }
 
+/// Every recent run across all repos/PRs — the agents dashboard.
+#[tauri::command]
+pub async fn list_all_agent_runs(state: State<'_, AppState>) -> Result<Vec<AgentRun>, TandemError> {
+    state.cache.lock().await.list_recent_runs(200)
+}
+
 #[tauri::command]
 pub async fn cancel_agent_run(
     state: State<'_, AppState>,

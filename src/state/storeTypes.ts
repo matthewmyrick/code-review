@@ -17,7 +17,7 @@ import type {
   Settings,
 } from "../lib/types";
 
-export type View = "review" | "settings";
+export type View = "review" | "settings" | "agents";
 export type Theme = "dark" | "light";
 
 export interface AppStore {

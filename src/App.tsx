@@ -16,6 +16,7 @@ import {
 import { useEffect, useState } from "react";
 
 import { AgentPanel } from "./components/AgentPanel";
+import { AgentsDashboard, AgentsMenuButton } from "./components/AgentsDashboard";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { DiffViewer } from "./components/DiffViewer";
 import { FileTreePanel } from "./components/FileTree";
@@ -111,6 +112,7 @@ export default function App() {
               <ZoomIn size={13} />
             </IconButton>
           </span>
+          <AgentsMenuButton />
           <NotificationsBell />
           <IconButton onClick={toggleTheme} title="toggle light/dark theme">
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
@@ -131,6 +133,10 @@ export default function App() {
         {view === "settings" ? (
           <main className="animate-fade-up flex-1 overflow-y-auto">
             <SettingsView />
+          </main>
+        ) : view === "agents" ? (
+          <main className="animate-fade-up flex-1 overflow-y-auto">
+            <AgentsDashboard />
           </main>
         ) : (
           <ReviewLayout />

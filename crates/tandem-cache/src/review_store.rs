@@ -29,6 +29,7 @@ pub trait ReviewStore {
 
     fn put_agent_run(&self, run: &AgentRun) -> Result<()>;
     fn list_agent_runs(&self, repo: &RepoRef, pr_number: u64) -> Result<Vec<AgentRun>>;
+    fn list_recent_runs(&self, limit: u32) -> Result<Vec<AgentRun>>;
 }
 
 impl ReviewStore for Cache {
@@ -174,6 +175,21 @@ impl ReviewStore for Cache {
             )
             .map_err(cache_err)?;
         Ok(())
+    }
+
+    fn list_recent_runs(&self, limit: u32) -> Result<Vec<AgentRun>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT json FROM agent_runs ORDER BY started_at DESC LIMIT ?1")
+            .map_err(cache_err)?;
+        let rows = stmt
+            .query_map(params![limit], |row| row.get::<_, String>(0))
+            .map_err(cache_err)?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(serde_json::from_str(&row.map_err(cache_err)?)?);
+        }
+        Ok(out)
     }
 
     fn list_agent_runs(&self, repo: &RepoRef, pr_number: u64) -> Result<Vec<AgentRun>> {
