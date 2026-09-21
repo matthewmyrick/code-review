@@ -129,6 +129,13 @@ impl GithubClient {
                 pr.additions = detail.additions;
                 pr.deletions = detail.deletions;
                 pr.changed_files = detail.changed_files;
+                pr.mergeable_state = detail.mergeable_state.clone();
+                pr.requested_reviewers = detail
+                    .requested_reviewers
+                    .iter()
+                    .map(|u| u.login.clone())
+                    .collect();
+                pr.node_id = detail.node_id.clone();
             }
         }
         Ok(prs)

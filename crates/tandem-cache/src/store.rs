@@ -254,6 +254,8 @@ mod tests {
             updated_at: Utc::now(),
             labels: vec![],
             mergeable_state: None,
+            requested_reviewers: vec![],
+            node_id: None,
         }
     }
 

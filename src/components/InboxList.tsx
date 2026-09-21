@@ -96,6 +96,8 @@ function InboxRow({ pr }: { pr: PullRequest }) {
         void openPr(slug, pr.number);
       }}
       className={`animate-fade-up block w-full rounded-lg border px-3 py-2 text-left transition-all ${
+        pr.mergeable_state === "clean" ? "border-l-4 border-l-moss " : ""
+      }${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"
           : "border-transparent hover:border-edge hover:bg-panel-2/60"

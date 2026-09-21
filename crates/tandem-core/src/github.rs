@@ -64,6 +64,12 @@ pub struct PullRequest {
     /// blocked, dirty (conflicts), behind, unstable, draft, ...
     #[serde(default)]
     pub mergeable_state: Option<String>,
+    /// Logins whose review is still requested (they haven't reviewed).
+    #[serde(default)]
+    pub requested_reviewers: Vec<String>,
+    /// GraphQL node id — needed for auto-merge mutations.
+    #[serde(default)]
+    pub node_id: Option<String>,
 }
 
 /// Combined commit status / check-run conclusion, normalized.

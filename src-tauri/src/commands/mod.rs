@@ -2,6 +2,7 @@
 
 pub mod agents;
 pub mod github_write;
+pub mod merge;
 pub mod prs;
 pub mod review;
 pub mod settings_cmd;

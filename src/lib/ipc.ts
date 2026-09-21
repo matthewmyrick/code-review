@@ -64,6 +64,12 @@ export const ipc = {
   postCommentToGithub: (commentId: string) =>
     invoke<number>("post_comment_to_github", { commentId }),
   commitSuggestion: (commentId: string) => invoke<null>("commit_suggestion", { commentId }),
+  mergePr: (repo: string, number: number, method: string) =>
+    invoke<null>("merge_pr", { repo, number, method }),
+  updatePrBranch: (repo: string, number: number) =>
+    invoke<null>("update_pr_branch", { repo, number }),
+  enableAutoMerge: (repo: string, number: number, method: string) =>
+    invoke<null>("enable_auto_merge", { repo, number, method }),
   approvePr: (repo: string, number: number, body: string | null) =>
     invoke<null>("approve_pr", { repo, number, body }),
   replyOnGithub: (request: {

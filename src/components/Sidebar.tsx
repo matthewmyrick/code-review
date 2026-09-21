@@ -3,7 +3,6 @@
 // requested reviews, mentions, and everything you're involved in.
 
 import {
-  Archive,
   ArrowUpDown,
   AtSign,
   GitPullRequest,
@@ -18,8 +17,9 @@ import { useState } from "react";
 import { relativeTime } from "../lib/format";
 import { fuzzyScore } from "../lib/fuzzy";
 import { PR_SORTS, sortPrs } from "../lib/sort";
-import type { ArchivedPr, InboxScope, PrFilters, PullRequest } from "../lib/types";
+import type { InboxScope, PrFilters, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
+import { ArchivedList } from "./ArchivedList";
 import { InboxList } from "./InboxList";
 import { Button, Pill, Skeleton, Spinner } from "./ui";
 
@@ -112,53 +112,6 @@ export function Sidebar() {
         </div>
       )}
     </div>
-  );
-}
-
-/** Days until the archive purge deadline (ceil, min 0). */
-function daysLeft(purgeAfter: string): number {
-  const ms = new Date(purgeAfter).getTime() - Date.now();
-  return Math.max(0, Math.ceil(ms / 86_400_000));
-}
-
-function ArchivedList() {
-  const archived = useAppStore((s) => s.archivedPrs);
-  const selectPr = useAppStore((s) => s.selectPr);
-  if (archived.length === 0) return null;
-  return (
-    <details className="border-t border-edge/60 px-2 py-2" open>
-      <summary className="flex cursor-pointer items-center gap-1.5 px-1 py-1 text-[11px] uppercase tracking-wide text-muted hover:text-cream">
-        <Archive size={11} /> archived ({archived.length})
-      </summary>
-      <div className="mt-1 space-y-1">
-        {archived.map((a) => (
-          <ArchivedItem key={a.pull_request.number} archived={a} onOpen={selectPr} />
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function ArchivedItem(props: { archived: ArchivedPr; onOpen: (n: number) => Promise<void> }) {
-  const pr = props.archived.pull_request;
-  const days = daysLeft(props.archived.purge_after);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        void props.onOpen(pr.number);
-      }}
-      className="block w-full rounded-lg border border-transparent px-3 py-2 text-left opacity-80 transition-all hover:border-edge hover:bg-panel-2/60 hover:opacity-100"
-    >
-      <div className="mb-0.5 flex items-center gap-2">
-        <span className="text-xs font-medium text-fur">#{pr.number}</span>
-        <Pill tone="muted">merged</Pill>
-        <span className="ml-auto text-[10px] text-muted">
-          {days === 0 ? "purges today" : `purges in ${String(days)}d`}
-        </span>
-      </div>
-      <div className="line-clamp-1 text-[12px] text-cream/80">{pr.title}</div>
-    </button>
   );
 }
 
@@ -307,14 +260,29 @@ function PrList() {
           prSort,
         );
 
+  const ready = visible.filter((pr) => pr.mergeable_state === "clean");
+  const rest = visible.filter((pr) => pr.mergeable_state !== "clean");
+
   return (
     <>
+      {ready.length > 0 ? (
+        <>
+          <div className="flex items-center gap-1.5 px-3 py-2 text-[11px] uppercase tracking-wide text-moss">
+            ready to merge ({ready.length})
+          </div>
+          <div className="space-y-1 px-2">
+            {ready.map((pr) => (
+              <PrListItem key={pr.number} pr={pr} />
+            ))}
+          </div>
+        </>
+      ) : null}
       <div className="flex items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted">
         <span>{searching ? "search results (all open PRs)" : "Open pull requests"}</span>
-        {repoSyncing ? <Spinner /> : <span>{visible.length}</span>}
+        {repoSyncing ? <Spinner /> : <span>{rest.length}</span>}
       </div>
       <div className="space-y-1 px-2 pb-2">
-        {visible.map((pr) => (
+        {rest.map((pr) => (
           <PrListItem key={pr.number} pr={pr} />
         ))}
         {visible.length === 0 && repoSyncing ? <PrListSkeleton /> : null}
@@ -373,6 +341,8 @@ function PrListItem({ pr }: { pr: PullRequest }) {
         void selectPr(pr.number);
       }}
       className={`animate-fade-up block w-full rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${
+        pr.mergeable_state === "clean" ? "border-l-4 border-l-moss " : ""
+      }${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"
           : "border-transparent hover:border-edge hover:bg-panel-2/60"

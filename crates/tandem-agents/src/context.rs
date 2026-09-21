@@ -174,6 +174,8 @@ mod tests {
             updated_at: Utc::now(),
             labels: vec![],
             mergeable_state: None,
+            requested_reviewers: vec![],
+            node_id: None,
         };
         let ctx = ReviewContext {
             run_id: "run-1".into(),

@@ -220,3 +220,97 @@ impl GithubClient {
         Ok(())
     }
 }
+
+impl GithubClient {
+    /// Merge the PR now (method: "merge" | "squash" | "rebase").
+    pub async fn merge_pull_request(
+        &self,
+        repo: &RepoRef,
+        number: u64,
+        method: &str,
+    ) -> Result<()> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{number}/merge",
+            self.api_base, repo.owner, repo.name
+        );
+        tracing::info!(%url, "github PUT merge (explicit user action)");
+        let resp = self
+            .http
+            .put(&url)
+            .headers(self.headers(JSON_ACCEPT)?)
+            .json(&serde_json::json!({ "merge_method": method }))
+            .send()
+            .await
+            .map_err(|e| TandemError::GithubApi {
+                status: 0,
+                message: e.to_string(),
+            })?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(TandemError::GithubApi {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        Ok(())
+    }
+
+    /// Update the PR branch from its base (the "update branch" button).
+    pub async fn update_branch(&self, repo: &RepoRef, number: u64) -> Result<()> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{number}/update-branch",
+            self.api_base, repo.owner, repo.name
+        );
+        tracing::info!(%url, "github PUT update-branch (explicit user action)");
+        let resp = self
+            .http
+            .put(&url)
+            .headers(self.headers(JSON_ACCEPT)?)
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .map_err(|e| TandemError::GithubApi {
+                status: 0,
+                message: e.to_string(),
+            })?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(TandemError::GithubApi {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        Ok(())
+    }
+
+    /// Enable auto-merge (GraphQL — on merge-queue repos this enqueues).
+    pub async fn enable_auto_merge(&self, node_id: &str, method: &str) -> Result<()> {
+        let mutation = "mutation($id: ID!, $method: PullRequestMergeMethod!) {\
+            enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: $method}) {\
+            clientMutationId } }";
+        let value = self
+            .post_json(
+                "/graphql",
+                serde_json::json!({
+                    "query": mutation,
+                    "variables": { "id": node_id, "method": method.to_uppercase() },
+                }),
+            )
+            .await?;
+        if let Some(errors) = value.get("errors").and_then(|e| e.as_array()) {
+            if let Some(first) = errors.first() {
+                let msg = first
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("auto-merge mutation failed");
+                return Err(TandemError::GithubApi {
+                    status: 0,
+                    message: msg.to_owned(),
+                });
+            }
+        }
+        Ok(())
+    }
+}

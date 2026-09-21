@@ -16,6 +16,7 @@ import { useState } from "react";
 
 import { shortSha } from "../lib/format";
 import { ipc } from "../lib/ipc";
+import { MergeControls } from "./MergeControls";
 import { openExternal, prUrl } from "../lib/open";
 import { MarkdownBody } from "./Markdown";
 import type { PrDetail } from "../lib/types";
@@ -61,6 +62,7 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
           >
             <ExternalLink size={12} /> github
           </Button>
+          <MergeControls pr={pr} />
           <ApproveButton />
           <Button
             onClick={() => {
@@ -87,6 +89,11 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
         {changesRequested.map((r) => (
           <Pill key={r.author.login} tone="ember">
             <X size={11} /> {r.author.login}
+          </Pill>
+        ))}
+        {pr.requested_reviewers.map((login) => (
+          <Pill key={`await-${login}`} tone="amber">
+            awaiting {login}
           </Pill>
         ))}
         {pr.labels.map((label) => (

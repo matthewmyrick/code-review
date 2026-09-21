@@ -84,6 +84,10 @@ pub struct WirePull {
     pub labels: Vec<WireLabel>,
     #[serde(default)]
     pub mergeable_state: Option<String>,
+    #[serde(default)]
+    pub requested_reviewers: Vec<WireUser>,
+    #[serde(default)]
+    pub node_id: Option<String>,
 }
 
 impl WirePull {
@@ -113,6 +117,12 @@ impl WirePull {
             updated_at: self.updated_at,
             labels: self.labels.into_iter().map(|l| l.name).collect(),
             mergeable_state: self.mergeable_state,
+            requested_reviewers: self
+                .requested_reviewers
+                .into_iter()
+                .map(|u| u.login)
+                .collect(),
+            node_id: self.node_id,
         }
     }
 }
