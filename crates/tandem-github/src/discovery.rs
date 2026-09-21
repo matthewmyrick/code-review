@@ -81,4 +81,50 @@ impl GithubClient {
             auto_merge: settings.allow_auto_merge.unwrap_or(false),
         })
     }
+
+    /// Filenames changed by the PR.
+    pub async fn pr_files(&self, repo: &RepoRef, number: u64) -> Result<Vec<String>> {
+        #[derive(serde::Deserialize)]
+        struct PrFile {
+            filename: String,
+        }
+        let files: Vec<PrFile> = self
+            .get_json(&format!(
+                "/repos/{}/{}/pulls/{number}/files?per_page=100",
+                repo.owner, repo.name
+            ))
+            .await?;
+        Ok(files.into_iter().map(|f| f.filename).collect())
+    }
+
+    /// Files changed on the base branch since the merge-base with
+    /// `head_sha`, with their patches — the other side of a conflict.
+    pub async fn base_changes_since(
+        &self,
+        repo: &RepoRef,
+        head_sha: &str,
+        base_ref: &str,
+    ) -> Result<Vec<(String, Option<String>)>> {
+        #[derive(serde::Deserialize)]
+        struct CompareFile {
+            filename: String,
+            patch: Option<String>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Compare {
+            #[serde(default)]
+            files: Vec<CompareFile>,
+        }
+        let cmp: Compare = self
+            .get_json(&format!(
+                "/repos/{}/{}/compare/{head_sha}...{base_ref}",
+                repo.owner, repo.name
+            ))
+            .await?;
+        Ok(cmp
+            .files
+            .into_iter()
+            .map(|f| (f.filename, f.patch))
+            .collect())
+    }
 }

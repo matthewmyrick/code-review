@@ -141,18 +141,28 @@ async fn launch_thread_run(
         DiffSide::Old => "old".to_owned(),
         DiffSide::New => "new".to_owned(),
     };
-    launch_run(app, state, spec, repo, pr, move |run_id, comments_file| {
-        let ctx = ReplyContext {
-            run_id: run_id.to_owned(),
-            comments_file: comments_file.to_owned(),
-            parent_id: root.id.clone(),
-            path: root.path.clone(),
-            side,
-            line: root.line,
-            diff_text: diff_excerpt,
-        };
-        build_reply_prompt(&ctx, &pr_for_prompt, &thread, &instructions)
-    })
+    let target = Some(root.id.clone());
+    launch_run(
+        app,
+        state,
+        spec,
+        repo,
+        pr,
+        "thread reply",
+        target,
+        move |run_id, comments_file| {
+            let ctx = ReplyContext {
+                run_id: run_id.to_owned(),
+                comments_file: comments_file.to_owned(),
+                parent_id: root.id.clone(),
+                path: root.path.clone(),
+                side,
+                line: root.line,
+                diff_text: diff_excerpt,
+            };
+            build_reply_prompt(&ctx, &pr_for_prompt, &thread, &instructions)
+        },
+    )
     .await
 }
 

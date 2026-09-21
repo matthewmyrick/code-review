@@ -121,4 +121,16 @@ pub struct AgentRun {
     /// Path to the JSONL event log on disk.
     pub log_path: String,
     pub comment_count: u64,
+    /// What the run was for: "pr review", "thread reply",
+    /// "conflict analysis" — drives notifications.
+    #[serde(default = "default_purpose")]
+    pub purpose: String,
+    /// Local comment the run centers on (thread root / its own general
+    /// comment), for jump-to-highlight.
+    #[serde(default)]
+    pub target_comment_id: Option<String>,
+}
+
+fn default_purpose() -> String {
+    "pr review".to_owned()
 }

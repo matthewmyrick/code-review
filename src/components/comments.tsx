@@ -13,7 +13,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { mentionsUser, relativeTime } from "../lib/format";
 import { githubCommentUrl, openExternal, postedCommentUrl } from "../lib/open";
@@ -21,6 +21,7 @@ import { MarkdownBody } from "./Markdown";
 import { SuggestionBlock } from "./SuggestionBlock";
 import { extractMentions, MentionInput } from "./MentionInput";
 import type { GithubComment, LocalComment } from "../lib/types";
+import { useHighlight } from "../state/notifications";
 import { useAppStore } from "../state/store";
 import { Button, GithubMark, Pill, severityTone, Spinner } from "./ui";
 
@@ -40,8 +41,15 @@ export function groupThreads(
 
 export function CommentThread({ root, replies }: { root: LocalComment; replies: LocalComment[] }) {
   const [replying, setReplying] = useState(false);
+  const highlighted = useHighlight((s) => s.commentId === root.id);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (highlighted) {
+      ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlighted]);
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={ref} className={`flex flex-col gap-2 ${highlighted ? "flash-target" : ""}`}>
       <CommentCard
         comment={root}
         onReply={() => {

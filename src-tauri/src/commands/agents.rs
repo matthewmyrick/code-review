@@ -90,26 +90,38 @@ pub async fn start_agent_review(
 
     let instructions = spec.prompt.clone();
     let pr_for_prompt = pr.clone();
-    launch_run(app, &state, spec, repo, pr, move |run_id, comments_file| {
-        let ctx = ReviewContext {
-            run_id: run_id.to_owned(),
-            comments_file: comments_file.to_owned(),
-            diff_text: raw_diff,
-        };
-        build_prompt(&ctx, &pr_for_prompt, &instructions)
-    })
+    launch_run(
+        app,
+        &state,
+        spec,
+        repo,
+        pr,
+        "pr review",
+        None,
+        move |run_id, comments_file| {
+            let ctx = ReviewContext {
+                run_id: run_id.to_owned(),
+                comments_file: comments_file.to_owned(),
+                diff_text: raw_diff,
+            };
+            build_prompt(&ctx, &pr_for_prompt, &instructions)
+        },
+    )
     .await
 }
 
 /// Shared launch path for every agent run (fresh review or thread
 /// reply): create the run dir, spawn the process, persist the run row,
 /// stash the cancel handle, and start the event pump.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn launch_run(
     app: AppHandle,
     state: &AppState,
     spec: AgentSpec,
     repo: RepoRef,
     pr: tandem_core::github::PullRequest,
+    purpose: &str,
+    target_comment_id: Option<String>,
     build_prompt_fn: impl FnOnce(&str, &str) -> String,
 ) -> Result<String, TandemError> {
     let run_id = uuid::Uuid::new_v4().to_string();
@@ -142,6 +154,8 @@ pub(crate) async fn launch_run(
         finished_at: None,
         log_path,
         comment_count: 0,
+        purpose: purpose.to_owned(),
+        target_comment_id,
     };
     {
         let cache = state.cache.lock().await;
@@ -231,8 +245,12 @@ async fn handle_comment(
     let state = app.state::<AppState>();
     let result = { state.cache.lock().await.add_comment(new) };
     match result {
-        Ok(_) => {
+        Ok(created) => {
             run.comment_count += 1;
+            // Non-review runs center on their first comment.
+            if run.target_comment_id.is_none() && run.purpose != "pr review" {
+                run.target_comment_id = Some(created.id);
+            }
             persist_run(app, run).await;
             let payload = serde_json::json!({ "repo": repo.slug(), "number": run.pr_number });
             if let Err(e) = app.emit("tandem://comments-updated", payload) {

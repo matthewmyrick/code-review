@@ -19,6 +19,7 @@ import { AgentPanel } from "./components/AgentPanel";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { DiffViewer } from "./components/DiffViewer";
 import { FileTreePanel } from "./components/FileTree";
+import { NotificationsBell } from "./components/NotificationsBell";
 import { PrHeader } from "./components/PrHeader";
 import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
@@ -110,6 +111,7 @@ export default function App() {
               <ZoomIn size={13} />
             </IconButton>
           </span>
+          <NotificationsBell />
           <IconButton onClick={toggleTheme} title="toggle light/dark theme">
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </IconButton>

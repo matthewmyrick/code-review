@@ -5,7 +5,9 @@ mod file_config;
 mod settings;
 mod state;
 
-use commands::{agents, github_write, merge, prs, review, settings_cmd, text_tools, threads};
+use commands::{
+    agents, conflicts, github_write, merge, prs, review, settings_cmd, text_tools, threads,
+};
 use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -55,6 +57,7 @@ pub fn run() {
             agents::cancel_agent_run,
             threads::reply_to_comment,
             threads::mention_agent,
+            conflicts::start_conflict_resolution,
             github_write::post_comment_to_github,
             github_write::approve_pr,
             github_write::reply_on_github,

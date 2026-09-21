@@ -209,6 +209,8 @@ export interface AgentRun {
   finished_at: string | null;
   log_path: string;
   comment_count: number;
+  purpose: string;
+  target_comment_id: string | null;
 }
 
 // ---- app-level -------------------------------------------------------------

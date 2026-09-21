@@ -24,6 +24,7 @@ import type { LogIcon } from "../lib/agentEvents";
 import { summarizeEvent } from "../lib/agentEvents";
 import { relativeTime } from "../lib/format";
 import type { RunEvent } from "../lib/types";
+import { useHighlight } from "../state/notifications";
 import { useAppStore } from "../state/store";
 import { Button, Pill, runTone, Spinner } from "./ui";
 
@@ -50,6 +51,7 @@ export function AgentPanel() {
   const startAgentReview = useAppStore((s) => s.startAgentReview);
   const cancelRun = useAppStore((s) => s.cancelRun);
   const setView = useAppStore((s) => s.setView);
+  const highlightedRun = useHighlight((s) => s.runId);
   const [selected, setSelected] = useState<string>("");
 
   const activeRun = runs.find((r) => r.status === "starting" || r.status === "running");
@@ -135,7 +137,9 @@ export function AgentPanel() {
           runs.map((run) => (
             <div
               key={run.run_id}
-              className="flex items-center gap-2 border-b border-edge/40 px-3 py-2 text-xs"
+              className={`flex items-center gap-2 border-b border-edge/40 px-3 py-2 text-xs ${
+                highlightedRun === run.run_id ? "flash-target" : ""
+              }`}
             >
               <span className="truncate text-cream">{run.agent_name}</span>
               <Pill tone={runTone(run.status)}>{run.status.replace("_", " ")}</Pill>

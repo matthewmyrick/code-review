@@ -9,6 +9,7 @@ import type { RunEvent, SyncEvent } from "../lib/types";
 import { EMPTY_FILTERS } from "../lib/types";
 
 import { sanitizePrSort } from "../lib/sort";
+import { recordRunUpdate } from "./notifications";
 import { pushGithubError } from "./toasts";
 import { agentActions } from "./agentActions";
 import { applyTheme, loadPinned, loadTheme, loadViewer, saveViewer } from "./persist";
@@ -79,7 +80,8 @@ export const useAppStore = create<AppStore>((set, get) => {
       await listen("tandem://comments-updated", () => {
         void reloadComments().catch(console.error);
       });
-      await listen("tandem://run-updated", () => {
+      await listen<import("../lib/types").AgentRun>("tandem://run-updated", (event) => {
+        recordRunUpdate(event.payload);
         void reloadRuns().catch(console.error);
       });
 

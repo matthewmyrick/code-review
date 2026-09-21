@@ -262,6 +262,24 @@ body {
   font-weight: 600;
 }
 
+/* jump-to highlight flash (notifications) */
+@keyframes flash-target {
+  0%,
+  60% {
+    background-color: color-mix(in srgb, var(--color-amber) 28%, transparent);
+    box-shadow: inset 0 0 0 1px var(--color-amber);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.flash-target {
+  animation: flash-target 3.2s ease-out both;
+  border-radius: 8px;
+}
+
 /* pulsing "agent running" dot on the pane rail */
 .run-dot {
   position: absolute;

@@ -144,6 +144,70 @@ pub fn build_reply_prompt(
     )
 }
 
+/// One likely-conflicting file: the PR touches it AND the base branch
+/// changed it since the merge-base.
+#[derive(Debug, Clone)]
+pub struct ConflictFile {
+    pub path: String,
+    /// Patch of what the BASE branch did to this file since branching.
+    pub base_patch: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConflictContext {
+    pub run_id: String,
+    pub comments_file: String,
+    pub files: Vec<ConflictFile>,
+    /// The PR's own diff.
+    pub diff_text: String,
+}
+
+/// Prompt for analyzing merge conflicts and opening a local discussion.
+pub fn build_conflict_prompt(ctx: &ConflictContext, pr: &PullRequest) -> String {
+    let mut files_block = String::new();
+    for file in &ctx.files {
+        files_block.push_str(&format!("### {}\n", file.path));
+        match &file.base_patch {
+            Some(patch) => {
+                files_block.push_str("Base-branch changes since branching:\n```diff\n");
+                files_block.push_str(patch);
+                files_block.push_str("\n```\n\n");
+            }
+            None => files_block.push_str("(base patch unavailable — likely binary or huge)\n\n"),
+        }
+    }
+    format!(
+        "# Tandem merge-conflict analysis\n\
+         You are running inside Tandem, a local code-review app. PR #{number} \
+         ({title}) has MERGE CONFLICTS with `{base}`. Below are the files both \
+         sides touched: the base branch's changes since branching, and the \
+         PR's own diff. Everything stays LOCAL — never call `gh` or git push.\n\n\
+         ## Your task\n\
+         Emit EXACTLY ONE JSON object on its own line in your final response \
+         (no code fences):\n\n\
+         {{\"type\":\"tandem_comment\",\"path\":\"\",\"side\":\"new\",\"line\":0,\"severity\":\"info\",\"body\":\"<markdown>\"}}\n\n\
+         The body is a conflict-resolution briefing in GitHub-flavored \
+         markdown: for EACH conflicting file, summarize what the PR changes \
+         vs what base changed, propose a concrete resolution (show merged \
+         code in fenced blocks where helpful), and end with any questions \
+         you need answered. The reviewer will reply in this thread — treat \
+         it as the start of a conversation.\n\n\
+         - run id: {run_id}\n\
+         - branch: {head} -> {base}\n\n\
+         ## Likely-conflicting files\n\
+         {files}\n\
+         ## The PR's diff\n\
+         ```diff\n{diff}\n```\n",
+        number = pr.number,
+        title = pr.title,
+        base = pr.base_ref,
+        head = pr.head_ref,
+        run_id = ctx.run_id,
+        files = files_block,
+        diff = ctx.diff_text,
+    )
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {

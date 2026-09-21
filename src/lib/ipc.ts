@@ -62,6 +62,8 @@ export const ipc = {
     invoke<string>("reply_to_comment", { agentName, commentId, body }),
   mentionAgent: (agentName: string, commentId: string) =>
     invoke<string>("mention_agent", { agentName, commentId }),
+  startConflictResolution: (agentName: string, repo: string, number: number) =>
+    invoke<string>("start_conflict_resolution", { agentName, repo, number }),
 
   // explicit GitHub writes (user-triggered only)
   postCommentToGithub: (commentId: string) =>
