@@ -14,7 +14,7 @@ use tandem_core::{Result, TandemError};
 
 use crate::auth::GithubConfig;
 use crate::wire::{
-    effective_reviews, RepoSummary, WireCheckRunList, WireComment, WirePull, WireReview, WireSearch,
+    effective_reviews, WireCheckRunList, WireComment, WirePull, WireReview, WireSearch,
 };
 use crate::write::urlenc;
 
@@ -113,10 +113,8 @@ impl GithubClient {
             let name = repo.name.clone();
             let number = pr.number;
             set.spawn(async move {
-                let detail: Result<WirePull> = client
-                    .get_json(&format!("/repos/{owner}/{name}/pulls/{number}"))
-                    .await;
-                (index, detail)
+                let repo = RepoRef { owner, name };
+                (index, client.pull_request_settled(&repo, number).await)
             });
         }
         while let Some(joined) = set.join_next().await {
@@ -126,16 +124,7 @@ impl GithubClient {
                 continue;
             };
             if let Some(pr) = prs.get_mut(index) {
-                pr.additions = detail.additions;
-                pr.deletions = detail.deletions;
-                pr.changed_files = detail.changed_files;
-                pr.mergeable_state = detail.mergeable_state.clone();
-                pr.requested_reviewers = detail
-                    .requested_reviewers
-                    .iter()
-                    .map(|u| u.login.clone())
-                    .collect();
-                pr.node_id = detail.node_id.clone();
+                *pr = detail;
             }
         }
         Ok(prs)
@@ -153,7 +142,7 @@ impl GithubClient {
         for item in found.items {
             let client = self.clone();
             let repo = repo.clone();
-            set.spawn(async move { client.pull_request(&repo, item.number).await });
+            set.spawn(async move { client.pull_request_settled(&repo, item.number).await });
         }
         let mut prs = Vec::new();
         while let Some(joined) = set.join_next().await {
@@ -183,7 +172,7 @@ impl GithubClient {
                 continue;
             };
             let client = self.clone();
-            set.spawn(async move { client.pull_request(&repo, item.number).await });
+            set.spawn(async move { client.pull_request_settled(&repo, item.number).await });
         }
         let mut prs = Vec::new();
         while let Some(joined) = set.join_next().await {
@@ -240,54 +229,6 @@ impl GithubClient {
         Ok(prs)
     }
 
-    /// Collaborator logins for a repo (used for @people autocomplete).
-    /// Listing needs push access on some repos — callers treat failure
-    /// as "no extra names", not an error.
-    pub async fn list_collaborators(&self, repo: &RepoRef) -> Result<Vec<String>> {
-        #[derive(serde::Deserialize)]
-        struct Collaborator {
-            login: String,
-        }
-        let people: Vec<Collaborator> = self
-            .get_json(&format!(
-                "/repos/{}/{}/collaborators?per_page=100",
-                repo.owner, repo.name
-            ))
-            .await?;
-        Ok(people.into_iter().map(|c| c.login).collect())
-    }
-
-    /// Login of the authenticated user (used to seed the repo browser).
-    pub async fn viewer_login(&self) -> Result<String> {
-        #[derive(serde::Deserialize)]
-        struct Viewer {
-            login: String,
-        }
-        let v: Viewer = self.get_json("/user").await?;
-        Ok(v.login)
-    }
-
-    /// Organizations the authenticated user belongs to.
-    pub async fn list_orgs(&self) -> Result<Vec<String>> {
-        #[derive(serde::Deserialize)]
-        struct Org {
-            login: String,
-        }
-        let orgs: Vec<Org> = self.get_json("/user/orgs?per_page=100").await?;
-        Ok(orgs.into_iter().map(|o| o.login).collect())
-    }
-
-    /// Repos for an owner, most recently pushed first. `viewer` selects
-    /// the authenticated-user endpoint (which includes private repos).
-    pub async fn list_owner_repos(&self, owner: &str, viewer: bool) -> Result<Vec<RepoSummary>> {
-        let path = if viewer {
-            "/user/repos?per_page=100&sort=pushed&affiliation=owner".to_owned()
-        } else {
-            format!("/orgs/{owner}/repos?per_page=100&sort=pushed")
-        };
-        self.get_json(&path).await
-    }
-
     /// One PR's core data (cheap single call — used for merge checks).
     pub async fn pull_request(&self, repo: &RepoRef, number: u64) -> Result<PullRequest> {
         let pull: WirePull = self
@@ -297,6 +238,19 @@ impl GithubClient {
             ))
             .await?;
         Ok(pull.into_domain(repo))
+    }
+
+    /// Like [`Self::pull_request`], but retries once when GitHub is
+    /// still lazily computing `mergeable_state` (first fetch after a
+    /// push often reports "unknown").
+    pub async fn pull_request_settled(&self, repo: &RepoRef, number: u64) -> Result<PullRequest> {
+        let pr = self.pull_request(repo, number).await?;
+        let unsettled = matches!(pr.mergeable_state.as_deref(), None | Some("unknown"));
+        if !unsettled {
+            return Ok(pr);
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(900)).await;
+        self.pull_request(repo, number).await
     }
 
     /// Fetch up to 3 pages (300 items) of a listing endpoint. The path

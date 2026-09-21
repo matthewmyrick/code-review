@@ -64,11 +64,15 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
   return (
     <span className="relative">
       <Button
-        kind="primary"
+        kind={state === "clean" ? "primary" : "ghost"}
         onClick={() => {
           setOpen((o) => !o);
         }}
-        title="merge controls"
+        title={
+          state === "clean"
+            ? "ready — merge controls"
+            : `not mergeable yet (${state || "state unknown"}) — auto-merge available inside`
+        }
       >
         <GitMerge size={12} /> merge…
       </Button>

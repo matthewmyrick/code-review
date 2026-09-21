@@ -10,7 +10,7 @@ import { EMPTY_FILTERS } from "../lib/types";
 
 import { sanitizePrSort } from "../lib/sort";
 import { agentActions } from "./agentActions";
-import { applyTheme, loadPinned, loadTheme } from "./persist";
+import { applyTheme, loadPinned, loadTheme, loadViewer, saveViewer } from "./persist";
 import type { AppStore } from "./storeTypes";
 
 export type { Theme, View } from "./storeTypes";
@@ -60,7 +60,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     inbox: {},
     prSort: "opened-desc",
     inboxAllRepos: false,
-    viewer: null,
+    viewer: loadViewer(),
     collaborators: [],
 
     init: async () => {
@@ -99,10 +99,12 @@ export const useAppStore = create<AppStore>((set, get) => {
         // Prefetch the review-request inbox for the tab badge (scoped
         // like the tabs); auth-dependent, so failures stay quiet.
         get().loadInbox("requested").catch(console.warn);
-        // Viewer login powers @mention highlighting in comment bodies.
+        // Viewer login powers @mention highlighting and own-PR logic;
+        // persisted so it's known instantly on every later launch.
         ipc
           .listGithubOwners()
           .then((o) => {
+            saveViewer(o.viewer);
             set({ viewer: o.viewer });
           })
           .catch(console.warn);

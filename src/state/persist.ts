@@ -17,3 +17,13 @@ export function applyTheme(theme: Theme) {
 export function loadPinned(key: string): boolean {
   return localStorage.getItem(key) !== "false";
 }
+
+const VIEWER_KEY = "tandem-viewer";
+
+export function loadViewer(): string | null {
+  return localStorage.getItem(VIEWER_KEY);
+}
+
+export function saveViewer(login: string) {
+  localStorage.setItem(VIEWER_KEY, login);
+}

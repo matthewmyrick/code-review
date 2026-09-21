@@ -6,6 +6,7 @@
 
 pub mod auth;
 pub mod client;
+mod discovery;
 mod wire;
 mod write;
 
