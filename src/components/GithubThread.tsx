@@ -53,12 +53,19 @@ export function GithubThread(props: GithubThreadProps) {
         setResolving(false);
       });
   };
-  const preview = root.body
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/[`#>*_|-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 90);
+  // Bot comments often open with badge HTML (<a><img …>) — keep the
+  // image alt text, drop every tag, then flatten the markdown.
+  const preview = (() => {
+    const text = root.body
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<img[^>]*alt="([^"]*)"[^>]*>/gi, " $1 ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, " $1 ")
+      .replace(/[`#>*_|-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return text.slice(0, 90) || "(no text — badges or images only)";
+  })();
 
   return (
     <details
