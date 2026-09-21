@@ -201,7 +201,9 @@ export function Modal(props: { title: ReactNode; onClose: () => void; children: 
 
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
-      <div className="animate-fade-up flex h-[85vh] w-[min(85vw,80rem)] flex-col overflow-hidden rounded-2xl border border-edge bg-panel shadow-2xl">
+      {/* Percentage heights (not vh) so CSS zoom can't push the header
+          and close button past the real viewport. */}
+      <div className="animate-fade-up flex h-[85%] max-h-full w-[min(85%,80rem)] flex-col overflow-hidden rounded-2xl border border-edge bg-panel shadow-2xl">
         <div className="flex items-center gap-2 border-b border-edge px-4 py-2.5">
           <div className="min-w-0 flex-1 text-xs font-medium text-cream">{props.title}</div>
           <button

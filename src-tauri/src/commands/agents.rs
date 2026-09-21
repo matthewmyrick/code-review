@@ -66,6 +66,43 @@ pub async fn cancel_agent_run(
     Ok(())
 }
 
+/// Delete a run and its local conversation (the run's comments plus
+/// replies under them). Cancels the process first if still executing
+/// and removes the run's log directory on disk.
+#[tauri::command]
+pub async fn delete_agent_run(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    run_id: String,
+) -> Result<(), TandemError> {
+    if let Some(mut handle) = state.runs.lock().await.remove(&run_id) {
+        handle.cancel();
+    }
+    let run = {
+        let cache = state.cache.lock().await;
+        let run = cache.get_agent_run(&run_id)?;
+        cache.delete_agent_run(&run_id)?;
+        run
+    };
+    let Some(run) = run else { return Ok(()) };
+    if let Some(dir) = std::path::Path::new(&run.log_path).parent() {
+        if let Err(e) = std::fs::remove_dir_all(dir) {
+            tracing::warn!(error = %e, "failed to remove run dir");
+        }
+    }
+    let payload = serde_json::json!({ "repo": run.repo_slug, "number": run.pr_number });
+    if let Err(e) = app.emit("tandem://comments-updated", payload) {
+        tracing::warn!(error = %e, "failed to emit comments-updated");
+    }
+    if let Err(e) = app.emit(
+        "tandem://run-deleted",
+        serde_json::json!({ "run_id": run_id }),
+    ) {
+        tracing::warn!(error = %e, "failed to emit run-deleted");
+    }
+    Ok(())
+}
+
 /// Start an agent review of a PR. The PR bundle must be synced first so
 /// its diff is in the cache. Returns the run id; progress streams via
 /// `tandem://agent-event` and comments land via `tandem://comments-updated`.
@@ -227,18 +264,22 @@ async fn handle_comment(
         tracing::warn!(payload = %event.payload, "agent emitted malformed tandem_comment");
         return;
     };
+    // A comment without a valid line can't anchor in the diff, and one
+    // without a path can't anchor anywhere — fold either case into a
+    // true PR-level (general) comment so it always renders.
+    let general = parsed.line == 0 || parsed.path.is_empty();
     let new = NewLocalComment {
         repo: repo.clone(),
         pr_number: run.pr_number,
         head_sha: head_sha.to_owned(),
-        path: parsed.path,
+        path: if general { String::new() } else { parsed.path },
         side: if parsed.side == "old" {
             DiffSide::Old
         } else {
             DiffSide::New
         },
-        line: parsed.line,
-        end_line: parsed.end_line,
+        line: if general { 0 } else { parsed.line },
+        end_line: if general { None } else { parsed.end_line },
         body: parsed.body,
         suggestion: parsed.suggestion.clone(),
         author_kind: CommentAuthorKind::Agent,

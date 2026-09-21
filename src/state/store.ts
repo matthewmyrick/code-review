@@ -86,6 +86,10 @@ export const useAppStore = create<AppStore>((set, get) => {
         useRunBoard.getState().ingest(event.payload);
         void reloadRuns().catch(console.error);
       });
+      await listen<{ run_id: string }>("tandem://run-deleted", (event) => {
+        useRunBoard.getState().remove(event.payload.run_id);
+        void reloadRuns().catch(console.error);
+      });
       // Seed the agents dashboard + header badge with recent history.
       ipc
         .listAllAgentRuns()

@@ -28,8 +28,10 @@ pub trait ReviewStore {
     fn delete_agent_spec(&self, name: &str) -> Result<()>;
 
     fn put_agent_run(&self, run: &AgentRun) -> Result<()>;
+    fn get_agent_run(&self, run_id: &str) -> Result<Option<AgentRun>>;
     fn list_agent_runs(&self, repo: &RepoRef, pr_number: u64) -> Result<Vec<AgentRun>>;
     fn list_recent_runs(&self, limit: u32) -> Result<Vec<AgentRun>>;
+    fn delete_agent_run(&self, run_id: &str) -> Result<()>;
 }
 
 impl ReviewStore for Cache {
@@ -173,6 +175,44 @@ impl ReviewStore for Cache {
                     serde_json::to_string(run)?
                 ],
             )
+            .map_err(cache_err)?;
+        Ok(())
+    }
+
+    fn get_agent_run(&self, run_id: &str) -> Result<Option<AgentRun>> {
+        let json: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT json FROM agent_runs WHERE run_id = ?1",
+                params![run_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(cache_err)?;
+        Ok(match json {
+            Some(json) => Some(serde_json::from_str(&json)?),
+            None => None,
+        })
+    }
+
+    fn delete_agent_run(&self, run_id: &str) -> Result<()> {
+        // The run's conversation goes with it: comments the run created
+        // plus any replies threaded under them.
+        self.conn
+            .execute(
+                "DELETE FROM local_comments WHERE json_extract(json, '$.parent_id') IN
+                   (SELECT id FROM local_comments WHERE json_extract(json, '$.run_id') = ?1)",
+                params![run_id],
+            )
+            .map_err(cache_err)?;
+        self.conn
+            .execute(
+                "DELETE FROM local_comments WHERE json_extract(json, '$.run_id') = ?1",
+                params![run_id],
+            )
+            .map_err(cache_err)?;
+        self.conn
+            .execute("DELETE FROM agent_runs WHERE run_id = ?1", params![run_id])
             .map_err(cache_err)?;
         Ok(())
     }

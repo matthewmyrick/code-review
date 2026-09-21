@@ -12,7 +12,10 @@ import {
   GitPullRequest,
   Loader2,
   MessageSquare,
+  RotateCcw,
   ScanSearch,
+  Square,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -23,6 +26,7 @@ import type { AgentRun } from "../lib/types";
 import { useHighlight } from "../state/notifications";
 import { isError, isTerminal, isWorking, unprocessedCount, useRunBoard } from "../state/runBoard";
 import { useAppStore } from "../state/store";
+import { pushGithubError, pushInfo } from "../state/toasts";
 import { Button, EmptyState, IconButton } from "./ui";
 
 const PURPOSE_LABEL: Record<string, string> = {
@@ -132,6 +136,40 @@ export function AgentsDashboard() {
     });
   };
 
+  const fail = (e: unknown) => {
+    pushGithubError(e instanceof Error ? e.message : String(e));
+  };
+
+  const stop = (run: AgentRun) => {
+    ipc.cancelAgentRun(run.run_id).catch(fail);
+  };
+
+  // Relaunch with the same agent + purpose; thread replies re-run on
+  // the same thread, everything else starts a fresh run of its kind.
+  const rerun = (run: AgentRun) => {
+    const relaunch =
+      run.purpose === "conflict analysis"
+        ? ipc.startConflictResolution(run.agent_name, run.repo_slug, run.pr_number)
+        : run.purpose === "thread reply" && run.target_comment_id !== null
+          ? ipc.mentionAgent(run.agent_name, run.target_comment_id)
+          : ipc.startAgentReview(run.agent_name, run.repo_slug, run.pr_number);
+    relaunch
+      .then(() => {
+        pushInfo(`${run.agent_name} relaunched`);
+      })
+      .catch(fail);
+  };
+
+  const removeRun = useRunBoard((s) => s.remove);
+  const destroy = (run: AgentRun) => {
+    ipc
+      .deleteAgentRun(run.run_id)
+      .then(() => {
+        removeRun(run.run_id);
+      })
+      .catch(fail);
+  };
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -191,6 +229,15 @@ export function AgentsDashboard() {
                         onJump={() => {
                           jump(run);
                         }}
+                        onStop={() => {
+                          stop(run);
+                        }}
+                        onRerun={() => {
+                          rerun(run);
+                        }}
+                        onDelete={() => {
+                          destroy(run);
+                        }}
                       />
                     ))}
                   </div>
@@ -208,40 +255,88 @@ function RunRow({
   run,
   processed,
   onJump,
+  onStop,
+  onRerun,
+  onDelete,
 }: {
   run: AgentRun;
   processed: boolean;
   onJump: () => void;
+  onStop: () => void;
+  onRerun: () => void;
+  onDelete: () => void;
 }) {
   const failed = isError(run);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   return (
-    <button
-      type="button"
-      onClick={onJump}
-      className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-panel-2 ${
+    <div
+      className={`group flex w-full items-center gap-2 px-3 py-2 transition-colors hover:bg-panel-2 ${
         processed && isTerminal(run) ? "opacity-50" : ""
       } ${failed && !processed ? "bg-ember/5" : ""}`}
-      title={failed ? "open the PR and inspect the run log" : "open the PR and jump to the result"}
     >
-      <StatusIcon run={run} />
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-xs text-cream">
-          {run.agent_name}
-          <span className="flex items-center gap-1 text-muted">
-            <PurposeIcon purpose={run.purpose} />
-            {PURPOSE_LABEL[run.purpose] ?? run.purpose}
+      <button
+        type="button"
+        onClick={onJump}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        title={
+          failed ? "open the PR and inspect the run log" : "open the PR and jump to the result"
+        }
+      >
+        <StatusIcon run={run} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 text-xs text-cream">
+            {run.agent_name}
+            <span className="flex items-center gap-1 text-muted">
+              <PurposeIcon purpose={run.purpose} />
+              {PURPOSE_LABEL[run.purpose] ?? run.purpose}
+            </span>
+          </span>
+          <span
+            className={`mt-0.5 block truncate text-[10px] ${failed ? "text-ember" : "text-muted"}`}
+          >
+            {run.status.replace("_", " ")}
+            {run.comment_count > 0 ? ` · ${String(run.comment_count)} comments` : ""}
+            {failed ? " · click to view and fix" : ""}
           </span>
         </span>
-        <span
-          className={`mt-0.5 block truncate text-[10px] ${failed ? "text-ember" : "text-muted"}`}
-        >
-          {run.status.replace("_", " ")}
-          {run.comment_count > 0 ? ` · ${String(run.comment_count)} comments` : ""}
-          {failed ? " · click to view and fix" : ""}
-        </span>
+      </button>
+      <span className="flex shrink-0 items-center gap-0.5">
+        {isWorking(run) ? (
+          <IconButton onClick={onStop} title="stop this run">
+            <Square size={12} />
+          </IconButton>
+        ) : (
+          <>
+            <IconButton onClick={onRerun} title="run this agent again">
+              <RotateCcw size={12} />
+            </IconButton>
+            {confirmingDelete ? (
+              <button
+                type="button"
+                onClick={onDelete}
+                onMouseLeave={() => {
+                  setConfirmingDelete(false);
+                }}
+                title="permanently delete this run and its local comments"
+                className="inline-flex h-7 items-center gap-1 rounded-lg bg-ember/15 px-1.5 text-[10px] font-medium text-ember"
+              >
+                <Trash2 size={12} /> sure?
+              </button>
+            ) : (
+              <IconButton
+                onClick={() => {
+                  setConfirmingDelete(true);
+                }}
+                title="delete this run and its local conversation"
+              >
+                <Trash2 size={12} />
+              </IconButton>
+            )}
+          </>
+        )}
       </span>
       <span className="shrink-0 text-[10px] text-muted">{relativeTime(run.started_at)}</span>
-    </button>
+    </div>
   );
 }
 

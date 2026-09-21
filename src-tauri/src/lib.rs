@@ -56,6 +56,7 @@ pub fn run() {
             agents::list_all_agent_runs,
             agents::start_agent_review,
             agents::cancel_agent_run,
+            agents::delete_agent_run,
             threads::reply_to_comment,
             threads::mention_agent,
             conflicts::start_conflict_resolution,

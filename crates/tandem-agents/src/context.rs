@@ -186,6 +186,8 @@ pub fn build_conflict_prompt(ctx: &ConflictContext, pr: &PullRequest) -> String 
          Emit EXACTLY ONE JSON object on its own line in your final response \
          (no code fences):\n\n\
          {{\"type\":\"tandem_comment\",\"path\":\"\",\"side\":\"new\",\"line\":0,\"severity\":\"info\",\"body\":\"<markdown>\"}}\n\n\
+         Keep \"path\" as an EMPTY string and \"line\" 0 exactly as shown — \
+         that makes it a PR-level comment; do NOT point it at a file.\n\n\
          The body is a conflict-resolution briefing in GitHub-flavored \
          markdown: for EACH conflicting file, summarize what the PR changes \
          vs what base changed, propose a concrete resolution (show merged \

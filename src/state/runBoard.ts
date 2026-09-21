@@ -36,6 +36,7 @@ interface RunBoardStore {
   ingestMany: (runs: AgentRun[]) => void;
   markViewed: (runId: string) => void;
   markAllViewed: () => void;
+  remove: (runId: string) => void;
 }
 
 export const useRunBoard = create<RunBoardStore>((set, get) => ({
@@ -59,6 +60,12 @@ export const useRunBoard = create<RunBoardStore>((set, get) => ({
     viewed.add(runId);
     saveViewed(viewed);
     set({ viewed });
+  },
+
+  remove: (runId) => {
+    set((s) => ({
+      runs: Object.fromEntries(Object.entries(s.runs).filter(([id]) => id !== runId)),
+    }));
   },
 
   markAllViewed: () => {
