@@ -2,17 +2,7 @@
 // filters + 3-day merge archive) and account-wide inbox tabs for
 // requested reviews, mentions, and everything you're involved in.
 
-import {
-  ArrowUpDown,
-  RefreshCw,
-  AtSign,
-  GitPullRequest,
-  Inbox,
-  Search,
-  SlidersHorizontal,
-  User,
-  X,
-} from "lucide-react";
+import { ArrowUpDown, AtSign, GitPullRequest, Inbox, RefreshCw, User, Users } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
@@ -22,6 +12,7 @@ import { PR_SORTS, sortPrs } from "../lib/sort";
 import type { InboxScope, PrFilters, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { ArchivedList } from "./ArchivedList";
+import { FilterBar } from "./FilterBar";
 import { InboxList } from "./InboxList";
 import { Button, Pill, Skeleton, Spinner } from "./ui";
 
@@ -33,7 +24,8 @@ const TABS: { id: SidebarTab; label: string; icon: typeof Inbox }[] = [
   { id: "open", label: "open", icon: GitPullRequest },
   { id: "requested", label: "req", icon: Inbox },
   { id: "mentions", label: "@me", icon: AtSign },
-  { id: "involved", label: "mine", icon: User },
+  { id: "authored", label: "mine", icon: User },
+  { id: "involved", label: "inv", icon: Users },
 ];
 
 export function Sidebar() {
@@ -80,7 +72,15 @@ export function Sidebar() {
             onClick={() => {
               pick(id);
             }}
-            title={id === "open" ? "open PRs in this repo" : `account-wide: ${id}`}
+            title={
+              id === "open"
+                ? "open PRs in the selected scope"
+                : id === "authored"
+                  ? "PRs you opened"
+                  : id === "involved"
+                    ? "involved: requested, mentioned, authored or commented"
+                    : `scope: ${id}`
+            }
             className={`flex flex-1 items-center justify-center gap-1 px-1 py-2 text-[10px] font-medium transition-colors ${
               tab === id ? "border-b-2 border-sky text-cream" : "text-muted hover:text-cream"
             }`}
@@ -172,90 +172,6 @@ function filterRank(pr: PullRequest, f: PrFilters, applyQuery: boolean): number 
     return fuzzyScore(f.query, hay);
   }
   return 0;
-}
-
-function FilterBar() {
-  const filters = useAppStore((s) => s.filters);
-  const setFilters = useAppStore((s) => s.setFilters);
-  const resetFilters = useAppStore((s) => s.resetFilters);
-  const clearFilters = useAppStore((s) => s.clearFilters);
-  const searchPrs = useAppStore((s) => s.searchPrs);
-  const searchResults = useAppStore((s) => s.searchResults);
-  const clearSearch = useAppStore((s) => s.clearSearch);
-
-  const structured = Boolean(filters.author || filters.label || filters.hide_drafts);
-  const inputClass =
-    "w-full rounded-md border border-edge bg-ground px-2 py-1 text-xs text-cream outline-none focus:border-sky";
-
-  return (
-    <div className="border-b border-edge px-3 py-2">
-      <div className="relative">
-        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted" />
-        <input
-          value={filters.query}
-          onChange={(e) => {
-            setFilters({ query: e.target.value });
-            if (!e.target.value.trim()) clearSearch();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void searchPrs();
-          }}
-          placeholder="filter loaded · ↵ search all"
-          className={`${inputClass} pl-6 ${searchResults ? "pr-6" : ""}`}
-        />
-        {searchResults ? (
-          <button
-            type="button"
-            title="exit search"
-            onClick={clearSearch}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted hover:text-cream"
-          >
-            <X size={12} />
-          </button>
-        ) : null}
-      </div>
-
-      <details open={structured}>
-        <summary className="mt-1.5 flex cursor-pointer items-center gap-1 text-[11px] text-muted hover:text-cream">
-          <SlidersHorizontal size={10} /> filters{structured ? " · active" : ""}
-        </summary>
-        <div className="mt-1.5 space-y-1.5">
-          <input
-            value={filters.author}
-            onChange={(e) => {
-              setFilters({ author: e.target.value });
-            }}
-            placeholder="author"
-            className={inputClass}
-          />
-          <input
-            value={filters.label}
-            onChange={(e) => {
-              setFilters({ label: e.target.value });
-            }}
-            placeholder="label"
-            className={inputClass}
-          />
-          <label className="flex items-center gap-2 text-[11px] text-muted">
-            <input
-              type="checkbox"
-              checked={filters.hide_drafts}
-              onChange={(e) => {
-                setFilters({ hide_drafts: e.target.checked });
-              }}
-            />
-            hide drafts
-          </label>
-          <div className="flex gap-1.5">
-            <Button onClick={resetFilters} title="back to your saved defaults">
-              reset
-            </Button>
-            <Button onClick={clearFilters}>clear</Button>
-          </div>
-        </div>
-      </details>
-    </div>
-  );
 }
 
 function PrList() {

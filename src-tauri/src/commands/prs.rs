@@ -186,6 +186,7 @@ pub async fn list_my_prs(
     let base = match scope.as_str() {
         "requested" => "review-requested:@me",
         "mentions" => "mentions:@me",
+        "authored" => "author:@me",
         "involved" => "involves:@me",
         "approved" => return client.approved_by_me(repo.as_deref()).await,
         other => {
