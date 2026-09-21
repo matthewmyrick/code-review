@@ -198,33 +198,14 @@ function PrList() {
           prSort,
         );
 
-  const ready = visible.filter(isReadyToMerge);
-  const rest = visible.filter((pr) => !isReadyToMerge(pr));
-
   return (
     <>
-      {ready.length > 0 ? (
-        <>
-          <div className="flex items-center gap-1.5 px-3 py-2 text-[11px] uppercase tracking-wide text-moss">
-            ready to merge ({ready.length})
-          </div>
-          <div className="space-y-1 px-2">
-            {ready.map((pr) => (
-              <PrListItem key={pr.number} pr={pr} />
-            ))}
-          </div>
-        </>
-      ) : null}
-      <div
-        className={`flex items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted ${
-          ready.length > 0 ? "mt-2 border-t border-edge/70 pt-3" : ""
-        }`}
-      >
+      <div className="flex items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted">
         <span>{searching ? "search results (all open PRs)" : "Open pull requests"}</span>
-        {repoSyncing ? <Spinner /> : <span>{rest.length}</span>}
+        {repoSyncing ? <Spinner /> : <span>{visible.length}</span>}
       </div>
       <div className="space-y-1 px-2 pb-2">
-        {rest.map((pr) => (
+        {visible.map((pr) => (
           <PrListItem key={pr.number} pr={pr} />
         ))}
         {visible.length === 0 && repoSyncing ? <PrListSkeleton /> : null}
