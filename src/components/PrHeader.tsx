@@ -6,6 +6,7 @@ import {
   ExternalLink,
   FileText,
   GitMerge,
+  Link,
   Loader,
   OctagonAlert,
   RefreshCw,
@@ -18,6 +19,7 @@ import { shortSha } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import { MergeControls } from "./MergeControls";
 import { openExternal, prUrl } from "../lib/open";
+import { pushInfo } from "../state/toasts";
 import { MarkdownBody } from "./Markdown";
 import type { PrDetail } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -62,6 +64,19 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
             title="open this PR on github.com"
           >
             <ExternalLink size={12} /> github
+          </Button>
+          <Button
+            onClick={() => {
+              navigator.clipboard
+                .writeText(prUrl(pr.repo, pr.number))
+                .then(() => {
+                  pushInfo("PR URL copied");
+                })
+                .catch(console.warn);
+            }}
+            title="copy the PR URL"
+          >
+            <Link size={12} />
           </Button>
           <MergeControls pr={pr} />
           {viewer !== null && viewer === pr.author.login ? null : <ApproveButton />}

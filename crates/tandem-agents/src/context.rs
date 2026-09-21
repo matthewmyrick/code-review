@@ -178,6 +178,7 @@ mod tests {
             node_id: None,
             review_decision: None,
             checks_state: None,
+            unresolved_threads: 0,
         };
         let ctx = ReviewContext {
             run_id: "run-1".into(),

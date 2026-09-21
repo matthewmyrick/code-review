@@ -13,6 +13,7 @@ import { PrHeader } from "./components/PrHeader";
 import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
 import { SidePane } from "./components/SidePane";
+import { ToastHost } from "./components/ToastHost";
 import { Button, EmptyState, IconButton, TandemMark } from "./components/ui";
 import { useAppStore } from "./state/store";
 
@@ -23,8 +24,6 @@ export default function App() {
   const goHome = useAppStore((s) => s.goHome);
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
-  const lastError = useAppStore((s) => s.lastError);
-  const clearError = useAppStore((s) => s.clearError);
 
   useEffect(() => {
     void init();
@@ -59,17 +58,7 @@ export default function App() {
         </div>
       </div>
 
-      {lastError ? (
-        <div className="animate-fade-in flex items-center gap-2 border-b border-ember/40 bg-ember/10 px-4 py-1.5 text-xs text-ember">
-          <span className="min-w-0 flex-1 truncate" title={lastError}>
-            {lastError}
-          </span>
-          <Button kind="danger" onClick={clearError}>
-            dismiss
-          </Button>
-        </div>
-      ) : null}
-
+      <ToastHost />
       <div className="flex min-h-0 flex-1">
         {view === "settings" ? (
           <main className="animate-fade-up flex-1 overflow-y-auto">

@@ -258,6 +258,7 @@ mod tests {
             node_id: None,
             review_decision: None,
             checks_state: None,
+            unresolved_threads: 0,
         }
     }
 

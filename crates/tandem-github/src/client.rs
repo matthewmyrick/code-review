@@ -135,6 +135,7 @@ impl GithubClient {
             repository(owner:$owner,name:$name){\
             pullRequests(states:OPEN,first:50,orderBy:{field:UPDATED_AT,direction:DESC}){\
             nodes{number reviewDecision \
+            reviewThreads(first:100){nodes{isResolved}} \
             commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}";
         let body = serde_json::json!({
             "query": QUERY,
@@ -162,6 +163,19 @@ impl GithubClient {
                     .pointer("/commits/nodes/0/commit/statusCheckRollup/state")
                     .and_then(|s| s.as_str())
                     .map(str::to_owned);
+                pr.unresolved_threads = node
+                    .pointer("/reviewThreads/nodes")
+                    .and_then(|n| n.as_array())
+                    .map(|nodes| {
+                        nodes
+                            .iter()
+                            .filter(|t| {
+                                t.get("isResolved").and_then(serde_json::Value::as_bool)
+                                    == Some(false)
+                            })
+                            .count() as u64
+                    })
+                    .unwrap_or(0);
             }
         }
     }
@@ -175,6 +189,25 @@ impl GithubClient {
             ))
             .await?;
         Ok(pull.into_domain(repo))
+    }
+
+    /// Names of currently failing check runs (for the hover tip).
+    pub async fn failing_checks(&self, repo: &RepoRef, number: u64) -> Result<Vec<String>> {
+        use tandem_core::github::CheckState;
+        let pr = self.pull_request(repo, number).await?;
+        let checks: WireCheckRunList = self
+            .get_json(&format!(
+                "/repos/{}/{}/commits/{}/check-runs?per_page=100",
+                repo.owner, repo.name, pr.head_sha
+            ))
+            .await?;
+        Ok(checks
+            .check_runs
+            .into_iter()
+            .map(tandem_core::github::CheckRun::from)
+            .filter(|c| c.state == CheckState::Failure)
+            .map(|c| c.name)
+            .collect())
     }
 
     /// Like [`Self::pull_request`], but retries once when GitHub is

@@ -9,6 +9,7 @@ import { ipc } from "../lib/ipc";
 import { isReadyToMerge } from "../lib/ready";
 import type { PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
+import { pushGithubError, pushInfo } from "../state/toasts";
 import { Button, Spinner } from "./ui";
 
 export function MergeControls({ pr }: { pr: PullRequest }) {
@@ -20,7 +21,6 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
   const [method, setMethod] = useState("squash");
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   // Match GitHub: the author or anyone with push access can merge.
   const canMerge =
@@ -48,16 +48,16 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
 
   const run = (label: string, action: () => Promise<null>) => {
     setWorking(label);
-    setError(null);
     action()
       .then(async () => {
         setConfirming(false);
         setOpen(false);
+        pushInfo(`${label} — done`);
         await refreshBundle();
         await refreshPrs();
       })
       .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : String(e));
+        pushGithubError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => {
         setWorking(null);
@@ -162,7 +162,6 @@ export function MergeControls({ pr }: { pr: PullRequest }) {
               )}
             </div>
           )}
-          {error ? <div className="mt-2 text-[11px] text-ember">{error}</div> : null}
         </div>
       ) : null}
     </span>

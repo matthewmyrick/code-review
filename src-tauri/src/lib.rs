@@ -41,6 +41,7 @@ pub fn run() {
             prs::list_archived_prs,
             prs::search_prs,
             prs::list_my_prs,
+            prs::list_failing_checks,
             review::list_local_comments,
             review::add_local_comment,
             review::set_comment_status,

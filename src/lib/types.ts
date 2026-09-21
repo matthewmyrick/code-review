@@ -36,6 +36,7 @@ export interface PullRequest {
   node_id: string | null;
   review_decision: string | null;
   checks_state: string | null;
+  unresolved_threads: number;
 }
 
 export type CheckState = "pending" | "success" | "failure" | "neutral" | "cancelled" | "skipped";
@@ -63,6 +64,8 @@ export interface GithubComment {
   body: string;
   path: string | null;
   line: number | null;
+  original_line: number | null;
+  in_reply_to_id: number | null;
   created_at: string;
 }
 

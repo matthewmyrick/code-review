@@ -200,6 +200,18 @@ pub async fn list_my_prs(
     client.search_global_prs(&query).await
 }
 
+/// Failing check names for the hover tip on red-edged rows.
+#[tauri::command]
+pub async fn list_failing_checks(
+    state: State<'_, AppState>,
+    repo: String,
+    number: u64,
+) -> Result<Vec<String>, TandemError> {
+    let repo = parse_repo(&repo)?;
+    let client = state.github_client().await?;
+    client.failing_checks(&repo, number).await
+}
+
 #[tauri::command]
 pub async fn list_archived_prs(
     state: State<'_, AppState>,

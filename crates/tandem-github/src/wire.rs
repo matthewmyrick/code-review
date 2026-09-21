@@ -125,6 +125,7 @@ impl WirePull {
             node_id: self.node_id,
             review_decision: None,
             checks_state: None,
+            unresolved_threads: 0,
         }
     }
 }
@@ -197,6 +198,10 @@ pub struct WireComment {
     pub body: Option<String>,
     pub path: Option<String>,
     pub line: Option<u64>,
+    #[serde(default)]
+    pub original_line: Option<u64>,
+    #[serde(default)]
+    pub in_reply_to_id: Option<u64>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -208,6 +213,8 @@ impl From<WireComment> for GithubComment {
             body: w.body.unwrap_or_default(),
             path: w.path,
             line: w.line,
+            original_line: w.original_line,
+            in_reply_to_id: w.in_reply_to_id,
             created_at: w.created_at,
         }
     }

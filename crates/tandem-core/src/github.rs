@@ -78,6 +78,9 @@ pub struct PullRequest {
     /// PENDING / ERROR / EXPECTED.
     #[serde(default)]
     pub checks_state: Option<String>,
+    /// Count of unresolved review threads (drives the orange edge).
+    #[serde(default)]
+    pub unresolved_threads: u64,
 }
 
 /// Combined commit status / check-run conclusion, normalized.
@@ -129,6 +132,13 @@ pub struct GithubComment {
     pub body: String,
     pub path: Option<String>,
     pub line: Option<u64>,
+    /// Anchor line at the time the comment was written — GitHub nulls
+    /// `line` once the diff moves on (outdated/resolved threads).
+    #[serde(default)]
+    pub original_line: Option<u64>,
+    /// Review comment this replies to (threads).
+    #[serde(default)]
+    pub in_reply_to_id: Option<u64>,
     pub created_at: DateTime<Utc>,
 }
 

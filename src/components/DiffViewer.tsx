@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { fileAnchorId } from "../lib/format";
 import { highlightLine, languageForPath } from "../lib/highlight";
 import type { FileDiff, GithubComment, LocalComment } from "../lib/types";
-import { CommentThread, GithubCommentCard, groupThreads } from "./comments";
+import { CommentThread, groupThreads } from "./comments";
+import { GithubThread } from "./GithubThread";
 import { InlineComposerSection } from "./InlineCommentForm";
 import { Pill } from "./ui";
 
@@ -159,8 +160,21 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
             (c) => c.side === anchorSide && c.line === anchorLine && c.status !== "archived",
           ),
         );
-        const ghAtLine = githubComments.filter(
-          (c) => anchorSide === "new" && c.line === anchorLine,
+        // Outdated/resolved threads have line=null but keep original_line.
+        const ghThreads = githubComments
+          .filter(
+            (c) =>
+              anchorSide === "new" &&
+              c.in_reply_to_id === null &&
+              (c.line ?? c.original_line) === anchorLine,
+          )
+          .map((ghRoot) => ({
+            ghRoot,
+            ghReplies: githubComments.filter((c) => c.in_reply_to_id === ghRoot.id),
+            outdated: ghRoot.line === null,
+          }));
+        const ghIds = new Set(
+          ghThreads.flatMap((t) => [t.ghRoot.id, ...t.ghReplies.map((r) => r.id)]),
         );
         const inRange =
           commentAt !== null &&
@@ -215,29 +229,33 @@ function HunkView({ path, language, hunk, comments, githubComments }: HunkProps)
               </div>
             </div>
 
-            {threads.map((thread) => (
-              <div key={thread.root.id} className="border-y border-edge/60 bg-panel-2/70 px-4 py-2">
-                <CommentThread root={thread.root} replies={thread.replies} />
-              </div>
+            {ghThreads.map(({ ghRoot, ghReplies, outdated }) => (
+              <GithubThread
+                key={ghRoot.id}
+                root={ghRoot}
+                replies={ghReplies}
+                outdated={outdated}
+                localThreads={threads.filter(
+                  (t) => t.root.github_comment_id !== null && ghIds.has(t.root.github_comment_id),
+                )}
+                onDiscuss={() => {
+                  const l = ghRoot.line ?? ghRoot.original_line ?? anchorLine ?? 0;
+                  setCommentAt({ line: l, end: l, side: "new", githubCommentId: ghRoot.id });
+                }}
+              />
             ))}
-            {ghAtLine.map((c) => (
-              <div
-                key={c.id}
-                className="border-y border-edge/60 border-l-4 border-l-fur/70 bg-fur/10 px-4 py-2"
-              >
-                <GithubCommentCard
-                  comment={c}
-                  onDiscuss={
-                    c.line !== null
-                      ? () => {
-                          const l = c.line ?? 0;
-                          setCommentAt({ line: l, end: l, side: "new", githubCommentId: c.id });
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            ))}
+            {threads
+              .filter(
+                (t) => t.root.github_comment_id === null || !ghIds.has(t.root.github_comment_id),
+              )
+              .map((thread) => (
+                <div
+                  key={thread.root.id}
+                  className="border-y border-edge/60 bg-panel-2/70 px-4 py-2"
+                >
+                  <CommentThread root={thread.root} replies={thread.replies} />
+                </div>
+              ))}
 
             {!dragging &&
             commentAt !== null &&

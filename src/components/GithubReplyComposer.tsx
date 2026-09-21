@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { ipc } from "../lib/ipc";
 import { useAppStore } from "../state/store";
+import { pushGithubError } from "../state/toasts";
 import { MentionInput } from "./MentionInput";
 import { Button, Spinner } from "./ui";
 
@@ -46,7 +47,7 @@ export function GithubReplyComposer(props: GithubReplyComposerProps) {
         props.onDone?.();
       })
       .catch((e: unknown) => {
-        console.error("github reply failed", e);
+        pushGithubError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => {
         setWorking(false);

@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
 import { fuzzyScore } from "../lib/fuzzy";
-import { prEdgeClass } from "../lib/ready";
+import { EdgeStripes, useFailingChecksTip } from "./EdgeStripes";
 import { PR_SORTS, sortPrs } from "../lib/sort";
 import type { InboxScope, PrFilters, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -256,6 +256,7 @@ function PrListItem({ pr }: { pr: PullRequest }) {
   const allMode = selectedRepo === "*";
   const active = !allMode && selectedPr === pr.number;
   const hasStats = pr.additions > 0 || pr.deletions > 0 || pr.changed_files > 0;
+  const { onMouseEnter, onMouseLeave, tipEl } = useFailingChecksTip(pr);
 
   return (
     <button
@@ -263,14 +264,16 @@ function PrListItem({ pr }: { pr: PullRequest }) {
       onClick={() => {
         void openPr(slug, pr.number);
       }}
-      className={`animate-fade-up block w-full rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${prEdgeClass(
-        pr,
-      )}${
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`animate-fade-up relative block w-full overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"
           : "border-transparent hover:border-edge hover:bg-panel-2/60"
       }`}
     >
+      <EdgeStripes pr={pr} />
+      {tipEl}
       <div className="mb-1 flex items-center gap-2">
         <span className="text-xs font-medium text-sky">#{pr.number}</span>
         {allMode ? <span className="truncate font-mono text-[10px] text-muted">{slug}</span> : null}

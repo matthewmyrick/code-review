@@ -33,6 +33,8 @@ export const ipc = {
   listMyPrs: (scope: string, repo: string | null) =>
     invoke<PullRequest[]>("list_my_prs", { scope, repo }),
   listArchivedPrs: (repo: string) => invoke<ArchivedPr[]>("list_archived_prs", { repo }),
+  listFailingChecks: (repo: string, number: number) =>
+    invoke<string[]>("list_failing_checks", { repo, number }),
 
   // local review comments
   listLocalComments: (repo: string, number: number) =>

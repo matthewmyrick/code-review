@@ -34,7 +34,6 @@ export interface AppStore {
   runs: AgentRun[];
   agentEvents: RunEvent[];
   syncing: Record<string, boolean>;
-  lastError: string | null;
   prHasMore: boolean;
   prPage: number;
   archivedPrs: ArchivedPr[];
@@ -76,5 +75,4 @@ export interface AppStore {
   deleteAgentSpec: (name: string) => Promise<void>;
   startAgentReview: (agentName: string) => Promise<void>;
   cancelRun: (runId: string) => Promise<void>;
-  clearError: () => void;
 }

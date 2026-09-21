@@ -6,7 +6,8 @@ import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
 
 import { relativeTime } from "../lib/format";
-import { isReadyToMerge, prEdgeClass } from "../lib/ready";
+import { isReadyToMerge } from "../lib/ready";
+import { EdgeStripes, useFailingChecksTip } from "./EdgeStripes";
 import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
 import { useAppStore } from "../state/store";
@@ -73,20 +74,23 @@ function InboxRow({ pr }: { pr: PullRequest }) {
   const selectedPr = useAppStore((s) => s.selectedPr);
   const slug = `${pr.repo.owner}/${pr.repo.name}`;
   const active = selectedRepo === slug && selectedPr === pr.number;
+  const { onMouseEnter, onMouseLeave, tipEl } = useFailingChecksTip(pr);
   return (
     <button
       type="button"
       onClick={() => {
         void openPr(slug, pr.number);
       }}
-      className={`animate-fade-up block w-full rounded-lg border px-3 py-2 text-left transition-all ${prEdgeClass(
-        pr,
-      )}${
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`animate-fade-up relative block w-full overflow-hidden rounded-lg border px-3 py-2 text-left transition-all ${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"
           : "border-transparent hover:border-edge hover:bg-panel-2/60"
       }`}
     >
+      <EdgeStripes pr={pr} />
+      {tipEl}
       <div className="mb-0.5 flex items-center gap-2 text-[10px] text-muted">
         <span className="truncate font-mono">{slug}</span>
         <span className="ml-auto shrink-0">{relativeTime(pr.updated_at)}</span>

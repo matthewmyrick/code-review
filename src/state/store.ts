@@ -9,6 +9,7 @@ import type { RunEvent, SyncEvent } from "../lib/types";
 import { EMPTY_FILTERS } from "../lib/types";
 
 import { sanitizePrSort } from "../lib/sort";
+import { pushGithubError } from "./toasts";
 import { agentActions } from "./agentActions";
 import { applyTheme, loadPinned, loadTheme, loadViewer, saveViewer } from "./persist";
 import type { AppStore } from "./storeTypes";
@@ -21,7 +22,7 @@ let initStarted = false;
 
 export const useAppStore = create<AppStore>((set, get) => {
   const fail = (e: unknown) => {
-    set({ lastError: e instanceof Error ? e.message : String(e) });
+    pushGithubError(e instanceof Error ? e.message : String(e));
   };
 
   const reloadComments = async () => {
@@ -51,7 +52,6 @@ export const useAppStore = create<AppStore>((set, get) => {
     runs: [],
     agentEvents: [],
     syncing: {},
-    lastError: null,
     prHasMore: false,
     prPage: 1,
     archivedPrs: [],
@@ -70,8 +70,8 @@ export const useAppStore = create<AppStore>((set, get) => {
         const { key, phase, error } = event.payload;
         set((s) => ({
           syncing: { ...s.syncing, [key]: phase === "started" },
-          lastError: phase === "error" ? (error ?? "sync failed") : s.lastError,
         }));
+        if (phase === "error") pushGithubError(error ?? "sync failed");
       });
       await listen<RunEvent>("tandem://agent-event", (event) => {
         set((s) => ({ agentEvents: [...s.agentEvents.slice(-499), event.payload] }));
@@ -353,9 +353,5 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     ...agentActions(set, get, fail, reloadComments, reloadRuns),
-
-    clearError: () => {
-      set({ lastError: null });
-    },
   };
 });
