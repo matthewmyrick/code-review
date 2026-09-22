@@ -91,11 +91,11 @@ export function AgentEditor() {
 
   return (
     <section className="rounded-lg border border-edge bg-panel p-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold text-cream">Agents</h2>
-          <p className="mt-0.5 text-xs text-muted">
-            bring your own AI — a CLI session (claude, codex, grok), an API key, or a custom command
+          <p className="mt-0.5 max-w-[34ch] text-xs text-muted">
+            bring your own AI — CLI session, API key, or custom command
           </p>
         </div>
         <Button
