@@ -125,6 +125,33 @@ impl ReviewStore for Cache {
     }
 
     fn delete_comment(&self, id: &str) -> Result<()> {
+        // Deleting a thread root must not shatter the thread: promote
+        // the oldest reply to be the new root and re-parent the rest
+        // onto it, so the conversation survives the deletion.
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT json FROM local_comments
+                 WHERE json_extract(json, '$.parent_id') = ?1
+                 ORDER BY json_extract(json, '$.created_at')",
+            )
+            .map_err(cache_err)?;
+        let rows = stmt
+            .query_map(params![id], |row| row.get::<_, String>(0))
+            .map_err(cache_err)?;
+        let mut replies: Vec<LocalComment> = Vec::new();
+        for row in rows {
+            replies.push(serde_json::from_str(&row.map_err(cache_err)?)?);
+        }
+        if let Some((new_root, rest)) = replies.split_first() {
+            let root_id = new_root.id.clone();
+            self.mutate_comment(&root_id, |c| c.parent_id = None)?;
+            for reply in rest {
+                self.mutate_comment(&reply.id, |c| {
+                    c.parent_id = Some(root_id.clone());
+                })?;
+            }
+        }
         self.conn
             .execute("DELETE FROM local_comments WHERE id = ?1", params![id])
             .map_err(cache_err)?;
@@ -309,59 +336,5 @@ impl Cache {
             )
             .map_err(cache_err)?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod tests {
-    use super::*;
-    use tandem_core::review::{CommentAuthorKind, CommentSeverity, DiffSide};
-
-    fn new_comment(repo: &RepoRef) -> NewLocalComment {
-        NewLocalComment {
-            repo: repo.clone(),
-            pr_number: 1,
-            head_sha: "abc".into(),
-            path: "src/main.rs".into(),
-            side: DiffSide::New,
-            line: 3,
-            body: "consider a match here".into(),
-            author_kind: CommentAuthorKind::Agent,
-            author_name: "claude".into(),
-            severity: CommentSeverity::Suggestion,
-            run_id: Some("run-1".into()),
-            parent_id: None,
-            end_line: None,
-            suggestion: None,
-            github_comment_id: None,
-        }
-    }
-
-    #[test]
-    fn comment_lifecycle() {
-        let cache = Cache::open_in_memory().unwrap();
-        let repo = RepoRef::parse("o/r").unwrap();
-
-        let c = cache.add_comment(new_comment(&repo)).unwrap();
-        assert_eq!(c.status, CommentStatus::Open);
-
-        cache
-            .set_comment_status(&c.id, CommentStatus::Accepted)
-            .unwrap();
-        let listed = cache.list_comments(&repo, 1).unwrap();
-        assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].status, CommentStatus::Accepted);
-
-        cache.delete_comment(&c.id).unwrap();
-        assert!(cache.list_comments(&repo, 1).unwrap().is_empty());
-    }
-
-    #[test]
-    fn missing_comment_errors() {
-        let cache = Cache::open_in_memory().unwrap();
-        assert!(cache
-            .set_comment_status("nope", CommentStatus::Resolved)
-            .is_err());
     }
 }

@@ -10,6 +10,8 @@
 
 mod archive;
 mod review_store;
+#[cfg(test)]
+mod review_store_tests;
 mod schema;
 mod store;
 
