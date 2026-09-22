@@ -9,7 +9,12 @@
 # (default: patch; no tags yet -> the version in src-tauri/tauri.conf.json).
 #
 # Only app code triggers a release — the paths filter below skips
-# docs/markdown/CI-only merges.
+# docs/markdown/CI-only merges (including changes to this workflow
+# itself: if the app doesn't change, there's no release).
+#
+# Queue race: runs serialize via the concurrency group, so a queued run
+# can wake up after newer merges landed. It skips itself — the newer
+# push's run releases everything.
 #
 # Required repo secret: TAURI_SIGNING_PRIVATE_KEY (updater signing key;
 # generated with `pnpm tauri signer generate`, no password).
@@ -32,7 +37,6 @@ on:
       - "tsconfig.json"
       - "tsconfig.node.json"
       - "scripts/set-version.mjs"
-      - ".github/workflows/release.yml"
 
 concurrency:
   group: release-main
@@ -48,6 +52,7 @@ jobs:
     outputs:
       tag: ${{ steps.ver.outputs.tag }}
       version: ${{ steps.ver.outputs.version }}
+      skip: ${{ steps.ver.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,6 +68,16 @@ jobs:
             tag="$existing"
             echo "HEAD already tagged $tag — releasing that version"
           else
+            # This run may have waited in the concurrency queue while
+            # newer commits merged; that newer push has its own run, so
+            # releasing this stale commit would be wrong (and GitHub
+            # rejects the tag push if workflows changed since).
+            tip=$(git ls-remote origin refs/heads/main | cut -f1)
+            if [ "$GITHUB_SHA" != "$tip" ]; then
+              echo "main moved on to $tip — skipping; the newer run releases"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             latest=$(git tag -l 'v*' | sort -V | tail -n1)
             if [ -z "$latest" ]; then
               tag="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
@@ -95,6 +110,7 @@ jobs:
   build:
     name: build (${{ matrix.name }})
     needs: version
+    if: needs.version.outputs.skip != 'true'
     strategy:
       fail-fast: false
       matrix:
