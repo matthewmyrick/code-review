@@ -132,6 +132,10 @@ pub struct AgentRun {
     /// comment), for jump-to-highlight.
     #[serde(default)]
     pub target_comment_id: Option<String>,
+    /// Human-readable failure reason for failed/timed-out/interrupted
+    /// runs — surfaced on run rows instead of a bare status.
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 fn default_purpose() -> String {

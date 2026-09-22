@@ -214,6 +214,7 @@ export interface AgentRun {
   comment_count: number;
   purpose: string;
   target_comment_id: string | null;
+  error: string | null;
 }
 
 // ---- app-level -------------------------------------------------------------

@@ -239,6 +239,7 @@ impl ReviewStore for Cache {
         for run in &mut runs {
             run.status = RunStatus::Failed;
             run.finished_at = Some(Utc::now());
+            run.error = Some("interrupted — the app restarted mid-run".into());
             self.put_agent_run(run)?;
         }
         Ok(u32::try_from(runs.len()).unwrap_or(u32::MAX))

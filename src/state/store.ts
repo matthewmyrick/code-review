@@ -11,7 +11,7 @@ import { EMPTY_FILTERS } from "../lib/types";
 import { sanitizePrSort } from "../lib/sort";
 import { recordRunUpdate } from "./notifications";
 import { useRunBoard } from "./runBoard";
-import { pushGithubError } from "./toasts";
+import { pushGithubError, pushInfo } from "./toasts";
 import { agentActions } from "./agentActions";
 import { applyTheme, loadPinned, loadTheme, loadViewer, saveViewer } from "./persist";
 import type { AppStore } from "./storeTypes";
@@ -95,6 +95,19 @@ export const useAppStore = create<AppStore>((set, get) => {
         .listAllAgentRuns()
         .then((runs) => {
           useRunBoard.getState().ingestMany(runs);
+          // Runs the startup sweep just failed out were killed by the
+          // restart that booted this very session — say so.
+          const interrupted = runs.filter(
+            (r) =>
+              r.error?.includes("app restarted") &&
+              r.finished_at !== null &&
+              Date.now() - new Date(r.finished_at).getTime() < 3 * 60_000,
+          ).length;
+          if (interrupted > 0) {
+            pushInfo(
+              `${String(interrupted)} agent run${interrupted > 1 ? "s were" : " was"} interrupted by an app restart`,
+            );
+          }
         })
         .catch(console.warn);
 
