@@ -190,18 +190,18 @@ jobs:
           stage=$(mktemp -d)
           case "${{ matrix.name }}" in
             macos-arm)
-              cp src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg \
+              cp target/aarch64-apple-darwin/release/bundle/dmg/*.dmg \
                 "$stage/Tandem-macos-arm64.dmg" ;;
             macos-intel)
-              cp src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg \
+              cp target/x86_64-apple-darwin/release/bundle/dmg/*.dmg \
                 "$stage/Tandem-macos-x64.dmg" ;;
             windows)
-              cp src-tauri/target/release/bundle/nsis/*-setup.exe \
+              cp target/release/bundle/nsis/*-setup.exe \
                 "$stage/Tandem-windows-x64-setup.exe" ;;
             linux)
-              cp src-tauri/target/release/bundle/appimage/*.AppImage \
+              cp target/release/bundle/appimage/*.AppImage \
                 "$stage/Tandem-linux-x86_64.AppImage"
-              cp src-tauri/target/release/bundle/deb/*.deb \
+              cp target/release/bundle/deb/*.deb \
                 "$stage/Tandem-linux-amd64.deb" ;;
           esac
           gh release upload "$TAG" "$stage"/* --clobber
