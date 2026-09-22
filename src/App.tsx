@@ -13,6 +13,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 
 import { AgentPanel } from "./components/AgentPanel";
@@ -51,6 +52,11 @@ export default function App() {
 
   useEffect(() => {
     void init();
+    // Bring the window to the front on startup — after an update the
+    // relaunched app would otherwise reopen behind other windows.
+    getCurrentWindow()
+      .setFocus()
+      .catch(() => undefined);
     applyZoom(loadZoom());
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
