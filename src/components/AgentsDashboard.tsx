@@ -306,9 +306,9 @@ function RunRow({
             type="button"
             onClick={onStop}
             title="stop this run"
-            className="inline-flex size-7 items-center justify-center rounded-lg border border-ember/40 text-ember transition-colors hover:border-ember hover:bg-ember/10"
+            className="inline-flex size-7 items-center justify-center rounded-md text-ember/80 transition-colors hover:bg-ember/10 hover:text-ember"
           >
-            <Square size={12} />
+            <Square size={11} fill="currentColor" />
           </button>
         ) : (
           <>
