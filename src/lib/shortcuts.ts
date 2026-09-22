@@ -13,7 +13,7 @@ export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
     items: [
       { keys: "j / k", label: "next / previous pull request" },
       { keys: "↵", label: "open highlighted pull request" },
-      { keys: "1 2 3 4", label: "sidebar tabs: open · req · mentions · mine" },
+      { keys: "1 2 3 4", label: "sidebar tabs: req · mine · mentions · open" },
       { keys: "r", label: "refresh current list + PR" },
       { keys: "esc", label: "back to the list" },
     ],

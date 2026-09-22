@@ -236,6 +236,13 @@ export interface PrFilters {
 
 export const EMPTY_FILTERS: PrFilters = { query: "", author: "", label: "", hide_drafts: false };
 
+export interface PrCommit {
+  sha: string;
+  message: string;
+  author: string;
+  authored_at: string | null;
+}
+
 export interface WorkspaceInfo {
   path: string;
   managed: boolean;

@@ -200,7 +200,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     goHome: () => {
-      set({ view: "review", selectedPr: null, bundle: null });
+      // From settings/agents, "home" means back to the review you were
+      // on — only a second press (already in review) clears the PR.
+      if (get().view !== "review") {
+        set({ view: "review" });
+        return;
+      }
+      set({ selectedPr: null, bundle: null });
     },
 
     togglePinned: (side) => {

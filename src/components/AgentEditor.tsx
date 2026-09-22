@@ -24,7 +24,8 @@ const MODEL_OPTIONS: Record<
   claude_headless: [
     ["", "CLI default"],
     ["fable", "Fable 5 — most capable"],
-    ["opus", "Opus 4.8"],
+    ["opus", "Opus — latest (5.5)"],
+    ["claude-opus-5-5", "Opus 5.5 (pinned)"],
     ["sonnet", "Sonnet 5 — balanced"],
     ["haiku", "Haiku 4.5 — fastest"],
   ],

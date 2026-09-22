@@ -5,6 +5,15 @@ use tandem_core::github::RepoRef;
 use tandem_core::Result;
 
 use crate::client::GithubClient;
+
+/// One commit on a pull request, for the PR-header commits list.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PrCommit {
+    pub sha: String,
+    pub message: String,
+    pub author: String,
+    pub authored_at: Option<String>,
+}
 use crate::wire::{MergeOptions, RepoSummary};
 
 impl GithubClient {
@@ -83,6 +92,48 @@ impl GithubClient {
     }
 
     /// Filenames changed by the PR.
+    pub async fn pr_commits(&self, repo: &RepoRef, number: u64) -> Result<Vec<PrCommit>> {
+        #[derive(serde::Deserialize)]
+        struct Raw {
+            sha: String,
+            commit: RawCommit,
+            author: Option<RawUser>,
+        }
+        #[derive(serde::Deserialize)]
+        struct RawCommit {
+            message: String,
+            author: Option<RawMeta>,
+        }
+        #[derive(serde::Deserialize)]
+        struct RawMeta {
+            name: Option<String>,
+            date: Option<String>,
+        }
+        #[derive(serde::Deserialize)]
+        struct RawUser {
+            login: String,
+        }
+        let raw: Vec<Raw> = self
+            .get_json(&format!(
+                "/repos/{}/{}/pulls/{number}/commits?per_page=100",
+                repo.owner, repo.name
+            ))
+            .await?;
+        Ok(raw
+            .into_iter()
+            .map(|c| PrCommit {
+                sha: c.sha,
+                message: c.commit.message,
+                author: c
+                    .author
+                    .map(|a| a.login)
+                    .or(c.commit.author.as_ref().and_then(|a| a.name.clone()))
+                    .unwrap_or_else(|| "unknown".into()),
+                authored_at: c.commit.author.and_then(|a| a.date),
+            })
+            .collect())
+    }
+
     pub async fn pr_files(&self, repo: &RepoRef, number: u64) -> Result<Vec<String>> {
         #[derive(serde::Deserialize)]
         struct PrFile {

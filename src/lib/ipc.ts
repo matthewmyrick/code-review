@@ -16,6 +16,7 @@ import type {
   LocalComment,
   NewLocalComment,
   PrBundle,
+  PrCommit,
   PrPage,
   PullRequest,
   Settings,
@@ -38,6 +39,8 @@ export const ipc = {
   listArchivedPrs: (repo: string) => invoke<ArchivedPr[]>("list_archived_prs", { repo }),
   listFailingChecks: (repo: string, number: number) =>
     invoke<string[]>("list_failing_checks", { repo, number }),
+  listPrCommits: (repo: string, number: number) =>
+    invoke<PrCommit[]>("list_pr_commits", { repo, number }),
 
   // local review comments
   listLocalComments: (repo: string, number: number) =>

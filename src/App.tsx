@@ -5,6 +5,7 @@
 import {
   ArrowLeft,
   Bot,
+  Keyboard,
   GitPullRequest,
   MessageSquare,
   Moon,
@@ -29,6 +30,7 @@ import { SidePane } from "./components/SidePane";
 import { ToastHost } from "./components/ToastHost";
 import { Button, EmptyState, IconButton, TandemMark } from "./components/ui";
 import { UpdateButton } from "./components/UpdateButton";
+import { useKeyNav } from "./state/keyNav";
 import { applyZoom, loadZoom } from "./state/persist";
 import { useAppStore } from "./state/store";
 
@@ -115,6 +117,14 @@ export default function App() {
               <ZoomIn size={13} />
             </IconButton>
           </span>
+          <IconButton
+            onClick={() => {
+              useKeyNav.getState().setHelp(true);
+            }}
+            title="keyboard shortcuts (?)"
+          >
+            <Keyboard size={15} />
+          </IconButton>
           <AgentsMenuButton />
           <NotificationsBell />
           <IconButton onClick={toggleTheme} title="toggle light/dark theme">
@@ -160,14 +170,28 @@ function ReviewLayout() {
   const leftPinned = useAppStore((s) => s.leftPinned);
   const rightPinned = useAppStore((s) => s.rightPinned);
   const togglePinned = useAppStore((s) => s.togglePinned);
-  const [tab, setTab] = useState<"comments" | "agents">("agents");
+  const [tab, setTab] = useState<"comments" | "agents">("comments");
 
   const agentRunning = runs.some((r) => r.status === "starting" || r.status === "running");
   const commentCount = bundle
     ? bundle.comments.length + bundle.detail.comments.length + bundle.detail.review_bodies.length
     : 0;
   const selectedRepo = useAppStore((s) => s.selectedRepo);
+  const refreshBundle = useAppStore((s) => s.refreshBundle);
   const prKey = `${selectedRepo ?? ""}#${String(selectedPr ?? "")}`;
+  const prOpen = bundle !== null;
+
+  // While a PR is on screen, quietly poll for new comments/commits/
+  // checks — the cached bundle means reopening is instant either way.
+  useEffect(() => {
+    if (!prOpen) return;
+    const timer = setInterval(() => {
+      void refreshBundle();
+    }, 60_000);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [prKey, prOpen, refreshBundle]);
 
   // First run: no repos configured yet — onboard from the main page.
   if (settings?.repos.length === 0) {
@@ -266,7 +290,7 @@ function ReviewLayout() {
         >
           <div className="flex h-full flex-col">
             <div className="flex border-b border-edge">
-              {(["agents", "comments"] as const).map((t) => (
+              {(["comments", "agents"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"

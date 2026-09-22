@@ -45,11 +45,12 @@ export function NotificationsBell() {
   const jump = (n: RunNotification) => {
     markRead(n.id);
     setOpen(false);
-    void openPr(n.repo, n.number).then(() => {
-      setHighlight(
-        n.targetCommentId !== null ? { commentId: n.targetCommentId } : { runId: n.runId },
-      );
-    });
+    // Don't wait for the background GitHub sync — the cached bundle
+    // renders almost instantly and the highlight finds it on mount.
+    void openPr(n.repo, n.number);
+    setHighlight(
+      n.targetCommentId !== null ? { commentId: n.targetCommentId } : { runId: n.runId },
+    );
   };
 
   return (
