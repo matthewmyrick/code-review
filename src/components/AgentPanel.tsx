@@ -180,9 +180,9 @@ function RunRow({
             type="button"
             onClick={onStop}
             title={`stop ${run.agent_name}`}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg border border-ember/40 text-ember transition-colors hover:border-ember hover:bg-ember/10"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-ember/80 transition-colors hover:bg-ember/10 hover:text-ember"
           >
-            <Square size={12} />
+            <Square size={11} fill="currentColor" />
           </button>
         ) : null}
         <span className="shrink-0 text-[11px] text-muted">{relativeTime(run.started_at)}</span>
