@@ -51,6 +51,7 @@ impl GithubAuth {
 
 async fn gh_cli_token() -> Result<String> {
     let output = Command::new("gh")
+        .env("PATH", tandem_core::spawn::augmented_path())
         .args(["auth", "token"])
         .output()
         .await

@@ -11,6 +11,7 @@ pub mod diff_parse;
 pub mod error;
 pub mod github;
 pub mod review;
+pub mod spawn;
 
 pub use error::TandemError;
 

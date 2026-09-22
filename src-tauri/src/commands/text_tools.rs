@@ -17,6 +17,7 @@ pub async fn polish_text(text: String) -> Result<String, TandemError> {
         return Ok(text);
     }
     let mut child = tokio::process::Command::new("claude")
+        .env("PATH", tandem_core::spawn::augmented_path())
         .args(["-p", "--model", "haiku"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
