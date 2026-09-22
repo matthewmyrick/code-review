@@ -6,7 +6,7 @@ mod settings;
 mod state;
 
 use commands::{
-    agents, conflicts, github_write, merge, prs, review, settings_cmd, text_tools, threads,
+    agents, conflicts, github_write, merge, prs, review, settings_cmd, text_tools, threads, updates,
 };
 use state::AppState;
 
@@ -86,6 +86,8 @@ pub fn run() {
             settings_cmd::list_github_repos,
             settings_cmd::list_collaborators,
             text_tools::polish_text,
+            updates::list_app_releases,
+            updates::install_app_version,
         ])
         .run(tauri::generate_context!());
 
