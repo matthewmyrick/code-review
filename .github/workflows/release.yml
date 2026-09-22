@@ -172,7 +172,10 @@ jobs:
             Installers: Windows `-setup.exe` / `.msi`, macOS `.dmg`
             (arm64 + x64), Linux `.AppImage` / `.deb`. Running apps
             pick this release up via the in-app update button.
-          releaseDraft: false
+          # Stay a draft until every platform uploaded — a half-built
+          # release must never become `latest` (updaters on platforms
+          # that aren't merged into latest.json yet would error out).
+          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
 
@@ -205,3 +208,29 @@ jobs:
                 "$stage/Tandem-linux-amd64.deb" ;;
           esac
           gh release upload "$TAG" "$stage"/* --clobber
+
+  # Flip the draft live only after every platform built and uploaded —
+  # this is what makes a release visible to updaters and `latest` URLs
+  # atomically. If any build fails, the draft stays hidden.
+  publish:
+    name: publish release
+    needs: [version, build]
+    if: needs.version.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: mark release as published + latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # /releases/tags/<tag> can't see drafts — list and filter.
+          id=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=30" \
+            --jq ".[] | select(.tag_name == \"${TAG}\") | .id" | head -n1)
+          if [ -z "$id" ]; then
+            echo "no release found for ${TAG}" >&2
+            exit 1
+          fi
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${id}" \
+            -F draft=false -f make_latest=true >/dev/null
+          echo "published ${TAG} as latest"
