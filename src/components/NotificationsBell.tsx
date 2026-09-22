@@ -2,7 +2,7 @@
 // and flash-highlights the thread / run it concerns.
 
 import { Bell, Bot, Check, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useHighlight, useNotifications } from "../state/notifications";
 import type { RunNotification } from "../state/notifications";
@@ -22,7 +22,25 @@ export function NotificationsBell() {
   const setHighlight = useHighlight((s) => s.set);
   const openPr = useAppStore((s) => s.openPr);
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLSpanElement | null>(null);
   const unread = items.filter((i) => !i.read).length;
+
+  // Clicking anywhere outside (or Esc) dismisses the dropdown.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const jump = (n: RunNotification) => {
     markRead(n.id);
@@ -35,14 +53,14 @@ export function NotificationsBell() {
   };
 
   return (
-    <span className="relative">
+    <span className="relative" ref={wrapRef}>
       <IconButton
         onClick={() => {
           setOpen((o) => !o);
         }}
         title="agent-run notifications"
       >
-        <span className="relative">
+        <span className="relative" ref={wrapRef}>
           <Bell size={15} />
           {unread > 0 ? (
             <span className="absolute -right-1.5 -top-1.5 flex size-3.5 items-center justify-center rounded-full bg-amber text-[8px] font-bold text-ground">
