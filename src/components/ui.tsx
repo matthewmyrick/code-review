@@ -188,16 +188,31 @@ export const useModalHold = create<{ count: number; inc: () => void; dec: () => 
   },
 }));
 
-/** Centered floating pane over a dimmed backdrop. Deliberately closes
- * ONLY via the ✕ button — never on backdrop clicks or Escape — so a
- * half-typed comment can't be lost by a stray click or focus change. */
+/** Centered floating pane over a dimmed backdrop. Closes via ✕ or
+ * Escape — but never on backdrop clicks, and Esc while typing only
+ * blurs the field (a second Esc closes), so a half-typed comment can't
+ * be lost by a stray keypress. */
 export function Modal(props: { title: ReactNode; onClose: () => void; children: ReactNode }) {
   const inc = useModalHold((s) => s.inc);
   const dec = useModalHold((s) => s.dec);
+  const { onClose } = props;
   useEffect(() => {
     inc();
-    return dec;
-  }, [inc, dec]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, [contenteditable='true']")) {
+        el.blur();
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      dec();
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [inc, dec, onClose]);
 
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">

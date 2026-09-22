@@ -33,12 +33,31 @@ export function InboxList({ scope }: { scope: InboxScope }) {
           </div>
         ) : prs.length === 0 ? (
           <div className="px-3 py-6 text-center text-xs text-muted">nothing here — all clear</div>
-        ) : (
+        ) : scope === "authored" ? (
+          // Only YOUR PRs group into ready/open/draft with dividers —
+          // review-request and mention lists read better flat.
           <ReadyGroupedRows prs={prs} />
+        ) : (
+          <FlatRows prs={prs} />
         )}
       </div>
       {scope === "requested" ? <ApprovedFooter /> : null}
     </div>
+  );
+}
+
+function FlatRows({ prs }: { prs: PullRequest[] }) {
+  useEffect(() => {
+    useKeyNav
+      .getState()
+      .setList(prs.map((pr) => ({ slug: `${pr.repo.owner}/${pr.repo.name}`, number: pr.number })));
+  }, [prs]);
+  return (
+    <>
+      {prs.map((pr) => (
+        <InboxRow key={rowKey(pr)} pr={pr} />
+      ))}
+    </>
   );
 }
 
