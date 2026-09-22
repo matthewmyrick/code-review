@@ -1,0 +1,161 @@
+# Continuous delivery: every push to main cuts a GitHub Release with
+# desktop installers (Windows .exe/.msi, macOS .dmg for arm + intel,
+# Linux .AppImage/.deb) plus signed updater bundles and a latest.json
+# manifest that the in-app updater polls.
+#
+# Versioning: if the merge commit already carries a v* tag, that tag is
+# released as-is. Otherwise the latest v* tag is bumped according to the
+# merged PR's release:major / release:minor / release:patch label
+# (default: patch; no tags yet -> the version in src-tauri/tauri.conf.json).
+#
+# Only app code triggers a release — the paths filter below skips
+# docs/markdown/CI-only merges.
+#
+# Required repo secret: TAURI_SIGNING_PRIVATE_KEY (updater signing key;
+# generated with `pnpm tauri signer generate`, no password).
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "src-tauri/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "index.html"
+      - "public/**"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - "tsconfig.node.json"
+      - "scripts/set-version.mjs"
+      - ".github/workflows/release.yml"
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: compute + push tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: determine version (existing tag, else bump by PR label)
+        id: ver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          existing=$(git tag --points-at HEAD 'v*' | sort -V | tail -n1)
+          if [ -n "$existing" ]; then
+            tag="$existing"
+            echo "HEAD already tagged $tag — releasing that version"
+          else
+            latest=$(git tag -l 'v*' | sort -V | tail -n1)
+            if [ -z "$latest" ]; then
+              tag="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
+              echo "no tags yet — starting at $tag"
+            else
+              # Bump size comes from the merged PR's release:* label
+              # (via the commit->PR association); default is patch.
+              bump=patch
+              labels=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+                --jq '[.[].labels[].name] | join("\n")' 2>/dev/null || true)
+              if echo "$labels" | grep -qx "release:major"; then
+                bump=major
+              elif echo "$labels" | grep -qx "release:minor"; then
+                bump=minor
+              fi
+              IFS=. read -r maj min pat <<<"${latest#v}"
+              case $bump in
+                major) tag="v$((maj + 1)).0.0" ;;
+                minor) tag="v${maj}.$((min + 1)).0" ;;
+                patch) tag="v${maj}.${min}.$((pat + 1))" ;;
+              esac
+              echo "$bump bump: $latest -> $tag"
+            fi
+            git tag "$tag"
+            git push origin "$tag"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build (${{ matrix.name }})
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-arm
+            platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - name: macos-intel
+            platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - name: windows
+            platform: windows-latest
+            args: ""
+          - name: linux
+            platform: ubuntu-22.04
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install tauri system deps (linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf \
+            build-essential curl wget file libxdo-dev libssl-dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.name }}
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: stamp release version
+        run: node scripts/set-version.mjs ${{ needs.version.outputs.version }}
+
+      - name: build + upload release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          tagName: ${{ needs.version.outputs.tag }}
+          releaseName: Tandem v${{ needs.version.outputs.version }}
+          releaseBody: >
+            Installers: Windows `-setup.exe` / `.msi`, macOS `.dmg`
+            (arm64 + x64), Linux `.AppImage` / `.deb`. Running apps
+            pick this release up via the in-app update button.
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

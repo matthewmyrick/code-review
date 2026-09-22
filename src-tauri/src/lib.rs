@@ -21,7 +21,10 @@ pub fn run() {
 
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            #[cfg(desktop)]
+            tauri::Manager::app_handle(app).plugin(tauri_plugin_updater::Builder::new().build())?;
             let state = AppState::init()?;
             // Startup housekeeping: purge archive entries past their
             // 3-day EST deadline (and their run dirs).

@@ -28,6 +28,7 @@ import { Sidebar } from "./components/Sidebar";
 import { SidePane } from "./components/SidePane";
 import { ToastHost } from "./components/ToastHost";
 import { Button, EmptyState, IconButton, TandemMark } from "./components/ui";
+import { UpdateButton } from "./components/UpdateButton";
 import { applyZoom, loadZoom } from "./state/persist";
 import { useAppStore } from "./state/store";
 
@@ -85,6 +86,7 @@ export default function App() {
           <span className="text-sm font-semibold tracking-wide text-cream">Tandem</span>
         </button>
         <div className="ml-auto flex items-center gap-1.5">
+          <UpdateButton />
           <span className="flex items-center gap-0.5 rounded-lg bg-panel-2/60 px-1">
             <IconButton
               onClick={() => {
