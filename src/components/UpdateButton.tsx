@@ -1,6 +1,8 @@
-// Header pill that appears when a newer release is available. One
-// click downloads the signed update, installs it, and relaunches the
-// app; failures land in the toast host and re-enable the button.
+// Header pill that appears when a newer release is available. Checks
+// on launch, every 30 minutes in the background, and whenever the
+// window regains focus. One click downloads the signed update,
+// installs it, and relaunches the app; failures land in the toast host
+// and re-enable the button.
 
 import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -8,7 +10,7 @@ import { useEffect, useState } from "react";
 import { checkForUpdate, installUpdateAndRelaunch } from "../lib/updater";
 import { useToasts } from "../state/toasts";
 
-const CHECK_EVERY_MS = 4 * 60 * 60 * 1000;
+const CHECK_EVERY_MS = 30 * 60 * 1000;
 
 export function UpdateButton() {
   const push = useToasts((s) => s.push);
@@ -23,8 +25,10 @@ export function UpdateButton() {
     };
     run();
     const timer = setInterval(run, CHECK_EVERY_MS);
+    window.addEventListener("focus", run);
     return () => {
       clearInterval(timer);
+      window.removeEventListener("focus", run);
     };
   }, []);
 
