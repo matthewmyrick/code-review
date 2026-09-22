@@ -236,12 +236,20 @@ export interface PrFilters {
 
 export const EMPTY_FILTERS: PrFilters = { query: "", author: "", label: "", hide_drafts: false };
 
+export interface WorkspaceInfo {
+  path: string;
+  managed: boolean;
+  exists: boolean;
+}
+
 export interface Settings {
   github: GithubConfig;
   repos: string[];
   pr_filters: PrFilters;
   pr_sort: string;
   inbox_all_repos: boolean;
+  editor_command: string;
+  repo_paths: Record<string, string>;
   version: number;
 }
 

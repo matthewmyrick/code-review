@@ -26,12 +26,25 @@ pub struct Settings {
     pub pr_sort: String,
     /// Whether inbox tabs search every repo instead of the selected one.
     pub inbox_all_repos: bool,
+    /// Command "open in editor" runs on a working tree — e.g. "code",
+    /// "cursor", "zed", "subl". Terminal editors need a wrapper.
+    #[serde(default = "default_editor_command")]
+    pub editor_command: String,
+    /// Known local checkouts, repo slug -> absolute path. Used before
+    /// falling back to a Tandem-managed clone (which is never the case
+    /// for these paths: user checkouts are never mutated).
+    #[serde(default)]
+    pub repo_paths: std::collections::BTreeMap<String, String>,
     /// Settings schema version (for one-time migrations on load).
     pub version: u32,
 }
 
 fn default_pr_sort() -> String {
     "opened-desc".to_owned()
+}
+
+fn default_editor_command() -> String {
+    "code".to_owned()
 }
 
 impl Default for Settings {
@@ -42,6 +55,8 @@ impl Default for Settings {
             pr_filters: PrFilters::default(),
             pr_sort: default_pr_sort(),
             inbox_all_repos: false,
+            editor_command: default_editor_command(),
+            repo_paths: std::collections::BTreeMap::new(),
             version: SETTINGS_VERSION,
         }
     }
@@ -79,6 +94,7 @@ pub struct AppDirs {
     pub settings_file: PathBuf,
     pub cache_db: PathBuf,
     pub runs_dir: PathBuf,
+    pub worktrees_dir: PathBuf,
 }
 
 impl AppDirs {
@@ -97,6 +113,7 @@ impl AppDirs {
             settings_file: config.join("settings.json"),
             cache_db: data.join("cache.sqlite3"),
             runs_dir: data.join("runs"),
+            worktrees_dir: data.join("worktrees"),
         })
     }
 }

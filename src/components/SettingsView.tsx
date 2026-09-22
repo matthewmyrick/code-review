@@ -7,6 +7,7 @@ import { PR_SORTS } from "../lib/sort";
 import type { FileConfigInfo, GithubAuth, PrFilters, Settings } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
+import { EditorSection } from "./EditorSection";
 import { RepoBrowser } from "./RepoBrowser";
 import { Button } from "./ui";
 import { VersionSection } from "./VersionSection";
@@ -38,6 +39,7 @@ export function SettingsView() {
       <GithubSection settings={settings} />
       <ReposSection settings={settings} />
       <FiltersSection settings={settings} />
+      <EditorSection settings={settings} />
       <AgentEditor />
       {/* Version manager stays the last section on this page. */}
       <VersionSection />
