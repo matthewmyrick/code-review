@@ -155,6 +155,9 @@ async fn run_process(
     let workdir = req.workdir.clone().unwrap_or_else(|| req.run_dir.clone());
 
     let mut command = Command::new(&cmd.program);
+    // Finder-launched apps get the bare system PATH — make sure the
+    // runner CLIs installed via Homebrew/npm are findable.
+    command.env("PATH", tandem_core::spawn::augmented_path());
     command.args(&cmd.args);
     if cmd.prompt_in_argv {
         command.arg(&req.prompt);
