@@ -292,3 +292,11 @@ export interface SyncEvent {
   phase: "started" | "finished" | "error";
   error: string | null;
 }
+
+/** One published Tandem release (mirrors commands/updates.rs). */
+export interface AppRelease {
+  version: string;
+  tag: string;
+  published_at: string | null;
+  installable: boolean;
+}

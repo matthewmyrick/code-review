@@ -9,6 +9,7 @@ pub mod review;
 pub mod settings_cmd;
 pub mod text_tools;
 pub mod threads;
+pub mod updates;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};

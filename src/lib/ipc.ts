@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentRun,
   AgentSpec,
+  AppRelease,
   ArchivedPr,
   FileConfigInfo,
   MergeOptions,
@@ -102,4 +103,8 @@ export const ipc = {
     invoke<RepoSummary[]>("list_github_repos", { owner, isViewer }),
   listCollaborators: (repo: string) => invoke<string[]>("list_collaborators", { repo }),
   updateSettings: (settings: Settings) => invoke<Settings>("update_settings", { settings }),
+
+  // app version management
+  listAppReleases: () => invoke<AppRelease[]>("list_app_releases"),
+  installAppVersion: (tag: string) => invoke<null>("install_app_version", { tag }),
 };

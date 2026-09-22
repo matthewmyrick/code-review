@@ -9,6 +9,7 @@ import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
 import { RepoBrowser } from "./RepoBrowser";
 import { Button } from "./ui";
+import { VersionSection } from "./VersionSection";
 
 export function SettingsView() {
   const settings = useAppStore((s) => s.settings);
@@ -38,6 +39,8 @@ export function SettingsView() {
       <ReposSection settings={settings} />
       <FiltersSection settings={settings} />
       <AgentEditor />
+      {/* Version manager stays the last section on this page. */}
+      <VersionSection />
     </div>
   );
 }
