@@ -16,15 +16,24 @@ export function SuggestionBlock({ comment }: { comment: LocalComment }) {
     comment.end_line !== null && comment.end_line > comment.line
       ? `${String(comment.line)}–${String(comment.end_line)}`
       : String(comment.line);
+  // An empty suggestion means "delete these lines".
+  const isDeletion = (comment.suggestion ?? "").trim() === "";
 
   return (
     <div className="mt-2 overflow-hidden rounded-lg border border-moss/40">
       <div className="flex items-center gap-2 border-b border-moss/30 bg-moss/10 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wide text-moss">
-        <GitCommitHorizontal size={11} /> suggested change · lines {lineLabel}
+        <GitCommitHorizontal size={11} />
+        {isDeletion ? `delete lines ${lineLabel}` : `suggested change · lines ${lineLabel}`}
       </div>
-      <pre className="max-h-48 overflow-auto bg-ground/70 p-2.5 font-mono text-[11px] leading-relaxed text-cream">
-        {comment.suggestion}
-      </pre>
+      {isDeletion ? (
+        <div className="bg-ember/5 p-2.5 font-mono text-[11px] italic leading-relaxed text-ember">
+          these lines will be removed
+        </div>
+      ) : (
+        <pre className="max-h-48 overflow-auto bg-ground/70 p-2.5 font-mono text-[11px] leading-relaxed text-cream">
+          {comment.suggestion}
+        </pre>
+      )}
       {comment.status !== "resolved" ? (
         <div className="flex items-center gap-1.5 border-t border-moss/30 bg-moss/5 px-2.5 py-1.5">
           {working ? (

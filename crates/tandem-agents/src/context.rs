@@ -43,7 +43,8 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
          COMPLETE replacement for lines line..=end_line on the new side \
          (end_line defaults to line; preserve indentation; no code \
          fences) — the reviewer gets a one-click 'commit suggestion' \
-         button for it. Use null when no concrete fix applies. \
+         button for it. To delete lines outright, set `suggestion` to \
+         the empty string \"\". Use null when no concrete fix applies. \
          Do NOT wrap the JSON in code fences. The `body` MUST be \
          well-formatted GitHub-flavored markdown: backticked code spans \
          for identifiers, fenced code blocks for multi-line code, tables \
@@ -119,8 +120,20 @@ pub fn build_reply_prompt(
          Respond to the latest message. Emit EXACTLY ONE JSON object on \
          its own line in your final response (no code fences):\n\n\
          {{\"type\":\"tandem_comment\",\"path\":\"{path}\",\"side\":\"{side}\",\
-         \"line\":{line},\"severity\":\"info\",\
-         \"parent_id\":\"{parent_id}\",\"body\":\"<your reply, markdown>\"}}\n\n\
+         \"line\":{line},\"end_line\":null,\"severity\":\"info\",\
+         \"parent_id\":\"{parent_id}\",\"body\":\"<your reply, markdown>\",\
+         \"suggestion\":null}}\n\n\
+         When the reviewer asks for a concrete code change, set \
+         `suggestion` to the COMPLETE replacement for lines \
+         line..=end_line of {path} (new side; preserve indentation; no \
+         code fences; escape newlines as \\n). Re-anchor `line` and \
+         `end_line` to the EXACT range your fix replaces — e.g. a whole \
+         block, not just the thread's anchor line. To DELETE lines \
+         outright, set `suggestion` to the empty string \"\" with \
+         line/end_line covering the lines to remove. The reviewer gets a \
+         one-click 'commit suggestion' button that commits your \
+         suggestion verbatim to the PR branch — so prefer a committable \
+         suggestion over prose instructions whenever the fix is exact.\n\n\
          The `body` MUST be well-formatted GitHub-flavored markdown — \
          code spans, fenced code blocks, tables and lists where they help \
          (escape newlines as \\n inside the JSON string). Keep the reply \
@@ -217,9 +230,8 @@ mod tests {
     use chrono::Utc;
     use tandem_core::github::{PrState, RepoRef, User};
 
-    #[test]
-    fn prompt_contains_contract_and_diff() {
-        let pr = PullRequest {
+    fn fixture_pr() -> PullRequest {
+        PullRequest {
             repo: RepoRef::parse("o/r").unwrap(),
             number: 42,
             title: "Add thing".into(),
@@ -245,7 +257,12 @@ mod tests {
             review_decision: None,
             checks_state: None,
             unresolved_threads: 0,
-        };
+        }
+    }
+
+    #[test]
+    fn prompt_contains_contract_and_diff() {
+        let pr = fixture_pr();
         let ctx = ReviewContext {
             run_id: "run-1".into(),
             comments_file: "/tmp/run-1/comments.jsonl".into(),
@@ -258,5 +275,27 @@ mod tests {
         assert!(prompt.contains("focus on correctness"));
         assert!(prompt.contains("+ hello"));
         assert!(prompt.contains("never attempt to post to GitHub"));
+    }
+
+    #[test]
+    fn reply_prompt_teaches_suggestions() {
+        let ctx = ReplyContext {
+            run_id: "run-2".into(),
+            comments_file: "/tmp/run-2/comments.jsonl".into(),
+            parent_id: "root-1".into(),
+            path: "src/x.rs".into(),
+            side: "new".into(),
+            line: 56,
+            diff_text: "+ hi".into(),
+        };
+        let thread = vec![ThreadMessage {
+            author: "you".into(),
+            body: "remove this line please".into(),
+        }];
+        let prompt = build_reply_prompt(&ctx, &fixture_pr(), &thread, "be terse");
+        assert!(prompt.contains("\"suggestion\":null"));
+        assert!(prompt.contains("end_line"));
+        assert!(prompt.contains("DELETE lines"));
+        assert!(prompt.contains("parent_id"));
     }
 }
