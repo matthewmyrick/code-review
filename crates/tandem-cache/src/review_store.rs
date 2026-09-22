@@ -3,7 +3,7 @@
 
 use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
-use tandem_core::agent::{AgentRun, AgentSpec};
+use tandem_core::agent::{AgentRun, AgentSpec, RunStatus};
 use tandem_core::github::RepoRef;
 use tandem_core::review::{CommentStatus, LocalComment, NewLocalComment};
 use tandem_core::{Result, TandemError};
@@ -32,6 +32,7 @@ pub trait ReviewStore {
     fn list_agent_runs(&self, repo: &RepoRef, pr_number: u64) -> Result<Vec<AgentRun>>;
     fn list_recent_runs(&self, limit: u32) -> Result<Vec<AgentRun>>;
     fn delete_agent_run(&self, run_id: &str) -> Result<()>;
+    fn sweep_stale_runs(&self) -> Result<u32>;
 }
 
 impl ReviewStore for Cache {
@@ -215,6 +216,32 @@ impl ReviewStore for Cache {
             .execute("DELETE FROM agent_runs WHERE run_id = ?1", params![run_id])
             .map_err(cache_err)?;
         Ok(())
+    }
+
+    /// Runs can't survive an app restart (their process and cancel
+    /// handle die with it), so any row still starting/running at
+    /// startup is a zombie — mark it failed.
+    fn sweep_stale_runs(&self) -> Result<u32> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT json FROM agent_runs
+                 WHERE json_extract(json, '$.status') IN ('starting', 'running')",
+            )
+            .map_err(cache_err)?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(cache_err)?;
+        let mut runs: Vec<AgentRun> = Vec::new();
+        for row in rows {
+            runs.push(serde_json::from_str(&row.map_err(cache_err)?)?);
+        }
+        for run in &mut runs {
+            run.status = RunStatus::Failed;
+            run.finished_at = Some(Utc::now());
+            self.put_agent_run(run)?;
+        }
+        Ok(u32::try_from(runs.len()).unwrap_or(u32::MAX))
     }
 
     fn list_recent_runs(&self, limit: u32) -> Result<Vec<AgentRun>> {
