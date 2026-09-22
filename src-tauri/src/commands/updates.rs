@@ -105,7 +105,12 @@ pub async fn install_app_version(app: tauri::AppHandle, tag: String) -> Result<(
     let update = updater
         .check()
         .await
-        .map_err(|e| feed_err(&format!("couldn't fetch {tag}"), e))?
+        .map_err(|e| {
+            TandemError::Config(format!(
+                "couldn't get {tag}: {e} — if this release was published in the \
+                 last few minutes it may still be building; try again shortly"
+            ))
+        })?
         .ok_or_else(|| TandemError::Config(format!("{tag} is already the installed version")))?;
 
     update
