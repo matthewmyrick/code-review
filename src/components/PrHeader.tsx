@@ -19,6 +19,7 @@ import { shortSha } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import { ConflictHelper } from "./ConflictHelper";
 import { MergeControls } from "./MergeControls";
+import { OpenInEditorButton } from "./OpenInEditor";
 import { openExternal, prUrl } from "../lib/open";
 import { pushInfo } from "../state/toasts";
 import { MarkdownBody } from "./Markdown";
@@ -67,6 +68,7 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
             <ExternalLink size={12} /> github
           </Button>
           <CopyUrlButton url={prUrl(pr.repo, pr.number)} />
+          <OpenInEditorButton repo={`${pr.repo.owner}/${pr.repo.name}`} number={pr.number} />
           <MergeControls pr={pr} />
           {viewer !== null && viewer === pr.author.login ? null : <ApproveButton />}
           <Button

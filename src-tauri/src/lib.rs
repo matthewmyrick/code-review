@@ -6,7 +6,8 @@ mod settings;
 mod state;
 
 use commands::{
-    agents, conflicts, github_write, merge, prs, review, settings_cmd, text_tools, threads, updates,
+    agents, conflicts, github_write, merge, prs, review, settings_cmd, text_tools, threads,
+    updates, workspace,
 };
 use state::AppState;
 
@@ -62,6 +63,8 @@ pub fn run() {
             agents::list_agent_specs,
             agents::save_agent_spec,
             agents::delete_agent_spec,
+            workspace::resolve_workspace,
+            workspace::open_in_editor,
             agents::list_agent_runs,
             agents::list_all_agent_runs,
             agents::start_agent_review,

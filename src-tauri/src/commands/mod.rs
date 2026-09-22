@@ -10,6 +10,7 @@ pub mod settings_cmd;
 pub mod text_tools;
 pub mod threads;
 pub mod updates;
+pub mod workspace;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};

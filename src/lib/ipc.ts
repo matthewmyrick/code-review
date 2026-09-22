@@ -19,6 +19,7 @@ import type {
   PrPage,
   PullRequest,
   Settings,
+  WorkspaceInfo,
 } from "./types";
 
 export const ipc = {
@@ -91,6 +92,11 @@ export const ipc = {
     line: number | null;
     side_new: boolean | null;
   }) => invoke<number>("reply_on_github", { request }),
+
+  // editor / working trees
+  resolveWorkspace: (repo: string) => invoke<WorkspaceInfo>("resolve_workspace", { repo }),
+  openInEditor: (repo: string, number: number) =>
+    invoke<string>("open_in_editor", { repo, number }),
 
   // text utilities
   polishText: (text: string) => invoke<string>("polish_text", { text }),
