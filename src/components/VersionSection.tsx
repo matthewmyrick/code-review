@@ -23,15 +23,19 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+const PAGE_SIZE = 5;
+
 export function VersionSection() {
   const push = useToasts((s) => s.push);
   const [current, setCurrent] = useState("");
   const [releases, setReleases] = useState<AppRelease[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [installing, setInstalling] = useState<string | null>(null);
+  const [visible, setVisible] = useState(PAGE_SIZE);
 
   const load = () => {
     setLoadError(null);
+    setVisible(PAGE_SIZE);
     ipc
       .listAppReleases()
       .then(setReleases)
@@ -80,7 +84,7 @@ export function VersionSection() {
         {releases?.length === 0 ? (
           <p className="text-xs text-muted">no releases published yet</p>
         ) : null}
-        {releases?.map((r) => {
+        {releases?.slice(0, visible).map((r) => {
           const isCurrent = r.version === current;
           const cmp = compareVersions(r.version, current);
           return (
@@ -118,6 +122,18 @@ export function VersionSection() {
             </div>
           );
         })}
+        {releases !== null && releases.length > visible ? (
+          <button
+            type="button"
+            onClick={() => {
+              setVisible((v) => v + PAGE_SIZE);
+            }}
+            className="self-center rounded-md px-2 py-1 text-[11px] text-muted transition-colors hover:bg-panel-2 hover:text-cream"
+          >
+            load {Math.min(PAGE_SIZE, releases.length - visible)} more ({releases.length - visible}{" "}
+            older)
+          </button>
+        ) : null}
       </div>
     </section>
   );
