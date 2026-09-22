@@ -159,3 +159,33 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+      # Tauri names bundles with the version (Tandem_0.0.2_aarch64.dmg),
+      # so also upload stable-named copies — these keep the
+      # releases/latest/download/<name> URLs in scripts/install.sh,
+      # install.ps1, and the Homebrew cask working forever.
+      - name: upload stable-named assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          stage=$(mktemp -d)
+          case "${{ matrix.name }}" in
+            macos-arm)
+              cp src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg \
+                "$stage/Tandem-macos-arm64.dmg" ;;
+            macos-intel)
+              cp src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg \
+                "$stage/Tandem-macos-x64.dmg" ;;
+            windows)
+              cp src-tauri/target/release/bundle/nsis/*-setup.exe \
+                "$stage/Tandem-windows-x64-setup.exe" ;;
+            linux)
+              cp src-tauri/target/release/bundle/appimage/*.AppImage \
+                "$stage/Tandem-linux-x86_64.AppImage"
+              cp src-tauri/target/release/bundle/deb/*.deb \
+                "$stage/Tandem-linux-amd64.deb" ;;
+          esac
+          gh release upload "$TAG" "$stage"/* --clobber

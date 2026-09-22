@@ -70,7 +70,43 @@ sequenceDiagram
 - **Obvious logging**: every run writes a JSONL event log you can tail in
   the UI or grep on disk.
 
-## Getting started
+## Install
+
+One-time install; after that Tandem updates itself in-app (an update
+pill appears in the header, and settings → Version can switch or roll
+back to any release).
+
+**macOS / Linux — one-liner**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/matthewmyrick/code-review/main/scripts/install.sh | sh
+```
+
+**macOS — Homebrew**
+
+```sh
+brew install --cask matthewmyrick/tap/tandem
+```
+
+**Windows — one-liner**
+
+```powershell
+powershell -c "irm https://raw.githubusercontent.com/matthewmyrick/code-review/main/scripts/install.ps1 | iex"
+```
+
+**Direct downloads** (stable links, always the latest release):
+[macOS arm64](https://github.com/matthewmyrick/code-review/releases/latest/download/Tandem-macos-arm64.dmg) ·
+[macOS x64](https://github.com/matthewmyrick/code-review/releases/latest/download/Tandem-macos-x64.dmg) ·
+[Windows](https://github.com/matthewmyrick/code-review/releases/latest/download/Tandem-windows-x64-setup.exe) ·
+[Linux AppImage](https://github.com/matthewmyrick/code-review/releases/latest/download/Tandem-linux-x86_64.AppImage) ·
+[Linux deb](https://github.com/matthewmyrick/code-review/releases/latest/download/Tandem-linux-amd64.deb) —
+or browse [all releases](https://github.com/matthewmyrick/code-review/releases).
+
+> macOS note: builds aren't notarized yet. The install script and the
+> Homebrew cask handle the quarantine flag for you; for a manual dmg
+> install, right-click → Open on first launch.
+
+## Building from source
 
 Prereqs: Rust (stable), Node 22+, pnpm, and optionally the `gh` CLI
 (easiest auth).
