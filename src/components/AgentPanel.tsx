@@ -28,6 +28,7 @@ import { summarizeEvent } from "../lib/agentEvents";
 import { relativeTime } from "../lib/format";
 import type { AgentRun, RunEvent } from "../lib/types";
 import { useHighlight } from "../state/notifications";
+import { loadAgent, saveAgent } from "../state/persist";
 import { useAppStore } from "../state/store";
 import { Button, IconButton, Pill, runTone } from "./ui";
 
@@ -57,7 +58,7 @@ export function AgentPanel() {
   const cancelRun = useAppStore((s) => s.cancelRun);
   const setView = useAppStore((s) => s.setView);
   const highlightedRun = useHighlight((s) => s.runId);
-  const [selected, setSelected] = useState<string>("");
+  const [selected, setSelected] = useState<string>(loadAgent);
   const [openLog, setOpenLog] = useState<string | null>(null);
 
   // A jump from the dashboard / bell lands on a run row — open its log
@@ -94,6 +95,7 @@ export function AgentPanel() {
           value={agentName}
           onChange={(e) => {
             setSelected(e.target.value);
+            saveAgent(e.target.value);
           }}
           className="h-8 flex-1 rounded-lg border border-edge bg-panel-2 px-2 text-xs text-cream"
         >

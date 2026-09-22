@@ -167,7 +167,10 @@ export interface NewLocalComment {
 // ---- agents ---------------------------------------------------------------
 
 export type RunnerKind =
-  { kind: "claude_headless" } | { kind: "codex_headless" } | { kind: "custom"; command: string };
+  | { kind: "claude_headless" }
+  | { kind: "codex_headless" }
+  | { kind: "grok_headless" }
+  | { kind: "custom"; command: string };
 
 export type AuthMode =
   | { kind: "cli_session" }

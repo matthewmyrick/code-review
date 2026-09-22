@@ -127,6 +127,13 @@ pub fn extract_embedded_comments(payload: &str) -> Vec<AgentComment> {
                 texts.push(text);
             }
         }
+        // Grok Build streaming-json: model text arrives as top-level
+        // `{"type":"text","text":"..."}` events.
+        Some("text") => {
+            if let Some(text) = value.get("text").and_then(|t| t.as_str()) {
+                texts.push(text);
+            }
+        }
         _ => {}
     }
     texts
@@ -200,6 +207,19 @@ mod tests {
         let found = extract_embedded_comments(&envelope);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].path, "b.ts");
+    }
+
+    #[test]
+    fn extracts_comments_from_grok_text_events() {
+        let comment = r#"{"type":"tandem_comment","path":"c.go","line":4,"body":"leak"}"#;
+        let envelope = serde_json::json!({
+            "type": "text",
+            "text": format!("analysis:\n{comment}")
+        })
+        .to_string();
+        let found = extract_embedded_comments(&envelope);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].path, "c.go");
     }
 
     #[test]

@@ -71,6 +71,7 @@ function FileCard({ file, comments, githubComments, reviewThreads }: FileCardPro
   return (
     <section
       id={fileAnchorId(displayPath)}
+      data-nav-file={displayPath}
       className="animate-fade-up scroll-mt-3 overflow-hidden rounded-xl border border-edge bg-panel shadow-sm"
     >
       <button

@@ -22,6 +22,7 @@ import { DiffViewer } from "./components/DiffViewer";
 import { FileTreePanel } from "./components/FileTree";
 import { NotificationsBell } from "./components/NotificationsBell";
 import { PrHeader } from "./components/PrHeader";
+import { ShortcutManager } from "./components/ShortcutManager";
 import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
 import { SidePane } from "./components/SidePane";
@@ -129,6 +130,7 @@ export default function App() {
       </div>
 
       <ToastHost />
+      <ShortcutManager />
       <div className="flex min-h-0 flex-1">
         {view === "settings" ? (
           <main className="animate-fade-up flex-1 overflow-y-auto">
@@ -216,7 +218,7 @@ function ReviewLayout() {
             <PrHeader detail={bundle.detail} />
             <div className="flex min-h-0 flex-1">
               <FileTreePanel key={prKey} prKey={prKey} />
-              <div className="min-h-0 flex-1 overflow-y-auto">
+              <div id="diff-scroll" className="min-h-0 flex-1 overflow-y-auto">
                 <DiffViewer
                   diff={bundle.diff}
                   comments={bundle.comments}

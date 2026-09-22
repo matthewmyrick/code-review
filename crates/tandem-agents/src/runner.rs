@@ -154,8 +154,12 @@ async fn run_process(
     let cmd = build_command(&req.spec);
     let workdir = req.workdir.clone().unwrap_or_else(|| req.run_dir.clone());
 
-    let mut child = Command::new(&cmd.program)
-        .args(&cmd.args)
+    let mut command = Command::new(&cmd.program);
+    command.args(&cmd.args);
+    if cmd.prompt_in_argv {
+        command.arg(&req.prompt);
+    }
+    let mut child = command
         .current_dir(&workdir)
         .envs(&req.spec.env)
         .env("TANDEM_RUN_ID", &req.run_id)
@@ -168,10 +172,12 @@ async fn run_process(
         .map_err(|e| TandemError::Agent(format!("failed to spawn `{}`: {e}", cmd.program)))?;
 
     if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(req.prompt.as_bytes())
-            .await
-            .map_err(TandemError::Io)?;
+        if !cmd.prompt_in_argv {
+            stdin
+                .write_all(req.prompt.as_bytes())
+                .await
+                .map_err(TandemError::Io)?;
+        }
         drop(stdin);
     }
 
