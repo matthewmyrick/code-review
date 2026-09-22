@@ -13,6 +13,7 @@ import { recordRunUpdate } from "./notifications";
 import { useRunBoard } from "./runBoard";
 import { pushGithubError, pushInfo } from "./toasts";
 import { agentActions } from "./agentActions";
+import { githubActions } from "./githubActions";
 import { applyTheme, loadPinned, loadTheme, loadViewer, saveViewer } from "./persist";
 import type { AppStore } from "./storeTypes";
 
@@ -216,26 +217,6 @@ export const useAppStore = create<AppStore>((set, get) => {
       set({ [key]: value } as Partial<AppStore>);
     },
 
-    postToGithub: async (commentId) => {
-      try {
-        await ipc.postCommentToGithub(commentId);
-        await reloadComments();
-      } catch (e) {
-        fail(e);
-      }
-    },
-
-    approvePr: async (body) => {
-      const { selectedRepo, selectedPr } = get();
-      if (!selectedRepo || selectedPr === null) return;
-      try {
-        await ipc.approvePr(selectedRepo, selectedPr, body);
-        set({ bundle: await ipc.syncPrBundle(selectedRepo, selectedPr) });
-      } catch (e) {
-        fail(e);
-      }
-    },
-
     selectRepo: async (slug) => {
       set({
         selectedRepo: slug,
@@ -387,5 +368,6 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     ...agentActions(set, get, fail, reloadComments, reloadRuns),
+    ...githubActions(set, get, fail, reloadComments),
   };
 });
