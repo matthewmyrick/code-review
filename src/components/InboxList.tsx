@@ -3,13 +3,14 @@
 // lazily per tab; clicking a row jumps to the PR (any repo).
 
 import { CheckCircle2, RefreshCw } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { relativeTime } from "../lib/format";
 import { isReadyToMerge } from "../lib/ready";
 import { EdgeStripes, useFailingChecksTip } from "./EdgeStripes";
 import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
+import { useIsCursor, useKeyNav } from "../state/keyNav";
 import { useAppStore } from "../state/store";
 import { Spinner } from "./ui";
 
@@ -50,6 +51,13 @@ function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
     prs.filter((pr) => !isReadyToMerge(pr) && !pr.draft),
     prs.filter((pr) => !isReadyToMerge(pr) && pr.draft),
   ].filter((g) => g.length > 0);
+  // Publish the on-screen order (groups flattened) for j/k navigation.
+  const flat = groups.flat();
+  useEffect(() => {
+    useKeyNav
+      .getState()
+      .setList(flat.map((pr) => ({ slug: `${pr.repo.owner}/${pr.repo.name}`, number: pr.number })));
+  }, [flat]);
   return (
     <>
       {groups.map((group, i) => (
@@ -75,8 +83,14 @@ function InboxRow({ pr }: { pr: PullRequest }) {
   const slug = `${pr.repo.owner}/${pr.repo.name}`;
   const active = selectedRepo === slug && selectedPr === pr.number;
   const { onMouseEnter, onMouseLeave, tipEl } = useFailingChecksTip(pr);
+  const isCursor = useIsCursor(slug, pr.number);
+  const ref = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (isCursor) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [isCursor]);
   return (
     <button
+      ref={ref}
       type="button"
       onClick={() => {
         void openPr(slug, pr.number);
@@ -86,7 +100,9 @@ function InboxRow({ pr }: { pr: PullRequest }) {
       className={`animate-fade-up relative block w-full overflow-hidden rounded-lg border px-3 py-2 text-left transition-all ${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"
-          : "border-transparent hover:border-edge hover:bg-panel-2/60"
+          : isCursor
+            ? "border-sky/60 bg-panel-2/60 ring-1 ring-sky/30"
+            : "border-transparent hover:border-edge hover:bg-panel-2/60"
       }`}
     >
       <EdgeStripes pr={pr} />

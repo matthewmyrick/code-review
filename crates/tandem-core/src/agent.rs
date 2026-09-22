@@ -17,6 +17,9 @@ pub enum RunnerKind {
     ClaudeHeadless,
     /// `codex exec --json` (headless Codex).
     CodexHeadless,
+    /// `grok -p <prompt> --output-format streaming-json` (headless Grok
+    /// Build, xAI's coding CLI).
+    GrokHeadless,
     /// Any user-supplied command; stdout treated as the event stream.
     Custom { command: String },
 }

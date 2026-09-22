@@ -45,7 +45,10 @@ export function LocalThreadBox({ thread }: { thread: Thread }) {
   }
 
   return (
-    <div className="relative border-y border-edge/60 bg-panel-2/70 py-2 pl-4 pr-11">
+    <div
+      data-nav-thread=""
+      className="relative border-y border-edge/60 bg-panel-2/70 py-2 pl-4 pr-11"
+    >
       <button
         type="button"
         onClick={toggle}

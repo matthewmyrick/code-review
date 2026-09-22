@@ -3,22 +3,20 @@
 // requested reviews, mentions, and PRs you authored.
 
 import { ArrowUpDown, AtSign, GitPullRequest, Inbox, RefreshCw, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { relativeTime } from "../lib/format";
 import { fuzzyScore } from "../lib/fuzzy";
 import { EdgeStripes, useFailingChecksTip } from "./EdgeStripes";
 import { PR_SORTS, sortPrs } from "../lib/sort";
-import type { InboxScope, PrFilters, PullRequest } from "../lib/types";
+import type { PrFilters, PullRequest } from "../lib/types";
+import { useIsCursor, useKeyNav } from "../state/keyNav";
+import type { SidebarTab } from "../state/keyNav";
 import { useAppStore } from "../state/store";
 import { ArchivedList } from "./ArchivedList";
 import { FilterBar } from "./FilterBar";
 import { InboxList } from "./InboxList";
 import { Button, Pill, Skeleton, Spinner } from "./ui";
-
-type SidebarTab = "open" | InboxScope;
-
-const TAB_KEY = "tandem-sidebar-tab";
 
 const TABS: { id: SidebarTab; label: string; icon: typeof Inbox }[] = [
   { id: "open", label: "open", icon: GitPullRequest },
@@ -32,14 +30,8 @@ export function Sidebar() {
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectRepo = useAppStore((s) => s.selectRepo);
   const requestedCount = useAppStore((s) => s.inbox.requested?.length ?? 0);
-  const [tab, setTab] = useState<SidebarTab>(() => {
-    const saved = localStorage.getItem(TAB_KEY);
-    return saved === "requested" || saved === "mentions" || saved === "authored" ? saved : "open";
-  });
-  const pick = (t: SidebarTab) => {
-    setTab(t);
-    localStorage.setItem(TAB_KEY, t);
-  };
+  const tab = useKeyNav((s) => s.tab);
+  const pick = useKeyNav((s) => s.setTab);
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -195,6 +187,15 @@ function PrList() {
           prSort,
         );
 
+  // Publish the visible order for j/k keyboard navigation.
+  useEffect(() => {
+    useKeyNav
+      .getState()
+      .setList(
+        visible.map((pr) => ({ slug: `${pr.repo.owner}/${pr.repo.name}`, number: pr.number })),
+      );
+  }, [visible]);
+
   return (
     <>
       <div className="flex items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted">
@@ -257,9 +258,15 @@ function PrListItem({ pr }: { pr: PullRequest }) {
   const active = !allMode && selectedPr === pr.number;
   const hasStats = pr.additions > 0 || pr.deletions > 0 || pr.changed_files > 0;
   const { onMouseEnter, onMouseLeave, tipEl } = useFailingChecksTip(pr);
+  const isCursor = useIsCursor(slug, pr.number);
+  const ref = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (isCursor) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [isCursor]);
 
   return (
     <button
+      ref={ref}
       type="button"
       onClick={() => {
         void openPr(slug, pr.number);
@@ -269,7 +276,9 @@ function PrListItem({ pr }: { pr: PullRequest }) {
       className={`animate-fade-up relative block w-full overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-all duration-150 ${
         active
           ? "border-sky/40 bg-panel-2 shadow-sm"
-          : "border-transparent hover:border-edge hover:bg-panel-2/60"
+          : isCursor
+            ? "border-sky/60 bg-panel-2/60 ring-1 ring-sky/30"
+            : "border-transparent hover:border-edge hover:bg-panel-2/60"
       }`}
     >
       <EdgeStripes pr={pr} />

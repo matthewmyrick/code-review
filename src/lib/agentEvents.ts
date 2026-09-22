@@ -116,6 +116,34 @@ function runnerLines(payload: string): LogLine[] {
       return toolResultLines(obj);
     case "result":
       return resultLines(obj);
+    // Grok Build streaming-json event types.
+    case "text": {
+      const text = str(obj.text) ?? "";
+      return text.trim() && !text.includes('"tandem_comment"')
+        ? [{ icon: "chat", text: clip(text, 200), cls: "text-cream/85" }]
+        : [];
+    }
+    case "thought":
+      return [{ icon: "brain", text: "thinking", cls: "text-muted italic" }];
+    case "tool_call": {
+      const name = str(obj.name) ?? str(obj.title) ?? "tool";
+      return [{ icon: "wrench", text: name, cls: "text-amber" }];
+    }
+    case "tool_call_update":
+    case "usage":
+    case "plan":
+    case "available_commands":
+      return [];
+    case "end":
+      return [{ icon: "flag", text: "agent done", cls: "text-sky" }];
+    case "error":
+      return [
+        {
+          icon: "x",
+          text: clip(str(obj.message) ?? str(obj.error) ?? "agent error", 200),
+          cls: "text-ember",
+        },
+      ];
     default:
       return [{ icon: "dot", text: clip(payload, 160), cls: "text-muted" }];
   }

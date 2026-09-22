@@ -17,7 +17,10 @@ const DEFAULT_PROMPT =
   "over many nits. Use severity `issue` or `blocker` only when confident.";
 
 // Curated per-runner model choices ("" = the CLI's default model).
-const MODEL_OPTIONS: Record<"claude_headless" | "codex_headless", [string, string][]> = {
+const MODEL_OPTIONS: Record<
+  "claude_headless" | "codex_headless" | "grok_headless",
+  [string, string][]
+> = {
   claude_headless: [
     ["", "CLI default"],
     ["fable", "Fable 5 — most capable"],
@@ -31,6 +34,12 @@ const MODEL_OPTIONS: Record<"claude_headless" | "codex_headless", [string, strin
     ["gpt-5", "GPT-5"],
     ["gpt-5-mini", "GPT-5 mini — fastest"],
   ],
+  grok_headless: [
+    ["", "CLI default"],
+    ["grok-4.7", "Grok 4.7 — most capable"],
+    ["grok-4.6", "Grok 4.6"],
+    ["grok-code-fast-1", "Grok Code Fast"],
+  ],
 };
 
 const CUSTOM_MODEL = "__custom__";
@@ -41,6 +50,7 @@ const CUSTOM_MODEL = "__custom__";
 const DEFAULT_ALLOWLIST: Record<string, string[]> = {
   claude_headless: ["https://api.anthropic.com", "https://claude.ai"],
   codex_headless: ["https://api.openai.com", "https://chatgpt.com", "https://auth.openai.com"],
+  grok_headless: ["https://api.x.ai", "https://accounts.x.ai", "https://x.ai"],
   custom: [],
 };
 
@@ -85,7 +95,7 @@ export function AgentEditor() {
         <div>
           <h2 className="text-sm font-semibold text-cream">Agents</h2>
           <p className="mt-0.5 text-xs text-muted">
-            bring your own AI — a CLI session (claude, codex), an API key, or a custom command
+            bring your own AI — a CLI session (claude, codex, grok), an API key, or a custom command
           </p>
         </div>
         <Button
@@ -221,7 +231,9 @@ function SpecForm(props: {
         ? { kind: "custom", command: spec.runner.kind === "custom" ? spec.runner.command : "" }
         : kind === "codex_headless"
           ? { kind: "codex_headless" }
-          : { kind: "claude_headless" };
+          : kind === "grok_headless"
+            ? { kind: "grok_headless" }
+            : { kind: "claude_headless" };
     // Follow the runner with its default allowlist unless the user has
     // customized it.
     patch(
@@ -256,6 +268,7 @@ function SpecForm(props: {
           >
             <option value="claude_headless">claude (headless)</option>
             <option value="codex_headless">codex (headless)</option>
+            <option value="grok_headless">grok (headless)</option>
             <option value="custom">custom command</option>
           </select>
         </label>

@@ -69,6 +69,7 @@ export function GithubThread(props: GithubThreadProps) {
 
   return (
     <details
+      data-nav-thread=""
       open={open}
       onToggle={(e) => {
         setOpen(e.currentTarget.open);

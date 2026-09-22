@@ -40,3 +40,15 @@ export function applyZoom(zoom: number) {
   // WebKit honors CSS zoom; scales the whole UI like a browser zoom.
   (document.body.style as CSSStyleDeclaration & { zoom: string }).zoom = `${String(zoom)}%`;
 }
+
+const AGENT_KEY = "tandem-last-agent";
+
+/** Last agent the user picked in the agent panel — the `a` shortcut and
+ * the panel's dropdown share it. */
+export function loadAgent(): string {
+  return localStorage.getItem(AGENT_KEY) ?? "";
+}
+
+export function saveAgent(name: string) {
+  localStorage.setItem(AGENT_KEY, name);
+}

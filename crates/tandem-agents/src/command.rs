@@ -4,20 +4,26 @@
 //! what already works there:
 //! - claude: `claude -p --output-format stream-json --verbose`
 //! - codex:  `codex exec --json --skip-git-repo-check -` (prompt on stdin)
+//! - grok:   `grok --output-format streaming-json -p <prompt>` (Grok Build
+//!   takes the prompt as an argument, not stdin)
 
 use tandem_core::agent::{AgentSpec, RunnerKind};
 
-/// A fully resolved program + argument list (prompt is fed via stdin).
+/// A fully resolved program + argument list. The prompt is fed via
+/// stdin unless `prompt_in_argv` is set, in which case the runner
+/// appends it as the final argument (Grok Build has no stdin mode).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunnerCommand {
     pub program: String,
     pub args: Vec<String>,
+    pub prompt_in_argv: bool,
 }
 
 pub fn build_command(spec: &AgentSpec) -> RunnerCommand {
     match &spec.runner {
         RunnerKind::ClaudeHeadless => claude_command(spec),
         RunnerKind::CodexHeadless => codex_command(spec),
+        RunnerKind::GrokHeadless => grok_command(spec),
         RunnerKind::Custom { command } => custom_command(command),
     }
 }
@@ -44,6 +50,7 @@ fn claude_command(spec: &AgentSpec) -> RunnerCommand {
     RunnerCommand {
         program: "claude".to_owned(),
         args,
+        prompt_in_argv: false,
     }
 }
 
@@ -61,6 +68,30 @@ fn codex_command(spec: &AgentSpec) -> RunnerCommand {
     RunnerCommand {
         program: "codex".to_owned(),
         args,
+        prompt_in_argv: false,
+    }
+}
+
+/// Grok Build: headless single-prompt mode. `--always-approve` because
+/// headless has no approval UI (same v1 trust model as claude's
+/// --allowedTools; the v2 sandbox is the real boundary). The prompt is
+/// appended after `-p` by the runner (prompt_in_argv).
+fn grok_command(spec: &AgentSpec) -> RunnerCommand {
+    let mut args = vec![
+        "--output-format".to_owned(),
+        "streaming-json".to_owned(),
+        "--no-auto-update".to_owned(),
+        "--always-approve".to_owned(),
+    ];
+    if let Some(model) = &spec.model {
+        args.push("-m".to_owned());
+        args.push(model.clone());
+    }
+    args.push("-p".to_owned());
+    RunnerCommand {
+        program: "grok".to_owned(),
+        args,
+        prompt_in_argv: true,
     }
 }
 
@@ -69,6 +100,7 @@ fn custom_command(command: &str) -> RunnerCommand {
     RunnerCommand {
         program: "/bin/sh".to_owned(),
         args: vec!["-c".to_owned(), command.to_owned()],
+        prompt_in_argv: false,
     }
 }
 
@@ -119,6 +151,17 @@ mod tests {
         assert_eq!(cmd.program, "codex");
         assert_eq!(cmd.args.last().unwrap(), "-");
         assert!(cmd.args.contains(&"--skip-git-repo-check".to_owned()));
+    }
+
+    #[test]
+    fn grok_takes_prompt_as_final_arg() {
+        let cmd = build_command(&spec(RunnerKind::GrokHeadless));
+        assert_eq!(cmd.program, "grok");
+        assert!(cmd.prompt_in_argv);
+        assert_eq!(cmd.args.last().unwrap(), "-p");
+        assert!(cmd.args.contains(&"--no-auto-update".to_owned()));
+        assert_eq!(cmd.args[cmd.args.len() - 3], "-m");
+        assert_eq!(cmd.args[cmd.args.len() - 2], "opus");
     }
 
     #[test]
