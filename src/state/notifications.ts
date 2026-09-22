@@ -75,6 +75,6 @@ export const useHighlight = create<HighlightStore>((set) => ({
     set({ commentId: target.commentId ?? null, runId: target.runId ?? null });
     setTimeout(() => {
       set({ commentId: null, runId: null });
-    }, 3500);
+    }, 6000);
   },
 }));

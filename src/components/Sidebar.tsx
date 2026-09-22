@@ -19,10 +19,10 @@ import { InboxList } from "./InboxList";
 import { Button, Pill, Skeleton, Spinner } from "./ui";
 
 const TABS: { id: SidebarTab; label: string; icon: typeof Inbox }[] = [
-  { id: "open", label: "open", icon: GitPullRequest },
   { id: "requested", label: "req", icon: Inbox },
-  { id: "mentions", label: "mentions", icon: AtSign },
   { id: "authored", label: "mine", icon: User },
+  { id: "mentions", label: "mentions", icon: AtSign },
+  { id: "open", label: "open", icon: GitPullRequest },
 ];
 
 export function Sidebar() {

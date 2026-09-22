@@ -8,11 +8,13 @@ import type { InboxScope } from "../lib/types";
 
 export type SidebarTab = "open" | InboxScope;
 
-const TAB_KEY = "tandem-sidebar-tab";
+// v2: the default tab moved to "requested" — key bump lands everyone
+// there once while still honoring later manual choices.
+const TAB_KEY = "tandem-sidebar-tab-v2";
 
 export function loadSidebarTab(): SidebarTab {
   const saved = localStorage.getItem(TAB_KEY);
-  return saved === "requested" || saved === "mentions" || saved === "authored" ? saved : "open";
+  return saved === "open" || saved === "mentions" || saved === "authored" ? saved : "requested";
 }
 
 export interface NavTarget {

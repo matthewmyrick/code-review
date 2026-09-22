@@ -15,6 +15,7 @@ use tauri::{AppHandle, State};
 
 use crate::commands::{emit_sync, parse_repo, SyncPhase};
 use crate::state::AppState;
+use tandem_github::PrCommit;
 
 /// Everything the PR screen needs, served from cache in one call.
 #[derive(Debug, Clone, Serialize)]
@@ -268,4 +269,16 @@ fn load_bundle(
         diff,
         comments,
     }))
+}
+
+/// Commits on a PR, newest last (as GitHub returns them).
+#[tauri::command]
+pub async fn list_pr_commits(
+    state: State<'_, AppState>,
+    repo: String,
+    number: u64,
+) -> Result<Vec<PrCommit>, TandemError> {
+    let repo = parse_repo(&repo)?;
+    let client = state.github_client().await?;
+    client.pr_commits(&repo, number).await
 }

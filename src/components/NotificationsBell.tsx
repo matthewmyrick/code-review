@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useHighlight, useNotifications } from "../state/notifications";
 import type { RunNotification } from "../state/notifications";
+import { useRunBoard } from "../state/runBoard";
 import { useAppStore } from "../state/store";
 import { IconButton } from "./ui";
 
@@ -44,12 +45,16 @@ export function NotificationsBell() {
 
   const jump = (n: RunNotification) => {
     markRead(n.id);
+    // Seeing the result counts as processing the run on the dashboard.
+    useRunBoard.getState().markViewed(n.runId);
+    useAppStore.getState().setView("review");
     setOpen(false);
-    void openPr(n.repo, n.number).then(() => {
-      setHighlight(
-        n.targetCommentId !== null ? { commentId: n.targetCommentId } : { runId: n.runId },
-      );
-    });
+    // Don't wait for the background GitHub sync — the cached bundle
+    // renders almost instantly and the highlight finds it on mount.
+    void openPr(n.repo, n.number);
+    setHighlight(
+      n.targetCommentId !== null ? { commentId: n.targetCommentId } : { runId: n.runId },
+    );
   };
 
   return (

@@ -127,13 +127,10 @@ export function AgentsDashboard() {
   const jump = (run: AgentRun) => {
     if (isTerminal(run)) markViewed(run.run_id);
     setView("review");
-    void openPr(run.repo_slug, run.pr_number).then(() => {
-      setHighlight(
-        run.target_comment_id !== null
-          ? { commentId: run.target_comment_id }
-          : { runId: run.run_id },
-      );
-    });
+    void openPr(run.repo_slug, run.pr_number);
+    setHighlight(
+      run.target_comment_id !== null ? { commentId: run.target_comment_id } : { runId: run.run_id },
+    );
   };
 
   const fail = (e: unknown) => {

@@ -19,6 +19,7 @@ import { shortSha } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import { ConflictHelper } from "./ConflictHelper";
 import { MergeControls } from "./MergeControls";
+import { CommitsSection } from "./CommitsSection";
 import { OpenInEditorButton } from "./OpenInEditor";
 import { openExternal, prUrl } from "../lib/open";
 import { pushInfo } from "../state/toasts";
@@ -129,6 +130,8 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
           </div>
         </details>
       ) : null}
+
+      <CommitsSection repo={pr.repo} number={pr.number} />
 
       {detail.checks.length > 0 ? (
         <details className="mt-2">

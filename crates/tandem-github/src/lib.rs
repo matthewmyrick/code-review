@@ -16,3 +16,5 @@ pub use wire::{MergeOptions, RepoSummary};
 pub use auth::{GithubAuth, GithubConfig};
 pub use client::GithubClient;
 pub use write::NewInlineComment;
+
+pub use discovery::PrCommit;

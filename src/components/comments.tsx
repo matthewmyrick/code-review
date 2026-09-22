@@ -66,7 +66,7 @@ export function CommentThread({ root, replies }: { root: LocalComment; replies: 
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (highlighted) {
-      ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      ref.current?.scrollIntoView({ behavior: "auto", block: "center" });
     }
   }, [highlighted]);
   return (
@@ -199,9 +199,14 @@ export function CommentCard(props: {
   const { comment } = props;
   const setCommentStatus = useAppStore((s) => s.setCommentStatus);
   const deleteComment = useAppStore((s) => s.deleteComment);
+  // Subtle authorship tint: your messages read blue, agents green.
+  const tint =
+    comment.author_kind === "human"
+      ? "border-l-2 border-sky/50 bg-sky/5"
+      : "border-l-2 border-moss/40 bg-moss/5";
 
   return (
-    <div className="text-xs">
+    <div className={`rounded-r-md py-1 pl-2 text-xs ${tint}`}>
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1 font-medium text-cream">
           {comment.author_kind === "agent" ? <Bot size={12} /> : <User size={12} />}
@@ -326,10 +331,17 @@ export function GithubCommentCard(props: { comment: GithubComment; onDiscuss?: (
   const { comment } = props;
   const pr = useAppStore((s) => s.bundle?.detail.pull_request);
   const viewer = useAppStore((s) => s.viewer);
+  const mine = viewer !== null && comment.author.login === viewer;
   return (
-    <div className="text-xs">
+    <div
+      className={`rounded-r-md py-1 pl-2 text-xs ${
+        mine ? "border-l-2 border-sky/50 bg-sky/5" : "border-l-2 border-edge/70"
+      }`}
+    >
       <div className="mb-1 flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 font-medium text-cream">
+        <span
+          className={`inline-flex items-center gap-1 font-medium ${mine ? "text-sky" : "text-cream"}`}
+        >
           <User size={12} /> {comment.author.login}
         </span>
         <Pill tone="github">

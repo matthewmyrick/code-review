@@ -12,7 +12,7 @@ import { useModalHold } from "./ui";
 import { CommandPalette } from "./CommandPalette";
 import { ShortcutHelp } from "./ShortcutHelp";
 
-const TAB_ORDER: SidebarTab[] = ["open", "requested", "mentions", "authored"];
+const TAB_ORDER: SidebarTab[] = ["requested", "authored", "mentions", "open"];
 
 function inEditable(target: EventTarget | null): boolean {
   return (

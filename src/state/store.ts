@@ -13,6 +13,7 @@ import { recordRunUpdate } from "./notifications";
 import { useRunBoard } from "./runBoard";
 import { pushGithubError, pushInfo } from "./toasts";
 import { agentActions } from "./agentActions";
+import { githubActions } from "./githubActions";
 import { applyTheme, loadPinned, loadTheme, loadViewer, saveViewer } from "./persist";
 import type { AppStore } from "./storeTypes";
 
@@ -200,7 +201,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     goHome: () => {
-      set({ view: "review", selectedPr: null, bundle: null });
+      // From settings/agents, "home" means back to the review you were
+      // on — only a second press (already in review) clears the PR.
+      if (get().view !== "review") {
+        set({ view: "review" });
+        return;
+      }
+      set({ selectedPr: null, bundle: null });
     },
 
     togglePinned: (side) => {
@@ -208,26 +215,6 @@ export const useAppStore = create<AppStore>((set, get) => {
       const value = !get()[key];
       localStorage.setItem(side === "left" ? "tandem-pin-left" : "tandem-pin-right", String(value));
       set({ [key]: value } as Partial<AppStore>);
-    },
-
-    postToGithub: async (commentId) => {
-      try {
-        await ipc.postCommentToGithub(commentId);
-        await reloadComments();
-      } catch (e) {
-        fail(e);
-      }
-    },
-
-    approvePr: async (body) => {
-      const { selectedRepo, selectedPr } = get();
-      if (!selectedRepo || selectedPr === null) return;
-      try {
-        await ipc.approvePr(selectedRepo, selectedPr, body);
-        set({ bundle: await ipc.syncPrBundle(selectedRepo, selectedPr) });
-      } catch (e) {
-        fail(e);
-      }
     },
 
     selectRepo: async (slug) => {
@@ -381,5 +368,6 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     ...agentActions(set, get, fail, reloadComments, reloadRuns),
+    ...githubActions(set, get, fail, reloadComments),
   };
 });
