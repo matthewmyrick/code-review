@@ -23,6 +23,9 @@ pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
+        // Persist window size/position across restarts (including the
+        // updater's relaunch). Must register before windows are created.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             #[cfg(desktop)]
             tauri::Manager::app_handle(app).plugin(tauri_plugin_updater::Builder::new().build())?;
