@@ -30,6 +30,13 @@ pub fn run() {
                 {
                     tracing::warn!(error = %e, "startup purge failed");
                 }
+                // Runs never survive a restart — fail out zombie rows so
+                // the UI doesn't show them as running forever.
+                match tandem_cache::ReviewStore::sweep_stale_runs(&*cache) {
+                    Ok(0) => {}
+                    Ok(n) => tracing::info!(count = n, "marked stale agent runs as failed"),
+                    Err(e) => tracing::warn!(error = %e, "stale-run sweep failed"),
+                }
             }
             tauri::Manager::manage(app, state);
             Ok(())

@@ -30,7 +30,7 @@ import type { AgentRun, RunEvent } from "../lib/types";
 import { useHighlight } from "../state/notifications";
 import { loadAgent, saveAgent } from "../state/persist";
 import { useAppStore } from "../state/store";
-import { Button, IconButton, Pill, runTone } from "./ui";
+import { Button, Pill, runTone } from "./ui";
 
 const LOG_ICONS: Record<LogIcon, typeof Check> = {
   loader: Loader,
@@ -176,9 +176,14 @@ function RunRow({
           </Pill>
         </button>
         {isWorking(run) ? (
-          <IconButton onClick={onStop} title={`stop ${run.agent_name}`}>
+          <button
+            type="button"
+            onClick={onStop}
+            title={`stop ${run.agent_name}`}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg border border-ember/40 text-ember transition-colors hover:border-ember hover:bg-ember/10"
+          >
             <Square size={12} />
-          </IconButton>
+          </button>
         ) : null}
         <span className="shrink-0 text-[11px] text-muted">{relativeTime(run.started_at)}</span>
       </div>

@@ -302,9 +302,14 @@ function RunRow({
       </button>
       <span className="flex shrink-0 items-center gap-0.5">
         {isWorking(run) ? (
-          <IconButton onClick={onStop} title="stop this run">
+          <button
+            type="button"
+            onClick={onStop}
+            title="stop this run"
+            className="inline-flex size-7 items-center justify-center rounded-lg border border-ember/40 text-ember transition-colors hover:border-ember hover:bg-ember/10"
+          >
             <Square size={12} />
-          </IconButton>
+          </button>
         ) : (
           <>
             <IconButton onClick={onRerun} title="run this agent again">

@@ -57,11 +57,32 @@ pub async fn list_all_agent_runs(state: State<'_, AppState>) -> Result<Vec<Agent
 
 #[tauri::command]
 pub async fn cancel_agent_run(
+    app: AppHandle,
     state: State<'_, AppState>,
     run_id: String,
 ) -> Result<(), TandemError> {
     if let Some(mut handle) = state.runs.lock().await.remove(&run_id) {
+        // Live run: the pump observes the kill and persists Cancelled.
         handle.cancel();
+        return Ok(());
+    }
+    // No live handle — a zombie row from a previous app session. Mark
+    // it cancelled directly so "stop" always visibly works.
+    let run = {
+        let cache = state.cache.lock().await;
+        let Some(mut run) = cache.get_agent_run(&run_id)? else {
+            return Ok(());
+        };
+        if !matches!(run.status, RunStatus::Starting | RunStatus::Running) {
+            return Ok(());
+        }
+        run.status = RunStatus::Cancelled;
+        run.finished_at = Some(Utc::now());
+        cache.put_agent_run(&run)?;
+        run
+    };
+    if let Err(e) = app.emit("tandem://run-updated", &run) {
+        tracing::warn!(error = %e, "failed to emit run-updated");
     }
     Ok(())
 }
