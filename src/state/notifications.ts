@@ -15,6 +15,7 @@ export interface RunNotification {
   number: number;
   status: AgentRun["status"];
   targetCommentId: string | null;
+  error: string | null;
   read: boolean;
 }
 
@@ -55,6 +56,7 @@ export function recordRunUpdate(run: AgentRun) {
     number: run.pr_number,
     status: run.status,
     targetCommentId: run.target_comment_id,
+    error: run.error,
   });
 }
 

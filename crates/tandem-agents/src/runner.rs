@@ -172,7 +172,18 @@ async fn run_process(
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|e| TandemError::Agent(format!("failed to spawn `{}`: {e}", cmd.program)))?;
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                TandemError::Agent(format!(
+                    "can't find `{}` — is it installed? Tandem looks in your PATH \
+                     plus /opt/homebrew/bin, /usr/local/bin and ~/.local/bin \
+                     (apps launched from Finder don't see your terminal PATH)",
+                    cmd.program
+                ))
+            } else {
+                TandemError::Agent(format!("failed to spawn `{}`: {e}", cmd.program))
+            }
+        })?;
 
     if let Some(mut stdin) = child.stdin.take() {
         if !cmd.prompt_in_argv {

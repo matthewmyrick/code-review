@@ -296,7 +296,8 @@ function RunRow({
           >
             {run.status.replace("_", " ")}
             {run.comment_count > 0 ? ` · ${String(run.comment_count)} comments` : ""}
-            {failed ? " · click to view and fix" : ""}
+            {run.error !== null && run.error ? ` — ${run.error}` : ""}
+            {failed && !run.error ? " · click to view and fix" : ""}
           </span>
         </span>
       </button>

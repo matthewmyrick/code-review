@@ -55,7 +55,18 @@ async fn gh_cli_token() -> Result<String> {
         .args(["auth", "token"])
         .output()
         .await
-        .map_err(|e| TandemError::Auth(format!("failed to run `gh auth token`: {e}")))?;
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                TandemError::Auth(
+                    "can't find the `gh` CLI — install it (brew install gh) and run \
+                     `gh auth login`; Tandem searches PATH plus the usual Homebrew \
+                     locations"
+                        .into(),
+                )
+            } else {
+                TandemError::Auth(format!("failed to run `gh auth token`: {e}"))
+            }
+        })?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(TandemError::Auth(format!(

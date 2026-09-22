@@ -187,6 +187,11 @@ function RunRow({
         ) : null}
         <span className="shrink-0 text-[11px] text-muted">{relativeTime(run.started_at)}</span>
       </div>
+      {run.error !== null && run.error ? (
+        <div className="truncate px-3 pb-2 text-[11px] text-ember" title={run.error}>
+          {run.error}
+        </div>
+      ) : null}
       {logOpen ? <EventLog events={events.filter((e) => e.run_id === run.run_id)} /> : null}
     </div>
   );

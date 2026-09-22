@@ -117,6 +117,14 @@ export function NotificationsBell() {
                     <span className="mt-0.5 block truncate font-mono text-[10px] text-muted">
                       {n.repo}#{n.number} · {n.status.replace("_", " ")} · click to jump
                     </span>
+                    {n.error !== null && n.error ? (
+                      <span
+                        className="mt-0.5 block truncate text-[10px] text-ember"
+                        title={n.error}
+                      >
+                        {n.error}
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               ))

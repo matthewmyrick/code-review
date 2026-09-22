@@ -60,6 +60,7 @@ const inputClass =
 
 function GithubSection({ settings }: { settings: Settings }) {
   const saveSettings = useAppStore((s) => s.saveSettings);
+  const viewer = useAppStore((s) => s.viewer);
   const [authKind, setAuthKind] = useState(settings.github.auth.kind);
   const [token, setToken] = useState(
     settings.github.auth.kind === "token" ? settings.github.auth.token : "",
@@ -81,6 +82,17 @@ function GithubSection({ settings }: { settings: Settings }) {
       title="GitHub authentication"
       hint="Choose how Tandem reads from GitHub. Tandem never writes to GitHub."
     >
+      <div className="mb-2 text-xs text-cream">
+        acting as GitHub user:{" "}
+        {viewer ? (
+          <span className="font-mono font-medium text-sky">{viewer}</span>
+        ) : (
+          <span className="text-ember">unknown — GitHub calls may be failing</span>
+        )}
+        <span className="ml-1 text-muted">
+          (whoever your auth below resolves to — switch accounts with `gh auth login`)
+        </span>
+      </div>
       <div className="flex flex-col gap-2 text-xs text-cream">
         {(
           [

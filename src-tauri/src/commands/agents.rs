@@ -220,6 +220,7 @@ pub(crate) async fn launch_run(
         comment_count: 0,
         purpose: purpose.to_owned(),
         target_comment_id,
+        error: None,
     };
     {
         let cache = state.cache.lock().await;
@@ -251,8 +252,11 @@ async fn pump_events(
                 handle_comment(&app, &event, &mut run, &spec, &repo, &head_sha).await;
             }
             RunEventKind::Lifecycle => {
-                if let Some(status) = parse_lifecycle_status(&event.payload) {
+                if let Some((status, detail)) = parse_lifecycle_status(&event.payload) {
                     run.status = status;
+                    if matches!(status, RunStatus::Failed | RunStatus::TimedOut) {
+                        run.error = Some(detail);
+                    }
                     if matches!(
                         status,
                         RunStatus::Succeeded
@@ -340,14 +344,16 @@ async fn persist_run(app: &AppHandle, run: &AgentRun) {
     }
 }
 
-fn parse_lifecycle_status(payload: &str) -> Option<RunStatus> {
+fn parse_lifecycle_status(payload: &str) -> Option<(RunStatus, String)> {
     #[derive(serde::Deserialize)]
     struct Lifecycle {
         status: RunStatus,
+        #[serde(default)]
+        detail: String,
     }
     serde_json::from_str::<Lifecycle>(payload)
         .ok()
-        .map(|l| l.status)
+        .map(|l| (l.status, l.detail))
 }
 
 fn parse_severity(s: &str) -> CommentSeverity {
