@@ -14,6 +14,7 @@ import { useRunBoard } from "./runBoard";
 import { pushGithubError, pushInfo } from "./toasts";
 import { agentActions } from "./agentActions";
 import { githubActions } from "./githubActions";
+import { repoActions } from "./repoActions";
 import { applyTheme, loadPinned, loadTheme, loadViewer, saveViewer } from "./persist";
 import type { AppStore } from "./storeTypes";
 
@@ -64,6 +65,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     prSort: "opened-desc",
     viewer: loadViewer(),
     collaborators: [],
+    allRepoProgress: null,
 
     init: async () => {
       if (initStarted) return;
@@ -217,61 +219,6 @@ export const useAppStore = create<AppStore>((set, get) => {
       set({ [key]: value } as Partial<AppStore>);
     },
 
-    selectRepo: async (slug) => {
-      set({
-        selectedRepo: slug,
-        selectedPr: null,
-        bundle: null,
-        prs: [],
-        prPage: 1,
-        archivedPrs: [],
-        searchResults: null,
-        inbox: {},
-        // Re-seed per-repo view state from the saved defaults.
-        filters: get().settings?.pr_filters ?? EMPTY_FILTERS,
-        prSort: sanitizePrSort(get().settings?.pr_sort ?? "opened-desc"),
-        collaborators: [],
-      });
-      // "*" = all repositories: aggregate open PRs across tracked repos;
-      // inbox tabs search account-wide.
-      if (slug === "*") {
-        try {
-          const repos = get().settings?.repos ?? [];
-          const pages = await Promise.all(
-            repos.map((r) => ipc.syncPullRequests(r, 1).catch(() => null)),
-          );
-          set({
-            prs: pages.filter((p) => p !== null).flatMap((p) => p.prs),
-            prHasMore: false,
-            prPage: 1,
-          });
-        } catch (e) {
-          fail(e);
-        }
-        return;
-      }
-      // People autocomplete for @mentions; quiet failure (needs perms).
-      ipc
-        .listCollaborators(slug)
-        .then((collaborators) => {
-          set({ collaborators });
-        })
-        .catch(console.warn);
-      try {
-        const cached = await ipc.getPullRequests(slug);
-        set({ prs: cached, archivedPrs: await ipc.listArchivedPrs(slug) });
-        const page = await ipc.syncPullRequests(slug, 1);
-        set({
-          prs: page.prs,
-          prHasMore: page.has_more,
-          prPage: 1,
-          archivedPrs: await ipc.listArchivedPrs(slug),
-        });
-      } catch (e) {
-        fail(e);
-      }
-    },
-
     selectPr: async (number) => {
       const repo = get().selectedRepo;
       if (!repo) return;
@@ -282,34 +229,6 @@ export const useAppStore = create<AppStore>((set, get) => {
         await reloadRuns();
         const fresh = await ipc.syncPrBundle(repo, number);
         set({ bundle: fresh });
-      } catch (e) {
-        fail(e);
-      }
-    },
-
-    refreshPrs: async () => {
-      const repo = get().selectedRepo;
-      if (!repo) return;
-      try {
-        const page = await ipc.syncPullRequests(repo, 1);
-        set({
-          prs: page.prs,
-          prHasMore: page.has_more,
-          prPage: 1,
-          archivedPrs: await ipc.listArchivedPrs(repo),
-        });
-      } catch (e) {
-        fail(e);
-      }
-    },
-
-    loadMorePrs: async () => {
-      const { selectedRepo, prPage, prs } = get();
-      if (!selectedRepo) return;
-      try {
-        const next = prPage + 1;
-        const page = await ipc.syncPullRequests(selectedRepo, next);
-        set({ prs: [...prs, ...page.prs], prHasMore: page.has_more, prPage: next });
       } catch (e) {
         fail(e);
       }
@@ -369,5 +288,6 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     ...agentActions(set, get, fail, reloadComments, reloadRuns),
     ...githubActions(set, get, fail, reloadComments),
+    ...repoActions(set, get, fail),
   };
 });

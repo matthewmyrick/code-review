@@ -16,7 +16,7 @@ import { useAppStore } from "../state/store";
 import { ArchivedList } from "./ArchivedList";
 import { FilterBar } from "./FilterBar";
 import { InboxList } from "./InboxList";
-import { Button, Pill, Skeleton, Spinner } from "./ui";
+import { Button, Pill, ProgressBar, Skeleton, Spinner } from "./ui";
 
 const TABS: { id: SidebarTab; label: string; icon: typeof Inbox }[] = [
   { id: "requested", label: "req", icon: Inbox },
@@ -30,12 +30,13 @@ export function Sidebar() {
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectRepo = useAppStore((s) => s.selectRepo);
   const requestedCount = useAppStore((s) => s.inbox.requested?.length ?? 0);
+  const allRepoProgress = useAppStore((s) => s.allRepoProgress);
   const tab = useKeyNav((s) => s.tab);
   const pick = useKeyNav((s) => s.setTab);
 
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="border-b border-edge p-3">
+      <div className="space-y-2 border-b border-edge p-3">
         <select
           className="h-9 w-full rounded-lg border border-edge bg-panel-2 px-2 text-sm text-cream transition-colors focus:border-sky"
           value={selectedRepo ?? ""}
@@ -53,6 +54,13 @@ export function Sidebar() {
             </option>
           ))}
         </select>
+        {allRepoProgress ? (
+          <ProgressBar
+            done={allRepoProgress.done}
+            total={allRepoProgress.total}
+            label={`loading repos ${String(allRepoProgress.done)}/${String(allRepoProgress.total)}`}
+          />
+        ) : null}
       </div>
 
       <div className="flex border-b border-edge">

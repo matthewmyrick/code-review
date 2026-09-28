@@ -175,6 +175,25 @@ export function Skeleton(props: { className?: string }) {
   return <div className={`skeleton ${props.className ?? ""}`} />;
 }
 
+/** Thin determinate progress bar with a "n / total" label — used while
+ * a bounded batch of background work (e.g. loading all repos) runs. */
+export function ProgressBar(props: { done: number; total: number; label?: string }) {
+  const pct = props.total > 0 ? Math.round((props.done / props.total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2 text-[11px] text-muted">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-panel-2">
+        <div
+          className="h-full rounded-full bg-sky transition-all duration-200"
+          style={{ width: `${String(pct)}%` }}
+        />
+      </div>
+      <span className="shrink-0 font-mono">
+        {props.label ?? `${String(props.done)} / ${String(props.total)}`}
+      </span>
+    </div>
+  );
+}
+
 /** Open-modal counter. Unpinned side panes normally unmount when the
  * mouse leaves; while any modal is open they must stay mounted or the
  * modal (and its draft) would vanish with them. */

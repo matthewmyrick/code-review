@@ -43,6 +43,9 @@ export interface AppStore {
   prSort: PrSort;
   viewer: string | null;
   collaborators: string[];
+  /** Set while "all repositories" is loading; cleared when it finishes
+   * or a different repo is selected before it does. */
+  allRepoProgress: { done: number; total: number } | null;
 
   init: () => Promise<void>;
   setView: (view: View) => void;
