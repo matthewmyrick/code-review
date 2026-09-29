@@ -103,6 +103,16 @@ pub struct AppDirs {
     pub worktrees_dir: PathBuf,
 }
 
+// `cargo tauri dev` is always a debug build, so this separates a dev
+// run's settings/cache/runs from the installed release app's — no more
+// `pnpm tauri dev` quietly reading and rewriting your real PR review
+// notes and settings.
+const APP_DIR_NAME: &str = if cfg!(debug_assertions) {
+    "tandem-dev"
+} else {
+    "tandem"
+};
+
 impl AppDirs {
     pub fn resolve() -> Result<Self> {
         let config_root = dirs::config_dir()
@@ -110,11 +120,13 @@ impl AppDirs {
         let data_root = dirs::data_dir()
             .ok_or_else(|| TandemError::Config("no data directory on this platform".into()))?;
         // The app used to be called "appa" — carry existing data across.
+        // Only the production dir ever had that name; a dev build never
+        // did, so this migration doesn't apply to it.
         migrate_legacy_dir(&config_root.join("appa"), &config_root.join("tandem"));
         migrate_legacy_dir(&data_root.join("appa"), &data_root.join("tandem"));
 
-        let config = config_root.join("tandem");
-        let data = data_root.join("tandem");
+        let config = config_root.join(APP_DIR_NAME);
+        let data = data_root.join(APP_DIR_NAME);
         Ok(Self {
             settings_file: config.join("settings.json"),
             cache_db: data.join("cache.sqlite3"),
