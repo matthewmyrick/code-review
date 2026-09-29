@@ -6,8 +6,11 @@
 # file is the source of truth for the agents it declares. Delete the
 # file and Tandem is fully GUI-managed again.
 
-repos:
-  - matthewmyrick/code-review
+orgs:
+  - matthewmyrick
+
+# Repo shown on a fresh, uncached launch — omit to land on the picker.
+default_repo: matthewmyrick/code-review
 
 # Seeded into the sidebar whenever a repo is opened.
 pr_filters:

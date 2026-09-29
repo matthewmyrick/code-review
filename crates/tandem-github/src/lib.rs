@@ -7,6 +7,7 @@
 pub mod auth;
 pub mod client;
 mod discovery;
+mod rate_limit;
 mod search;
 mod wire;
 mod write;

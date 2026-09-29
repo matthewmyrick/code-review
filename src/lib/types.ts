@@ -251,7 +251,8 @@ export interface WorkspaceInfo {
 
 export interface Settings {
   github: GithubConfig;
-  repos: string[];
+  orgs: string[];
+  default_repo: string | null;
   pr_filters: PrFilters;
   pr_sort: string;
   inbox_all_repos: boolean;

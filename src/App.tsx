@@ -199,13 +199,13 @@ function ReviewLayout() {
     };
   }, [prKey, prOpen, refreshBundle]);
 
-  // First run: no repos configured yet — onboard from the main page.
-  if (settings?.repos.length === 0) {
+  // First run: no orgs tracked yet — onboard from the main page.
+  if (settings?.orgs.length === 0) {
     return (
       <main className="flex-1">
         <EmptyState
           title="welcome aboard"
-          hint="add a GitHub repository to start reviewing — Tandem reads PRs, checks and comments, and keeps all review notes local"
+          hint="track a GitHub org (or yourself) to start reviewing — Tandem reads PRs, checks and comments, and keeps all review notes local"
           action={
             <Button
               kind="primary"
@@ -213,7 +213,7 @@ function ReviewLayout() {
                 setView("settings");
               }}
             >
-              <Settings size={12} /> set up a repository
+              <Settings size={12} /> set up an organization
             </Button>
           }
         />

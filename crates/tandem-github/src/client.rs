@@ -52,26 +52,10 @@ impl GithubClient {
 
     async fn get(&self, path: &str, accept: &str) -> Result<reqwest::Response> {
         let url = format!("{}{path}", self.api_base);
+        let headers = self.headers(accept)?;
         tracing::debug!(%url, "github GET");
-        let resp = self
-            .http
-            .get(&url)
-            .headers(self.headers(accept)?)
-            .send()
+        self.send_with_rate_limit_retry(|| self.http.get(&url).headers(headers.clone()))
             .await
-            .map_err(|e| TandemError::GithubApi {
-                status: 0,
-                message: e.to_string(),
-            })?;
-        let status = resp.status();
-        if !status.is_success() {
-            let message = resp.text().await.unwrap_or_default();
-            return Err(TandemError::GithubApi {
-                status: status.as_u16(),
-                message,
-            });
-        }
-        Ok(resp)
     }
 
     pub(crate) async fn get_json<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {
@@ -141,7 +125,7 @@ impl GithubClient {
             "query": QUERY,
             "variables": { "owner": repo.owner, "name": repo.name },
         });
-        let Ok(value) = self.post_json("/graphql", body).await else {
+        let Ok(value) = self.post_graphql_query(body).await else {
             return;
         };
         let nodes = value
@@ -205,7 +189,7 @@ impl GithubClient {
             "query": QUERY,
             "variables": { "owner": repo.owner, "name": repo.name, "number": number },
         });
-        let Ok(value) = self.post_json("/graphql", body).await else {
+        let Ok(value) = self.post_graphql_query(body).await else {
             return Vec::new();
         };
         let nodes = value
@@ -336,6 +320,27 @@ impl GithubClient {
     pub async fn pull_request_diff(&self, repo: &RepoRef, number: u64) -> Result<Vec<FileDiff>> {
         let raw = self.pull_request_diff_raw(repo, number).await?;
         parse_unified_diff(&raw)
+    }
+
+    /// GraphQL is POST-only even for reads. Distinct from
+    /// `write::post_json`, which is reserved for explicit user-triggered
+    /// writes and logs accordingly — this is just a read.
+    pub(crate) async fn post_graphql_query(
+        &self,
+        body: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let url = format!("{}/graphql", self.api_base);
+        let headers = self.headers(JSON_ACCEPT)?;
+        tracing::debug!(%url, "github POST (graphql read)");
+        let resp = self
+            .send_with_rate_limit_retry(|| {
+                self.http.post(&url).headers(headers.clone()).json(&body)
+            })
+            .await?;
+        resp.json().await.map_err(|e| TandemError::GithubApi {
+            status: 0,
+            message: format!("bad body: {e}"),
+        })
     }
 }
 

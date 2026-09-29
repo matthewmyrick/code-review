@@ -25,26 +25,13 @@ impl GithubClient {
         body: serde_json::Value,
     ) -> Result<serde_json::Value> {
         let url = format!("{}{path}", self.api_base);
+        let headers = self.headers(JSON_ACCEPT)?;
         tracing::info!(%url, "github POST (explicit user action)");
         let resp = self
-            .http
-            .post(&url)
-            .headers(self.headers(JSON_ACCEPT)?)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| TandemError::GithubApi {
-                status: 0,
-                message: e.to_string(),
-            })?;
-        let status = resp.status();
-        if !status.is_success() {
-            let message = resp.text().await.unwrap_or_default();
-            return Err(TandemError::GithubApi {
-                status: status.as_u16(),
-                message,
-            });
-        }
+            .send_with_rate_limit_retry(|| {
+                self.http.post(&url).headers(headers.clone()).json(&body)
+            })
+            .await?;
         resp.json().await.map_err(|e| TandemError::GithubApi {
             status: 0,
             message: format!("bad body: {e}"),

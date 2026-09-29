@@ -16,7 +16,8 @@ use crate::settings::{PrFilters, Settings};
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FileConfig {
-    pub repos: Option<Vec<String>>,
+    pub orgs: Option<Vec<String>>,
+    pub default_repo: Option<String>,
     pub pr_filters: Option<PrFilters>,
     pub pr_sort: Option<String>,
     pub inbox_all_repos: Option<bool>,
@@ -68,13 +69,17 @@ pub fn load_and_apply(settings: &mut Settings, cache: &Cache) -> Option<FileConf
     };
 
     let mut overrides = Vec::new();
-    if let Some(repos) = &config.repos {
-        for repo in repos {
-            if !settings.repos.contains(repo) {
-                settings.repos.push(repo.clone());
+    if let Some(orgs) = &config.orgs {
+        for org in orgs {
+            if !settings.orgs.contains(org) {
+                settings.orgs.push(org.clone());
             }
         }
-        overrides.push("repos".to_owned());
+        overrides.push("orgs".to_owned());
+    }
+    if let Some(default_repo) = &config.default_repo {
+        settings.default_repo = Some(default_repo.clone());
+        overrides.push("default_repo".to_owned());
     }
     if let Some(filters) = &config.pr_filters {
         settings.pr_filters = filters.clone();
