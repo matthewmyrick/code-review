@@ -18,11 +18,16 @@ export function InboxList({ scope }: { scope: InboxScope }) {
   const raw = useAppStore((s) => s.inbox[scope]);
   const prSort = useAppStore((s) => s.prSort);
   const loadInbox = useAppStore((s) => s.loadInbox);
+  const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prs = raw === undefined ? undefined : sortPrs(raw, prSort);
 
+  // selectRepo() clears `inbox` on every switch, but this effect only
+  // reruns on a dependency change — without selectedRepo here, staying
+  // on this tab while switching repos left it spinning forever, stuck
+  // on the cleared (undefined) state.
   useEffect(() => {
     void loadInbox(scope);
-  }, [scope, loadInbox]);
+  }, [scope, loadInbox, selectedRepo]);
 
   return (
     <div>
@@ -144,11 +149,12 @@ function ApprovedFooter() {
   const raw = useAppStore((s) => s.inbox.approved);
   const prSort = useAppStore((s) => s.prSort);
   const loadInbox = useAppStore((s) => s.loadInbox);
+  const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prs = raw === undefined ? undefined : sortPrs(raw, prSort);
 
   useEffect(() => {
     void loadInbox("approved");
-  }, [loadInbox]);
+  }, [loadInbox, selectedRepo]);
 
   return (
     <details open className="border-t border-edge/60 px-2 py-2">
