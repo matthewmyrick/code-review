@@ -3,10 +3,15 @@
 // creation.
 
 import { ipc } from "../lib/ipc";
-import { EMPTY_FILTERS } from "../lib/types";
+import { EMPTY_FILTERS, type PullRequest } from "../lib/types";
 import { sanitizePrSort } from "../lib/sort";
 import { runPool } from "../lib/pool";
+import { pushInfo } from "./toasts";
 import type { AppStore } from "./storeTypes";
+
+function reviewRequestKey(pr: PullRequest): string {
+  return `${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`;
+}
 
 type Set = (partial: Partial<AppStore> | ((state: AppStore) => Partial<AppStore>)) => void;
 type Get = () => AppStore;
@@ -22,13 +27,17 @@ const ALL_REPOS_CONCURRENCY = 5;
 
 export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
   return {
-    selectRepo: async (slug: string) => {
+    selectRepo: async (slug: string, presetPr?: number) => {
       const token = ++selectRepoToken;
       const current = () => token === selectRepoToken;
 
       set({
         selectedRepo: slug,
-        selectedPr: null,
+        // openPr() already knows which PR it's headed to — keeping it
+        // set (instead of null) through the repo switch means the main
+        // pane reads "loading pull request…" the whole time instead of
+        // flashing "pick a pull request" until selectPr() catches up.
+        selectedPr: presetPr ?? null,
         bundle: null,
         prs: [],
         prPage: 1,
@@ -144,6 +153,30 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
           ipc.listGithubRepos(org, org === viewer).catch(() => []),
         );
         set({ orgRepos: lists.flat() });
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    // Account-wide "review requested", independent of whatever repo is
+    // selected (unlike loadInbox("requested"), which scopes to it).
+    // Toasts for anything new since the last refresh — but not on the
+    // very first load, which would spam one toast per already-pending
+    // request on every app start.
+    refreshReviewRequests: async () => {
+      try {
+        const prs = await ipc.listMyPrs("requested", null);
+        if (get().reviewRequestsSeeded) {
+          const known = new Set(get().reviewRequests.map(reviewRequestKey));
+          const fresh = prs.filter((pr) => !known.has(reviewRequestKey(pr)));
+          const first = fresh[0];
+          if (fresh.length === 1 && first) {
+            pushInfo(`Review requested: ${reviewRequestKey(first)} — ${first.title}`);
+          } else if (fresh.length > 1) {
+            pushInfo(`${String(fresh.length)} new review requests`);
+          }
+        }
+        set({ reviewRequests: prs, reviewRequestsSeeded: true });
       } catch (e) {
         fail(e);
       }

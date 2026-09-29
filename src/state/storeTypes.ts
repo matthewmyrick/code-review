@@ -18,7 +18,7 @@ import type {
   Settings,
 } from "../lib/types";
 
-export type View = "review" | "settings" | "agents";
+export type View = "review" | "settings" | "agents" | "review-status";
 export type Theme = "dark" | "light";
 
 export interface AppStore {
@@ -51,6 +51,14 @@ export interface AppStore {
    * repositories" aggregation. Refreshed on init and whenever the
    * tracked org list changes. */
   orgRepos: RepoSummary[];
+  /** Account-wide (every tracked org) PRs where your review is
+   * requested — independent of whatever repo happens to be selected.
+   * Refreshed on init and on a standing timer; feeds the "review
+   * status" page and its new-arrival toasts. */
+  reviewRequests: PullRequest[];
+  /** False until the first `refreshReviewRequests` completes — guards
+   * against toasting for every already-pending request on startup. */
+  reviewRequestsSeeded: boolean;
 
   init: () => Promise<void>;
   setView: (view: View) => void;
@@ -71,8 +79,9 @@ export interface AppStore {
   loadInbox: (scope: InboxScope, force?: boolean) => Promise<void>;
   setPrSort: (sort: PrSort) => void;
   openPr: (repoSlug: string, number: number) => Promise<void>;
-  selectRepo: (slug: string) => Promise<void>;
+  selectRepo: (slug: string, presetPr?: number) => Promise<void>;
   loadOrgRepos: () => Promise<void>;
+  refreshReviewRequests: () => Promise<void>;
   selectPr: (number: number) => Promise<void>;
   refreshPrs: () => Promise<void>;
   refreshBundle: () => Promise<void>;
