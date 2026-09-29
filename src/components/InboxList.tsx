@@ -96,11 +96,11 @@ function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
   );
 }
 
-function rowKey(pr: PullRequest): string {
+export function rowKey(pr: PullRequest): string {
   return `${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`;
 }
 
-function InboxRow({ pr }: { pr: PullRequest }) {
+export function InboxRow({ pr }: { pr: PullRequest }) {
   const openPr = useAppStore((s) => s.openPr);
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectedPr = useAppStore((s) => s.selectedPr);

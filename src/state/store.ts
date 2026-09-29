@@ -67,6 +67,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     collaborators: [],
     allRepoProgress: null,
     orgRepos: [],
+    reviewRequests: [],
+    reviewRequestsSeeded: false,
 
     init: async () => {
       if (initStarted) return;
@@ -131,6 +133,13 @@ export const useAppStore = create<AppStore>((set, get) => {
         // failures stay quiet).
         if (first) await get().selectRepo(first);
         else get().loadInbox("requested").catch(console.warn);
+        // Account-wide review-requested feed for the "review status"
+        // page — independent of the selected repo, kept warm on a
+        // standing timer so it's a real notification source.
+        get().refreshReviewRequests().catch(console.warn);
+        setInterval(() => {
+          get().refreshReviewRequests().catch(console.warn);
+        }, 3 * 60_000);
         // Viewer login powers @mention highlighting and own-PR logic;
         // persisted so it's known instantly on every later launch.
         ipc
@@ -193,8 +202,12 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     openPr: async (repoSlug, number) => {
+      // Opening a PR always means "show the review page" — callers on
+      // another view (review-status, settings, agents) shouldn't have
+      // to remember to switch back themselves.
+      set({ view: "review" });
       if (get().selectedRepo !== repoSlug) {
-        await get().selectRepo(repoSlug);
+        await get().selectRepo(repoSlug, number);
       }
       await get().selectPr(number);
     },

@@ -24,6 +24,7 @@ import { DiffViewer } from "./components/DiffViewer";
 import { FileTreePanel } from "./components/FileTree";
 import { NotificationsBell } from "./components/NotificationsBell";
 import { PrHeader } from "./components/PrHeader";
+import { ReviewStatusMenuButton, ReviewStatusView } from "./components/ReviewStatusView";
 import { ShortcutManager } from "./components/ShortcutManager";
 import { SettingsView } from "./components/SettingsView";
 import { Sidebar } from "./components/Sidebar";
@@ -132,6 +133,7 @@ export default function App() {
             <Keyboard size={15} />
           </IconButton>
           <AgentsMenuButton />
+          <ReviewStatusMenuButton />
           <NotificationsBell />
           <IconButton onClick={toggleTheme} title="toggle light/dark theme">
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
@@ -157,6 +159,10 @@ export default function App() {
         ) : view === "agents" ? (
           <main className="animate-fade-up flex-1 overflow-y-auto">
             <AgentsDashboard />
+          </main>
+        ) : view === "review-status" ? (
+          <main className="animate-fade-up flex-1 overflow-y-auto">
+            <ReviewStatusView />
           </main>
         ) : (
           <ReviewLayout />
