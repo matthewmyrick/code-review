@@ -22,6 +22,7 @@ import { SuggestionBlock } from "./SuggestionBlock";
 import { extractMentions, MentionInput } from "./MentionInput";
 import type { GithubComment, LocalComment } from "../lib/types";
 import { useHighlight } from "../state/notifications";
+import { isWorking } from "../state/runBoard";
 import { useAppStore } from "../state/store";
 import { Button, GithubMark, Pill, severityTone, Spinner } from "./ui";
 
@@ -63,6 +64,11 @@ export function groupThreads(
 export function CommentThread({ root, replies }: { root: LocalComment; replies: LocalComment[] }) {
   const [replying, setReplying] = useState(false);
   const highlighted = useHighlight((s) => s.commentId === root.id);
+  const replyingAgent = useAppStore((s) =>
+    s.runs.find(
+      (r) => r.purpose === "thread reply" && r.target_comment_id === root.id && isWorking(r),
+    ),
+  )?.agent_name;
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (highlighted) {
@@ -82,6 +88,11 @@ export function CommentThread({ root, replies }: { root: LocalComment; replies: 
           {replies.map((reply) => (
             <CommentCard key={reply.id} comment={reply} isReply />
           ))}
+        </div>
+      ) : null}
+      {replyingAgent !== undefined ? (
+        <div className="ml-3 border-l-2 border-edge/70 py-1 pl-3">
+          <Spinner label={`${replyingAgent} is replying…`} />
         </div>
       ) : null}
       {replying ? (
