@@ -9,6 +9,7 @@ const inputClass =
 
 export function EditorSection({ settings }: { settings: Settings }) {
   const saveSettings = useAppStore((s) => s.saveSettings);
+  const orgRepos = useAppStore((s) => s.orgRepos);
 
   const saveCommand = (editor_command: string) => {
     void saveSettings({ ...settings, editor_command });
@@ -43,17 +44,19 @@ export function EditorSection({ settings }: { settings: Settings }) {
             className={`${inputClass} font-mono`}
           />
         </label>
-        {settings.repos.length > 0 ? (
+        {orgRepos.length > 0 ? (
           <div className="flex flex-col gap-1.5">
             <span className="text-muted">working tree per repo (blank = managed clone)</span>
-            {settings.repos.map((slug) => (
-              <label key={slug} className="flex items-center gap-2">
-                <span className="w-56 shrink-0 truncate font-mono text-muted">{slug}</span>
+            {orgRepos.map((repo) => (
+              <label key={repo.full_name} className="flex items-center gap-2">
+                <span className="w-56 shrink-0 truncate font-mono text-muted">
+                  {repo.full_name}
+                </span>
                 <input
-                  defaultValue={settings.repo_paths[slug] ?? ""}
+                  defaultValue={settings.repo_paths[repo.full_name] ?? ""}
                   onBlur={(e) => {
-                    if (e.target.value !== (settings.repo_paths[slug] ?? ""))
-                      savePath(slug, e.target.value);
+                    if (e.target.value !== (settings.repo_paths[repo.full_name] ?? ""))
+                      savePath(repo.full_name, e.target.value);
                   }}
                   placeholder="~/GitHub/… (optional)"
                   className={`${inputClass} font-mono`}

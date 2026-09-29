@@ -8,7 +8,7 @@ import type { FileConfigInfo, GithubAuth, PrFilters, Settings } from "../lib/typ
 import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
 import { EditorSection } from "./EditorSection";
-import { RepoBrowser } from "./RepoBrowser";
+import { OrgBrowser } from "./OrgBrowser";
 import { Button } from "./ui";
 import { VersionSection } from "./VersionSection";
 
@@ -37,7 +37,7 @@ export function SettingsView() {
         </div>
       ) : null}
       <GithubSection settings={settings} />
-      <ReposSection settings={settings} />
+      <OrgsSection settings={settings} />
       <FiltersSection settings={settings} />
       <EditorSection settings={settings} />
       <AgentEditor />
@@ -150,9 +150,11 @@ function FiltersSection({ settings }: { settings: Settings }) {
   const saveSettings = useAppStore((s) => s.saveSettings);
   const setRuntimeFilters = useAppStore((s) => s.setFilters);
   const setPrSort = useAppStore((s) => s.setPrSort);
+  const orgRepos = useAppStore((s) => s.orgRepos);
   const [filters, setFilters] = useState<PrFilters>(settings.pr_filters);
   const [sort, setSort] = useState(settings.pr_sort);
   const [allRepos, setAllRepos] = useState(settings.inbox_all_repos);
+  const [defaultRepo, setDefaultRepo] = useState(settings.default_repo ?? "");
   const patch = (p: Partial<PrFilters>) => {
     setFilters((f) => ({ ...f, ...p }));
   };
@@ -231,17 +233,34 @@ function FiltersSection({ settings }: { settings: Settings }) {
               ))}
             </select>
           </label>
-          <label className="mt-4 flex items-center gap-2 text-muted">
-            <input
-              type="checkbox"
-              checked={allRepos}
+          <label className="flex flex-col gap-1">
+            <span className="text-muted">default repository (fresh, uncached launch)</span>
+            <select
+              value={defaultRepo}
               onChange={(e) => {
-                setAllRepos(e.target.checked);
+                setDefaultRepo(e.target.value);
               }}
-            />
-            start in the all-repositories view
+              className={inputClass}
+            >
+              <option value="">none — show the repo picker</option>
+              {orgRepos.map((repo) => (
+                <option key={repo.full_name} value={repo.full_name}>
+                  {repo.full_name}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
+        <label className="flex items-center gap-2 text-muted">
+          <input
+            type="checkbox"
+            checked={allRepos}
+            onChange={(e) => {
+              setAllRepos(e.target.checked);
+            }}
+          />
+          start in the all-repositories view instead (takes priority over the default repo above)
+        </label>
         <div>
           <Button
             kind="primary"
@@ -251,6 +270,7 @@ function FiltersSection({ settings }: { settings: Settings }) {
                 pr_filters: filters,
                 pr_sort: sort,
                 inbox_all_repos: allRepos,
+                default_repo: defaultRepo.trim() || null,
               });
               setRuntimeFilters(filters);
               setPrSort(sort as Parameters<typeof setPrSort>[0]);
@@ -264,34 +284,37 @@ function FiltersSection({ settings }: { settings: Settings }) {
   );
 }
 
-function ReposSection({ settings }: { settings: Settings }) {
+function OrgsSection({ settings }: { settings: Settings }) {
   const saveSettings = useAppStore((s) => s.saveSettings);
-  const [slug, setSlug] = useState("");
+  const [org, setOrg] = useState("");
 
   const add = () => {
-    const trimmed = slug.trim();
-    if (!/^[\w.-]+\/[\w.-]+$/.test(trimmed)) return;
-    if (settings.repos.includes(trimmed)) return;
-    void saveSettings({ ...settings, repos: [...settings.repos, trimmed] });
-    setSlug("");
+    const trimmed = org.trim();
+    if (!/^[\w.-]+$/.test(trimmed)) return;
+    if (settings.orgs.includes(trimmed)) return;
+    void saveSettings({ ...settings, orgs: [...settings.orgs, trimmed] });
+    setOrg("");
   };
 
   return (
-    <Section title="Repositories" hint="browse your orgs or type an owner/name slug">
+    <Section
+      title="Organizations"
+      hint="track an org (or yourself) — every one of its repos shows up in the picker on the home screen"
+    >
       <div className="flex flex-col gap-2">
-        <RepoBrowser />
-        {settings.repos.map((repo) => (
+        <OrgBrowser />
+        {settings.orgs.map((o) => (
           <div
-            key={repo}
+            key={o}
             className="flex items-center justify-between rounded-md bg-panel-2 px-2 py-1.5 text-xs"
           >
-            <span className="font-mono text-cream">{repo}</span>
+            <span className="font-mono text-cream">{o}</span>
             <Button
               kind="danger"
               onClick={() => {
                 void saveSettings({
                   ...settings,
-                  repos: settings.repos.filter((r) => r !== repo),
+                  orgs: settings.orgs.filter((x) => x !== o),
                 });
               }}
             >
@@ -301,14 +324,14 @@ function ReposSection({ settings }: { settings: Settings }) {
         ))}
         <div className="flex gap-2">
           <input
-            value={slug}
+            value={org}
             onChange={(e) => {
-              setSlug(e.target.value);
+              setOrg(e.target.value);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") add();
             }}
-            placeholder="owner/name"
+            placeholder="org or username"
             className={inputClass}
           />
           <Button kind="primary" onClick={add}>

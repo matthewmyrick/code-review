@@ -66,6 +66,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     viewer: loadViewer(),
     collaborators: [],
     allRepoProgress: null,
+    orgRepos: [],
 
     init: async () => {
       if (initStarted) return;
@@ -123,11 +124,13 @@ export const useAppStore = create<AppStore>((set, get) => {
           filters: settings.pr_filters,
           prSort: sanitizePrSort(settings.pr_sort),
         });
-        const first = settings.inbox_all_repos ? "*" : settings.repos[0];
+        await get().loadOrgRepos();
+        const first = settings.inbox_all_repos ? "*" : settings.default_repo;
+        // selectRepo() itself prefetches the review-request badge count;
+        // with no repo to select yet, do it directly (auth-dependent, so
+        // failures stay quiet).
         if (first) await get().selectRepo(first);
-        // Prefetch the review-request inbox for the tab badge (scoped
-        // like the tabs); auth-dependent, so failures stay quiet.
-        get().loadInbox("requested").catch(console.warn);
+        else get().loadInbox("requested").catch(console.warn);
         // Viewer login powers @mention highlighting and own-PR logic;
         // persisted so it's known instantly on every later launch.
         ipc
@@ -245,9 +248,13 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     saveSettings: async (settings) => {
+      const prevOrgs = [...(get().settings?.orgs ?? [])].sort();
       try {
         const saved = await ipc.updateSettings(settings);
         set({ settings: saved });
+        if (JSON.stringify(prevOrgs) !== JSON.stringify([...saved.orgs].sort())) {
+          get().loadOrgRepos().catch(console.warn);
+        }
       } catch (e) {
         fail(e);
       }

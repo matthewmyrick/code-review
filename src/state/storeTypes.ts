@@ -13,6 +13,7 @@ import type {
   InboxScope,
   PrFilters,
   PullRequest,
+  RepoSummary,
   RunEvent,
   Settings,
 } from "../lib/types";
@@ -46,6 +47,10 @@ export interface AppStore {
   /** Set while "all repositories" is loading; cleared when it finishes
    * or a different repo is selected before it does. */
   allRepoProgress: { done: number; total: number } | null;
+  /** Repos across every tracked org — feeds the repo picker and "all
+   * repositories" aggregation. Refreshed on init and whenever the
+   * tracked org list changes. */
+  orgRepos: RepoSummary[];
 
   init: () => Promise<void>;
   setView: (view: View) => void;
@@ -67,6 +72,7 @@ export interface AppStore {
   setPrSort: (sort: PrSort) => void;
   openPr: (repoSlug: string, number: number) => Promise<void>;
   selectRepo: (slug: string) => Promise<void>;
+  loadOrgRepos: () => Promise<void>;
   selectPr: (number: number) => Promise<void>;
   refreshPrs: () => Promise<void>;
   refreshBundle: () => Promise<void>;

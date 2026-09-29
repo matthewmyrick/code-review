@@ -41,10 +41,14 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
         collaborators: [],
         allRepoProgress: null,
       });
-      // "*" = all repositories: aggregate open PRs across tracked repos,
-      // ALL_REPOS_CONCURRENCY at a time; inbox tabs search account-wide.
+      // Sidebar badge count for the "req" tab — refetch on every switch
+      // even if that tab isn't the active one right now.
+      get().loadInbox("requested", true).catch(console.warn);
+      // "*" = all repositories: aggregate open PRs across every repo in
+      // tracked orgs, ALL_REPOS_CONCURRENCY at a time; inbox tabs search
+      // account-wide.
       if (slug === "*") {
-        const repos = get().settings?.repos ?? [];
+        const repos = get().orgRepos.map((r) => r.full_name);
         if (repos.length === 0) return;
         set({ allRepoProgress: { done: 0, total: repos.length } });
         try {
@@ -120,6 +124,26 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
         const next = prPage + 1;
         const page = await ipc.syncPullRequests(selectedRepo, next);
         set({ prs: [...prs, ...page.prs], prHasMore: page.has_more, prPage: next });
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    // Refetches every repo across tracked orgs — feeds the repo picker
+    // and "all repositories". `viewer` selects the /user/repos endpoint
+    // (private repos included) instead of the /orgs/:org/repos one.
+    loadOrgRepos: async () => {
+      const orgs = get().settings?.orgs ?? [];
+      if (orgs.length === 0) {
+        set({ orgRepos: [] });
+        return;
+      }
+      const viewer = get().viewer;
+      try {
+        const lists = await runPool(orgs, ALL_REPOS_CONCURRENCY, (org) =>
+          ipc.listGithubRepos(org, org === viewer).catch(() => []),
+        );
+        set({ orgRepos: lists.flat() });
       } catch (e) {
         fail(e);
       }

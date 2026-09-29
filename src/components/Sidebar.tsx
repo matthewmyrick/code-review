@@ -26,13 +26,21 @@ const TABS: { id: SidebarTab; label: string; icon: typeof Inbox }[] = [
 ];
 
 export function Sidebar() {
-  const settings = useAppStore((s) => s.settings);
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectRepo = useAppStore((s) => s.selectRepo);
+  const orgRepos = useAppStore((s) => s.orgRepos);
   const requestedCount = useAppStore((s) => s.inbox.requested?.length ?? 0);
   const allRepoProgress = useAppStore((s) => s.allRepoProgress);
   const tab = useKeyNav((s) => s.tab);
   const pick = useKeyNav((s) => s.setTab);
+
+  // Group by owner so a big tracked-org repo list stays scannable.
+  const byOwner = new Map<string, string[]>();
+  for (const repo of orgRepos) {
+    const owner = repo.full_name.split("/")[0] ?? repo.full_name;
+    byOwner.set(owner, [...(byOwner.get(owner) ?? []), repo.full_name]);
+  }
+  const owners = [...byOwner.keys()].sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -48,10 +56,17 @@ export function Sidebar() {
             select a repository…
           </option>
           <option value="*">all repositories</option>
-          {(settings?.repos ?? []).map((slug) => (
-            <option key={slug} value={slug}>
-              {slug}
-            </option>
+          {owners.map((owner) => (
+            <optgroup key={owner} label={owner}>
+              {(byOwner.get(owner) ?? [])
+                .slice()
+                .sort((a, b) => a.localeCompare(b))
+                .map((slug) => (
+                  <option key={slug} value={slug}>
+                    {slug}
+                  </option>
+                ))}
+            </optgroup>
           ))}
         </select>
         {allRepoProgress ? (

@@ -10,14 +10,19 @@ use tandem_core::{Result, TandemError};
 use tandem_github::GithubConfig;
 
 /// Bump when a migration in [`Settings::load`] needs to run once.
-const SETTINGS_VERSION: u32 = 2;
+const SETTINGS_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub github: GithubConfig,
-    /// Repositories to track, as `owner/name` slugs.
-    pub repos: Vec<String>,
+    /// Owners (orgs, or your own GitHub login) tracked for the repo
+    /// picker. The repo list itself is fetched live from GitHub, never
+    /// stored here.
+    pub orgs: Vec<String>,
+    /// Repo shown on a fresh, uncached launch (`owner/name`); `None`
+    /// falls back to the repo picker.
+    pub default_repo: Option<String>,
     /// Default PR-list filters, applied whenever a repo is opened; the
     /// user can adjust or clear them at runtime without saving.
     pub pr_filters: PrFilters,
@@ -51,7 +56,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             github: GithubConfig::default(),
-            repos: Vec::new(),
+            orgs: Vec::new(),
+            default_repo: None,
             pr_filters: PrFilters::default(),
             pr_sort: default_pr_sort(),
             inbox_all_repos: false,
@@ -134,7 +140,19 @@ impl Settings {
     pub fn load(path: &Path) -> Result<Self> {
         match std::fs::read_to_string(path) {
             Ok(contents) => {
-                let mut settings: Self = serde_json::from_str(&contents)?;
+                let raw: serde_json::Value = serde_json::from_str(&contents)?;
+                // Captured before typed deserialization drops it: `repos`
+                // no longer exists on `Settings` as of v3.
+                let legacy_repos: Vec<String> = raw
+                    .get("repos")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(str::to_owned))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let mut settings: Self = serde_json::from_value(raw)?;
                 // v0 -> v1: files saved before the filters UI existed may
                 // carry an unintended hide_drafts=false — restore the
                 // intended default exactly once.
@@ -145,6 +163,22 @@ impl Settings {
                 // carry files that still hold the old default across.
                 if settings.version < 2 && settings.pr_sort == "opened-asc" {
                     settings.pr_sort = "opened-desc".to_owned();
+                }
+                // v2 -> v3: the flat tracked-repo list (`repos`) was
+                // replaced by tracked owners (`orgs`) + an explicit
+                // `default_repo`. Derive both from the old list so
+                // existing setups don't need to reconfigure anything.
+                if settings.version < 3 {
+                    for slug in &legacy_repos {
+                        if let Some(owner) = slug.split('/').next() {
+                            if !settings.orgs.iter().any(|o| o == owner) {
+                                settings.orgs.push(owner.to_owned());
+                            }
+                        }
+                    }
+                    if settings.default_repo.is_none() {
+                        settings.default_repo = legacy_repos.first().cloned();
+                    }
                 }
                 if settings.version < SETTINGS_VERSION {
                     settings.version = SETTINGS_VERSION;
@@ -190,16 +224,40 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("tandem-settings-{}", std::process::id()));
         let path = dir.join("settings.json");
         let mut s = Settings::default();
-        s.repos.push("matthewmyrick/code-review".into());
+        s.orgs.push("matthewmyrick".into());
+        s.default_repo = Some("matthewmyrick/code-review".into());
         s.save(&path).unwrap();
         let loaded = Settings::load(&path).unwrap();
-        assert_eq!(loaded.repos, s.repos);
+        assert_eq!(loaded.orgs, s.orgs);
+        assert_eq!(loaded.default_repo, s.default_repo);
         std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]
     fn missing_file_yields_defaults() {
         let loaded = Settings::load(Path::new("/nonexistent/tandem/settings.json")).unwrap();
-        assert!(loaded.repos.is_empty());
+        assert!(loaded.orgs.is_empty());
+        assert!(loaded.default_repo.is_none());
+    }
+
+    #[test]
+    fn migrates_legacy_repos_to_orgs_and_default_repo() {
+        let dir =
+            std::env::temp_dir().join(format!("tandem-settings-migrate-{}", std::process::id()));
+        let path = dir.join("settings.json");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"version":2,"repos":["matthewmyrick/code-review","matthewmyrick/dotfiles","other-org/thing"]}"#,
+        )
+        .unwrap();
+        let loaded = Settings::load(&path).unwrap();
+        assert_eq!(loaded.orgs, vec!["matthewmyrick", "other-org"]);
+        assert_eq!(
+            loaded.default_repo,
+            Some("matthewmyrick/code-review".to_owned())
+        );
+        assert_eq!(loaded.version, SETTINGS_VERSION);
+        std::fs::remove_dir_all(dir).ok();
     }
 }

@@ -135,7 +135,7 @@ PR → add an agent → **run review**.
 ## Optional file config (dotfiles-friendly)
 
 Everything is configurable in the GUI, but if you keep dotfiles you can
-declare repos, default filters/sort, and agents in
+declare tracked orgs, a default repo, default filters/sort, and agents in
 `~/.config/tandem/tandem.yaml` (or point `$TANDEM_CONFIG` at a file).
 Present fields override GUI settings at startup and declared agents are
 upserted by name; no file means no change. See
