@@ -129,13 +129,25 @@ export function Button(props: {
   );
 }
 
-export function IconButton(props: { onClick: () => void; title: string; children: ReactNode }) {
+export function IconButton(props: {
+  onClick: () => void;
+  title: string;
+  children: ReactNode;
+  /** True when this button's page/view is the one on screen right now —
+   * keeps it styled like it's permanently hovered so it reads as "you
+   * are here" rather than just another button. */
+  active?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={props.onClick}
       title={props.title}
-      className="inline-flex size-8 items-center justify-center rounded-lg text-sm text-muted ring-1 ring-transparent transition-all duration-150 hover:bg-panel-2 hover:text-cream hover:ring-edge/60 active:scale-95"
+      className={`inline-flex size-8 items-center justify-center rounded-lg text-sm ring-1 transition-all duration-150 hover:bg-panel-2 hover:text-cream hover:ring-edge/60 active:scale-95 ${
+        (props.active ?? false)
+          ? "bg-panel-2 text-cream ring-edge/60"
+          : "text-muted ring-transparent"
+      }`}
     >
       {props.children}
     </button>

@@ -5,13 +5,13 @@
 import { useState } from "react";
 
 import { ipc } from "../lib/ipc";
-import { checksFailing, isReadyToMerge } from "../lib/ready";
+import { checksFailing, hasMergeConflicts, isReadyToMerge } from "../lib/ready";
 import type { PullRequest } from "../lib/types";
 
 export function EdgeStripes({ pr }: { pr: PullRequest }) {
   const stripes = [
     isReadyToMerge(pr) ? "bg-moss" : null,
-    checksFailing(pr) ? "bg-ember" : null,
+    checksFailing(pr) || hasMergeConflicts(pr) ? "bg-ember" : null,
     pr.unresolved_threads > 0 ? "bg-amber" : null,
   ].filter((c): c is string => c !== null);
   if (stripes.length === 0) return null;
@@ -40,7 +40,8 @@ export function useFailingChecksTip(pr: PullRequest) {
   const slug = `${pr.repo.owner}/${pr.repo.name}`;
   const key = `${slug}#${String(pr.number)}@${pr.head_sha}`;
   const failing = checksFailing(pr);
-  const hasStripes = failing || isReadyToMerge(pr) || pr.unresolved_threads > 0;
+  const conflicted = hasMergeConflicts(pr);
+  const hasStripes = failing || conflicted || isReadyToMerge(pr) || pr.unresolved_threads > 0;
 
   const onMouseEnter = (e: React.MouseEvent) => {
     if (!hasStripes) return;
@@ -64,6 +65,7 @@ export function useFailingChecksTip(pr: PullRequest) {
   if (isReadyToMerge(pr)) {
     lines.push({ text: "ready to merge", cls: "text-moss" });
   } else {
+    if (conflicted) lines.push({ text: "merge conflicts with the base branch", cls: "text-ember" });
     if (pr.review_decision === "CHANGES_REQUESTED")
       lines.push({ text: "changes requested", cls: "text-ember" });
     else if (pr.review_decision === "REVIEW_REQUIRED")

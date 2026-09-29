@@ -1,14 +1,18 @@
-// Full-page, account-wide "review requested" list — every PR across
-// every tracked org where your review is wanted, kept fresh by a
-// standing timer (state/repoActions.ts refreshReviewRequests) that also
-// toasts new arrivals. Clicking a row opens it in the review page,
-// switching the repo picker to match (same openPr() used everywhere
-// else a PR row is clicked).
+// Full-page, account-wide review status: every PR across every tracked
+// org where your review is requested, or that you authored — unlike
+// the sidebar's inbox tabs, never scoped to whatever repo happens to
+// be selected. The "requested" tab is kept fresh by a standing timer
+// (state/repoActions.ts refreshReviewRequests) that also toasts new
+// arrivals; "mine" loads lazily on first visit. Clicking a row opens it
+// in the review page, switching the repo picker to match (same
+// openPr() used everywhere else a PR row is clicked).
 
-import { Inbox, RefreshCw } from "lucide-react";
-import { useEffect } from "react";
+import { Inbox, RefreshCw, User } from "lucide-react";
+import { useEffect, useState } from "react";
 
+import { ipc } from "../lib/ipc";
 import { sortPrs } from "../lib/sort";
+import type { PullRequest } from "../lib/types";
 import { useKeyNav } from "../state/keyNav";
 import { useAppStore } from "../state/store";
 import { InboxRow, rowKey } from "./InboxList";
@@ -27,6 +31,7 @@ export function ReviewStatusMenuButton() {
         setView(view === "review-status" ? "review" : "review-status");
       }}
       title="review status — PRs across your orgs needing your review"
+      active={view === "review-status"}
     >
       <span className="relative">
         <Inbox size={15} />
@@ -40,16 +45,39 @@ export function ReviewStatusMenuButton() {
   );
 }
 
+const TABS = [
+  { id: "requested", label: "req", icon: Inbox },
+  { id: "authored", label: "mine", icon: User },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
+
 export function ReviewStatusView() {
+  const [tab, setTab] = useState<Tab>("requested");
   const reviewRequests = useAppStore((s) => s.reviewRequests);
   const reviewRequestsSeeded = useAppStore((s) => s.reviewRequestsSeeded);
   const prSort = useAppStore((s) => s.prSort);
   const refreshReviewRequests = useAppStore((s) => s.refreshReviewRequests);
-  const prs = sortPrs(reviewRequests, prSort);
+  const [authored, setAuthored] = useState<PullRequest[] | undefined>(undefined);
 
   useEffect(() => {
     void refreshReviewRequests();
   }, [refreshReviewRequests]);
+
+  const loadAuthored = () => {
+    setAuthored(undefined);
+    ipc
+      .listMyPrs("authored", null)
+      .then(setAuthored)
+      .catch(() => {
+        setAuthored([]);
+      });
+  };
+  useEffect(() => {
+    if (tab === "authored" && authored === undefined) loadAuthored();
+  }, [tab, authored]);
+
+  const prs = sortPrs(tab === "requested" ? reviewRequests : (authored ?? []), prSort);
+  const loading = tab === "requested" ? !reviewRequestsSeeded : authored === undefined;
 
   useEffect(() => {
     useKeyNav
@@ -62,26 +90,43 @@ export function ReviewStatusView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-cream">Review status</h1>
-          <p className="text-xs text-muted">
-            every PR across your tracked orgs where your review is requested
-          </p>
+          <p className="text-xs text-muted">every PR across your tracked orgs, account-wide</p>
         </div>
         <Button
           onClick={() => {
-            void refreshReviewRequests();
+            if (tab === "requested") void refreshReviewRequests();
+            else loadAuthored();
           }}
         >
           <RefreshCw size={11} /> refresh
         </Button>
       </div>
-      {!reviewRequestsSeeded ? (
+
+      <div className="flex border-b border-edge">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => {
+              setTab(id);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
+              tab === id ? "border-b-2 border-sky text-cream" : "text-muted hover:text-cream"
+            }`}
+          >
+            <Icon size={12} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
         <div className="px-3 py-8">
           <Spinner label="searching github…" />
         </div>
       ) : prs.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted">
           <Inbox size={28} strokeWidth={1.5} />
-          nothing to review — all clear
+          {tab === "requested" ? "nothing to review — all clear" : "nothing open"}
         </div>
       ) : (
         <div className="space-y-1.5">

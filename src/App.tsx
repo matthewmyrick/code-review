@@ -143,6 +143,7 @@ export default function App() {
               setView(view === "settings" ? "review" : "settings");
             }}
             title={view === "settings" ? "back to review" : "settings"}
+            active={view === "settings"}
           >
             {view === "settings" ? <ArrowLeft size={15} /> : <Settings size={15} />}
           </IconButton>
