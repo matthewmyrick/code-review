@@ -69,6 +69,11 @@ rule below is enforced by CI (`.github/workflows/ci.yml`), not by hoping.
    ./scripts/check-file-length.sh
    ```
 
+   Or just `make check` — same gates, and it puts cargo/node/pnpm on
+   `PATH` itself if your shell doesn't already have them. `make dev`
+   starts a dev build (own settings/cache dir, titled "Tandem Dev" so
+   it's never confused with an installed release build).
+
 3. CI must be fully green before merge. There are no optional checks.
 
 ## For AI agents

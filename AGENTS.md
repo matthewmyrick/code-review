@@ -68,8 +68,16 @@ pnpm lint && pnpm typecheck && pnpm build && \
 ./scripts/check-file-length.sh
 ```
 
-If you changed runtime behavior, run `pnpm tauri dev` and exercise the
-flow you touched.
+Shortcut: `make check` runs the exact same bar, and resolves cargo/node/
+pnpm onto `PATH` itself — no need to source nvm/cargo's env first in a
+fresh shell. `make fmt`/`make lint`/`make test`/`make build` run one
+piece at a time; `make help` lists everything.
+
+If you changed runtime behavior, run `make dev` (or `pnpm tauri dev`)
+and exercise the flow you touched. A dev run is always a debug build,
+which keeps its own settings/cache/runs directory (`tandem-dev`, not
+`tandem`) and titles its window "Tandem Dev" — it never touches the
+installed release app's data.
 
 ## v2 heads-up
 

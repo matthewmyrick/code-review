@@ -46,6 +46,13 @@ pub fn run() {
                 }
             }
             tauri::Manager::manage(app, state);
+            // Distinguish a `cargo tauri dev` window from the installed
+            // release app at a glance — they already keep separate data
+            // (see AppDirs::resolve), but the title makes it obvious.
+            #[cfg(debug_assertions)]
+            if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
+                let _ = window.set_title("Tandem Dev — code review");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
