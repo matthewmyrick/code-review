@@ -24,9 +24,17 @@ export function checksFailing(pr: PullRequest): boolean {
   return pr.checks_state === "FAILURE" || pr.checks_state === "ERROR";
 }
 
-/** Left-edge accent: green = ready to merge, red = checks failing. */
+/** Merge conflicts with the base branch — a harder blocker than "just
+ * needs approval," so it gets the same red treatment as failing checks
+ * rather than reading as a routine amber "awaiting review." */
+export function hasMergeConflicts(pr: PullRequest): boolean {
+  return pr.mergeable_state === "dirty";
+}
+
+/** Left-edge accent: green = ready to merge, red = checks failing or
+ * merge conflicts. */
 export function prEdgeClass(pr: PullRequest): string {
   if (isReadyToMerge(pr)) return "border-l-4 border-l-moss ";
-  if (checksFailing(pr)) return "border-l-4 border-l-ember ";
+  if (checksFailing(pr) || hasMergeConflicts(pr)) return "border-l-4 border-l-ember ";
   return "";
 }

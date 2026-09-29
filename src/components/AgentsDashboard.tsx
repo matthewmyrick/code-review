@@ -363,6 +363,7 @@ export function AgentsMenuButton() {
         setView(view === "agents" ? "review" : "agents");
       }}
       title="agent runs dashboard"
+      active={view === "agents"}
     >
       <span className="relative">
         <Bot size={15} />
