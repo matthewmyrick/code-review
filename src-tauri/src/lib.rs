@@ -78,6 +78,7 @@ pub fn run() {
             workspace::open_in_editor,
             agents::list_agent_runs,
             agents::list_all_agent_runs,
+            agents::get_run_log,
             agents::start_agent_review,
             agents::cancel_agent_run,
             agents::delete_agent_run,

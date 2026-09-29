@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from "react";
 import type { LogIcon } from "../lib/agentEvents";
 import { summarizeEvent } from "../lib/agentEvents";
 import { relativeTime } from "../lib/format";
+import { ipc } from "../lib/ipc";
 import type { AgentRun, RunEvent } from "../lib/types";
 import { useHighlight } from "../state/notifications";
 import { loadAgent, saveAgent } from "../state/persist";
@@ -192,13 +193,47 @@ function RunRow({
           {run.error}
         </div>
       ) : null}
-      {logOpen ? <EventLog events={events.filter((e) => e.run_id === run.run_id)} /> : null}
+      {logOpen ? (
+        <EventLog run={run} liveEvents={events.filter((e) => e.run_id === run.run_id)} />
+      ) : null}
     </div>
   );
 }
 
-function EventLog({ events }: { events: RunEvent[] }) {
+/** Prefers this session's live event stream; falls back to replaying
+ * the run's persisted JSONL log (survives restarts, reaches every
+ * session — see get_run_log) whenever this session has no live events
+ * for it. While the run is still active, keeps polling the persisted
+ * log every few seconds so a run opened after it started doesn't just
+ * show a frozen snapshot. */
+function EventLog({ run, liveEvents }: { run: AgentRun; liveEvents: RunEvent[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [persisted, setPersisted] = useState<RunEvent[] | null>(null);
+  const needsPersisted = liveEvents.length === 0;
+
+  useEffect(() => {
+    if (!needsPersisted) return;
+    let cancelled = false;
+    const load = () => {
+      ipc
+        .getRunLog(run.run_id)
+        .then((log) => {
+          if (!cancelled) setPersisted(log);
+        })
+        .catch(() => {
+          if (!cancelled) setPersisted((p) => p ?? []);
+        });
+    };
+    load();
+    if (!isWorking(run)) return;
+    const timer = setInterval(load, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [needsPersisted, run]);
+
+  const events = needsPersisted ? (persisted ?? []) : liveEvents;
   const lines = events.flatMap((event) =>
     summarizeEvent(event).map((line, i) => ({
       key: `${event.run_id}:${String(event.seq)}:${String(i)}`,
@@ -211,10 +246,17 @@ function EventLog({ events }: { events: RunEvent[] }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [lines.length]);
 
+  if (needsPersisted && persisted === null) {
+    return (
+      <div className="border-t border-edge/40 bg-ground/70 px-3 py-2 text-[11px] text-muted">
+        loading saved log…
+      </div>
+    );
+  }
   if (lines.length === 0) {
     return (
       <div className="border-t border-edge/40 bg-ground/70 px-3 py-2 text-[11px] text-muted">
-        no live log from this session for this run
+        no log recorded for this run
       </div>
     );
   }

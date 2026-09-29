@@ -19,6 +19,7 @@ import type {
   PrCommit,
   PrPage,
   PullRequest,
+  RunEvent,
   Settings,
   WorkspaceInfo,
 } from "./types";
@@ -61,6 +62,7 @@ export const ipc = {
   listAgentRuns: (repo: string, number: number) =>
     invoke<AgentRun[]>("list_agent_runs", { repo, number }),
   listAllAgentRuns: () => invoke<AgentRun[]>("list_all_agent_runs"),
+  getRunLog: (runId: string) => invoke<RunEvent[]>("get_run_log", { runId }),
   startAgentReview: (agentName: string, repo: string, number: number) =>
     invoke<string>("start_agent_review", { agentName, repo, number }),
   cancelAgentRun: (runId: string) => invoke<null>("cancel_agent_run", { runId }),

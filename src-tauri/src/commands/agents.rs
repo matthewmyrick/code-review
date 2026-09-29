@@ -55,6 +55,30 @@ pub async fn list_all_agent_runs(state: State<'_, AppState>) -> Result<Vec<Agent
     state.cache.lock().await.list_recent_runs(200)
 }
 
+/// Replay a run's persisted JSONL log. The durable on-disk record
+/// survives app restarts and reaches every session — unlike the
+/// in-memory live stream (`tandem://agent-event`), which only reaches
+/// whichever session happened to be listening when the events fired.
+#[tauri::command]
+pub async fn get_run_log(
+    state: State<'_, AppState>,
+    run_id: String,
+) -> Result<Vec<RunEvent>, TandemError> {
+    let run = state
+        .cache
+        .lock()
+        .await
+        .get_agent_run(&run_id)?
+        .ok_or_else(|| TandemError::Config(format!("no run found for {run_id}")))?;
+    let contents = tokio::fs::read_to_string(&run.log_path)
+        .await
+        .map_err(|e| TandemError::Config(format!("failed to read run log: {e}")))?;
+    Ok(contents
+        .lines()
+        .filter_map(|line| serde_json::from_str::<RunEvent>(line).ok())
+        .collect())
+}
+
 #[tauri::command]
 pub async fn cancel_agent_run(
     app: AppHandle,
