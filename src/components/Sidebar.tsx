@@ -63,9 +63,7 @@ export function Sidebar() {
             select a repository…
           </option>
           <option value="*">all repositories</option>
-          {untracked ? (
-            <option value={untracked}>{untracked} (not tracked)</option>
-          ) : null}
+          {untracked ? <option value={untracked}>{untracked} (not tracked)</option> : null}
           {owners.map((owner) => (
             <optgroup key={owner} label={owner}>
               {(byOwner.get(owner) ?? [])
