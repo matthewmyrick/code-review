@@ -17,6 +17,9 @@ pub struct AppState {
     pub settings: Mutex<Settings>,
     /// Cancel handles for in-flight agent runs, keyed by run id.
     pub runs: Mutex<HashMap<String, tandem_agents::runner::CancelHandle>>,
+    /// Serializes `workspace::ensure_pr_checkout` so two agent runs on
+    /// the same PR can't race each other's `gh pr checkout`.
+    pub agent_checkouts: Mutex<()>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -39,6 +42,7 @@ impl AppState {
             cache: Mutex::new(cache),
             settings: Mutex::new(settings),
             runs: Mutex::new(HashMap::new()),
+            agent_checkouts: Mutex::new(()),
         })
     }
 

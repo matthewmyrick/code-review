@@ -1,5 +1,6 @@
 //! Tauri command modules — the IPC surface exposed to the frontend.
 
+mod agent_pump;
 pub mod agents;
 pub mod conflicts;
 pub mod github_write;

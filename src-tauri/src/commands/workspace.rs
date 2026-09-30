@@ -5,6 +5,7 @@
 //! switch. Only Tandem-managed clones (under the app data dir) get the
 //! PR branch checked out, via `gh pr checkout`.
 
+use tandem_core::github::RepoRef;
 use tandem_core::spawn::augmented_path;
 use tandem_core::TandemError;
 use tauri::State;
@@ -152,4 +153,48 @@ pub async fn open_in_editor(
         .map_err(|e| TandemError::Config(format!("couldn't launch editor `{editor}`: {e}")))?;
 
     Ok(info.path)
+}
+
+/// Best-effort local checkout for an agent run, so it can see the repo
+/// (git log, file tree, CLAUDE.md, skills) beyond the diff text already
+/// in its prompt. Deliberately NOT the "open in editor" managed clone:
+/// that one follows whatever the human last opened, so sharing it with
+/// a background agent run would risk the agent's `gh pr checkout`
+/// yanking the branch out from under someone mid-edit. This uses one
+/// directory per (repo, PR number) instead, so agent runs on different
+/// PRs of the same repo never race each other either — a per-run
+/// mutex on `AppState` still serializes provisioning so two runs on
+/// the *same* PR can't race each other's `gh pr checkout`.
+pub(crate) async fn ensure_pr_checkout(
+    state: &AppState,
+    repo: &RepoRef,
+    number: u64,
+) -> Result<std::path::PathBuf, TandemError> {
+    let _guard = state.agent_checkouts.lock().await;
+    let slug = repo.slug();
+    let path = state
+        .dirs
+        .worktrees_dir
+        .join("agent-runs")
+        .join(&slug)
+        .join(number.to_string());
+    if !path.is_dir() {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        run_gh(
+            &[
+                "repo",
+                "clone",
+                &slug,
+                &path.to_string_lossy(),
+                "--",
+                "--filter=blob:none",
+            ],
+            None,
+        )
+        .await?;
+    }
+    run_gh(&["pr", "checkout", &number.to_string()], Some(&path)).await?;
+    Ok(path)
 }
