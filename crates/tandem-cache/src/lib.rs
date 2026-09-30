@@ -15,6 +15,6 @@ mod review_store_tests;
 mod schema;
 mod store;
 
-pub use archive::{purge_deadline, ArchiveStore};
+pub use archive::{purge_deadline, ArchiveStore, PurgedRuns};
 pub use review_store::ReviewStore;
 pub use store::Cache;

@@ -33,7 +33,7 @@ pub fn run() {
             // Startup housekeeping: purge archive entries past their
             // 3-day EST deadline (and their run dirs).
             if let Ok(mut cache) = state.cache.try_lock() {
-                if let Err(e) = commands::prs::purge_expired_data(&mut cache, &state.dirs.runs_dir)
+                if let Err(e) = commands::prs::purge_expired_data(&mut cache, &state.dirs)
                 {
                     tracing::warn!(error = %e, "startup purge failed");
                 }

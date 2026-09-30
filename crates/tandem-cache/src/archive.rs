@@ -28,14 +28,22 @@ pub fn purge_deadline(archived_at: DateTime<Utc>) -> DateTime<Utc> {
     }
 }
 
+/// What `purge_expired` deleted from the DB, for the caller to mirror
+/// on disk: agent-run log directories (by their log file's path) and
+/// the (repo, PR number) pairs whose on-disk agent checkout
+/// (`ensure_pr_checkout`'s clone) should be removed too.
+#[derive(Debug, Default)]
+pub struct PurgedRuns {
+    pub log_paths: Vec<String>,
+    pub repos: Vec<(String, u64)>,
+}
+
 pub trait ArchiveStore {
     /// Record a merged PR in the archive (no-op if already archived).
     fn archive_pr(&self, pr: &PullRequest, now: DateTime<Utc>) -> Result<()>;
     fn list_archived(&self, repo: &RepoRef) -> Result<Vec<ArchivedPr>>;
     /// Delete every trace of archive entries whose deadline has passed.
-    /// Returns the JSONL log paths of purged agent runs so the caller
-    /// can remove their run directories from disk.
-    fn purge_expired(&mut self, now: DateTime<Utc>) -> Result<Vec<String>>;
+    fn purge_expired(&mut self, now: DateTime<Utc>) -> Result<PurgedRuns>;
 }
 
 impl ArchiveStore for Cache {
@@ -85,7 +93,7 @@ impl ArchiveStore for Cache {
         Ok(out)
     }
 
-    fn purge_expired(&mut self, now: DateTime<Utc>) -> Result<Vec<String>> {
+    fn purge_expired(&mut self, now: DateTime<Utc>) -> Result<PurgedRuns> {
         let expired: Vec<(String, u64)> = {
             let mut stmt = self
                 .conn
@@ -131,7 +139,10 @@ impl ArchiveStore for Cache {
             tracing::info!(repo, number, "purged archived PR data");
         }
         tx.commit().map_err(cache_err)?;
-        Ok(log_paths)
+        Ok(PurgedRuns {
+            log_paths,
+            repos: expired,
+        })
     }
 }
 
@@ -167,6 +178,71 @@ mod tests {
         assert_eq!(
             deadline,
             Utc.with_ymd_and_hms(2026, 9, 20, 4, 59, 59).unwrap()
+        );
+    }
+
+    #[test]
+    fn purge_expired_reports_repo_and_log_path_for_checkout_cleanup() {
+        use crate::ReviewStore;
+        use tandem_core::agent::{AgentRun, RunStatus};
+        use tandem_core::github::{PrState, User};
+
+        let mut cache = Cache::open_in_memory().unwrap();
+        let repo = RepoRef::parse("o/r").unwrap();
+        let pr = PullRequest {
+            repo: repo.clone(),
+            number: 7,
+            title: "PR 7".into(),
+            body: String::new(),
+            state: PrState::Merged,
+            draft: false,
+            author: User {
+                login: "matt".into(),
+                avatar_url: None,
+            },
+            head_ref: "feat".into(),
+            head_sha: "abc123".into(),
+            base_ref: "main".into(),
+            additions: 1,
+            deletions: 2,
+            changed_files: 1,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            labels: vec![],
+            mergeable_state: None,
+            requested_reviewers: vec![],
+            node_id: None,
+            review_decision: None,
+            checks_state: None,
+            unresolved_threads: 0,
+        };
+        // Archived well past its 3-day deadline, so it's due for purge.
+        cache
+            .archive_pr(&pr, Utc::now() - Duration::days(10))
+            .unwrap();
+        cache
+            .put_agent_run(&AgentRun {
+                run_id: "run1".into(),
+                agent_name: "claude".into(),
+                repo_slug: repo.slug(),
+                pr_number: pr.number,
+                head_sha: "abc123".into(),
+                status: RunStatus::Succeeded,
+                started_at: Utc::now(),
+                finished_at: Some(Utc::now()),
+                log_path: "/tmp/tandem-test-run1/events.jsonl".into(),
+                comment_count: 0,
+                purpose: "pr review".into(),
+                target_comment_id: None,
+                error: None,
+            })
+            .unwrap();
+
+        let purged = cache.purge_expired(Utc::now()).unwrap();
+        assert_eq!(purged.repos, vec![(repo.slug(), pr.number)]);
+        assert_eq!(
+            purged.log_paths,
+            vec!["/tmp/tandem-test-run1/events.jsonl".to_owned()]
         );
     }
 }

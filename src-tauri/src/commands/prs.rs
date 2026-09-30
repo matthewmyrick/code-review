@@ -86,7 +86,7 @@ pub async fn sync_pull_requests(
         } else {
             cache.append_pull_requests(&repo, &prs)?;
         }
-        purge_expired_data(&mut cache, &state.dirs.runs_dir)?;
+        purge_expired_data(&mut cache, &state.dirs)?;
         let has_more = prs.len() == tandem_github::GithubClient::PR_PAGE_SIZE;
         Ok::<_, TandemError>(PrPage { prs, has_more })
     }
@@ -225,23 +225,38 @@ pub async fn list_archived_prs(
 /// Purge expired archive entries and their run directories on disk.
 pub(crate) fn purge_expired_data(
     cache: &mut Cache,
-    runs_dir: &std::path::Path,
+    dirs: &crate::settings::AppDirs,
 ) -> Result<(), TandemError> {
-    let log_paths = cache.purge_expired(Utc::now())?;
-    for log_path in log_paths {
+    let purged = cache.purge_expired(Utc::now())?;
+    for log_path in purged.log_paths {
         let path = std::path::Path::new(&log_path);
         // Only remove directories that live under our own runs dir.
         if let Some(dir) = path.parent() {
-            if dir.starts_with(runs_dir) {
-                if let Err(e) = std::fs::remove_dir_all(dir) {
-                    if e.kind() != std::io::ErrorKind::NotFound {
-                        tracing::warn!(dir = %dir.display(), error = %e, "failed to purge run dir");
-                    }
-                }
+            if dir.starts_with(&dirs.runs_dir) {
+                remove_dir(dir, "run");
             }
         }
     }
+    // Mirrors workspace::ensure_pr_checkout's directory scheme — the
+    // on-disk clone an agent run checked out, now that its PR is
+    // archived and past the 3-day retention window.
+    for (repo, number) in purged.repos {
+        let dir = dirs
+            .worktrees_dir
+            .join("agent-runs")
+            .join(&repo)
+            .join(number.to_string());
+        remove_dir(&dir, "agent checkout");
+    }
     Ok(())
+}
+
+fn remove_dir(dir: &std::path::Path, kind: &str) {
+    if let Err(e) = std::fs::remove_dir_all(dir) {
+        if e.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!(dir = %dir.display(), kind, error = %e, "failed to purge directory");
+        }
+    }
 }
 
 #[tauri::command]
