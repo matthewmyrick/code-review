@@ -41,6 +41,13 @@ export function Sidebar() {
     byOwner.set(owner, [...(byOwner.get(owner) ?? []), repo.full_name]);
   }
   const owners = [...byOwner.keys()].sort((a, b) => a.localeCompare(b));
+  // Opened via a pasted PR URL (⌘K) into a repo whose org isn't
+  // tracked: still show it selected instead of the dropdown looking
+  // blank, without adding it to any tracked-org group.
+  const untracked =
+    selectedRepo && selectedRepo !== "*" && !orgRepos.some((r) => r.full_name === selectedRepo)
+      ? selectedRepo
+      : null;
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -56,6 +63,7 @@ export function Sidebar() {
             select a repository…
           </option>
           <option value="*">all repositories</option>
+          {untracked ? <option value={untracked}>{untracked} (not tracked)</option> : null}
           {owners.map((owner) => (
             <optgroup key={owner} label={owner}>
               {(byOwner.get(owner) ?? [])

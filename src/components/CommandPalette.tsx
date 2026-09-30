@@ -1,10 +1,11 @@
 // ⌘K palette: fuzzy jump to any pull request Tandem has loaded (current
 // repo list, all inbox tabs, search results). Read-only navigation.
 
-import { GitPullRequest, Search } from "lucide-react";
+import { GitPullRequest, Link, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fuzzyScore } from "../lib/fuzzy";
+import { parsePrUrl } from "../lib/prUrl";
 import type { PullRequest } from "../lib/types";
 import { useKeyNav } from "../state/keyNav";
 import { useAppStore } from "../state/store";
@@ -54,6 +55,9 @@ export function CommandPalette() {
   }, [open]);
 
   const items = useMemo(() => (open ? collectItems() : []), [open]);
+  // A pasted PR URL jumps straight there even if Tandem hasn't loaded
+  // that PR (or tracks its org) yet — openPr() works by slug regardless.
+  const urlMatch = useMemo(() => parsePrUrl(query), [query]);
   const matches = useMemo(() => {
     if (!query.trim()) return items.slice(0, 15);
     return items
@@ -76,6 +80,12 @@ export function CommandPalette() {
     setPalette(false);
     setView("review");
     void openPr(item.slug, item.number);
+  };
+  const jumpToUrl = () => {
+    if (!urlMatch) return;
+    setPalette(false);
+    setView("review");
+    void openPr(urlMatch.slug, urlMatch.number);
   };
 
   return (
@@ -108,19 +118,37 @@ export function CommandPalette() {
                 e.preventDefault();
                 setCursor((c) => Math.max(0, c - 1));
               } else if (e.key === "Enter") {
-                const item = matches[cursor];
-                if (item) jump(item);
+                if (urlMatch) jumpToUrl();
+                else {
+                  const item = matches[cursor];
+                  if (item) jump(item);
+                }
               } else if (e.key === "Escape") {
                 setPalette(false);
               }
             }}
-            placeholder="jump to a pull request — number, title, repo, author…"
+            placeholder="jump to a pull request — number, title, repo, author, or a github PR url…"
             className="w-full bg-transparent text-sm text-cream outline-none placeholder:text-muted"
           />
           <kbd className="shrink-0 rounded border border-edge px-1 text-[9px] text-muted">esc</kbd>
         </div>
         <div className="max-h-80 overflow-y-auto">
-          {matches.length === 0 ? (
+          {urlMatch ? (
+            <button
+              type="button"
+              onClick={jumpToUrl}
+              className="flex w-full items-center gap-2 border-b border-edge/60 bg-sky/5 px-3 py-2 text-left text-xs transition-colors hover:bg-sky/10"
+            >
+              <Link size={12} className="shrink-0 text-sky" />
+              <span className="text-cream">
+                open <span className="font-medium text-sky">#{urlMatch.number}</span>
+              </span>
+              <span className="ml-auto shrink-0 font-mono text-[10px] text-muted">
+                {urlMatch.slug}
+              </span>
+            </button>
+          ) : null}
+          {matches.length === 0 && !urlMatch ? (
             <div className="px-3 py-6 text-center text-xs text-muted">
               no loaded PRs match — try the sidebar search for a server-side lookup
             </div>

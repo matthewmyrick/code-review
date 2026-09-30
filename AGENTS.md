@@ -64,7 +64,7 @@ Minimum bar before declaring done:
 cargo fmt --all -- --check && \
 cargo clippy --workspace --all-targets -- -D warnings && \
 cargo test --workspace && \
-pnpm lint && pnpm typecheck && pnpm build && \
+pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && \
 ./scripts/check-file-length.sh
 ```
 
