@@ -15,7 +15,7 @@ import { sortPrs } from "../lib/sort";
 import type { PullRequest } from "../lib/types";
 import { useKeyNav } from "../state/keyNav";
 import { useAppStore } from "../state/store";
-import { InboxRow, rowKey } from "./InboxList";
+import { InboxRow, ReadyGroupedRows, rowKey } from "./InboxList";
 import { Button, IconButton, Spinner } from "./ui";
 
 /** Header nav button: jumps to the review-status page, badged with how
@@ -79,11 +79,15 @@ export function ReviewStatusView() {
   const prs = sortPrs(tab === "requested" ? reviewRequests : (authored ?? []), prSort);
   const loading = tab === "requested" ? !reviewRequestsSeeded : authored === undefined;
 
+  // On "mine", ReadyGroupedRows below owns the keyNav list itself (it
+  // reorders into ready/open/draft groups); only publish the flat
+  // fetch order here for "req".
   useEffect(() => {
+    if (tab !== "requested") return;
     useKeyNav
       .getState()
       .setList(prs.map((pr) => ({ slug: `${pr.repo.owner}/${pr.repo.name}`, number: pr.number })));
-  }, [prs]);
+  }, [tab, prs]);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-3 p-6">
@@ -128,6 +132,8 @@ export function ReviewStatusView() {
           <Inbox size={28} strokeWidth={1.5} />
           {tab === "requested" ? "nothing to review — all clear" : "nothing open"}
         </div>
+      ) : tab === "authored" ? (
+        <ReadyGroupedRows prs={prs} />
       ) : (
         <div className="space-y-1.5">
           {prs.map((pr) => (

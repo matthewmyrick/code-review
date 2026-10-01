@@ -12,7 +12,7 @@ import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
 import { useIsCursor, useKeyNav } from "../state/keyNav";
 import { useAppStore } from "../state/store";
-import { Spinner } from "./ui";
+import { Pill, Spinner } from "./ui";
 
 export function InboxList({ scope }: { scope: InboxScope }) {
   const raw = useAppStore((s) => s.inbox[scope]);
@@ -66,17 +66,20 @@ function FlatRows({ prs }: { prs: PullRequest[] }) {
   );
 }
 
-/** Three groups, each keeping the chosen sort order, separated by
- * subtle dividers: ready to merge, then open-not-approved, then
- * drafts last. */
-function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
-  const groups = [
-    prs.filter(isReadyToMerge),
-    prs.filter((pr) => !isReadyToMerge(pr) && !pr.draft),
-    prs.filter((pr) => !isReadyToMerge(pr) && pr.draft),
-  ].filter((g) => g.length > 0);
+const GROUPS: { label: string; filter: (pr: PullRequest) => boolean }[] = [
+  { label: "ready to merge", filter: isReadyToMerge },
+  { label: "open", filter: (pr) => !isReadyToMerge(pr) && !pr.draft },
+  { label: "drafts", filter: (pr) => !isReadyToMerge(pr) && pr.draft },
+];
+
+/** Three labeled groups, each keeping the chosen sort order, separated
+ * by a divider: ready to merge, then open-not-approved, then drafts
+ * last — so it's obvious at a glance which PRs are still drafts. */
+export function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
+  const groups = GROUPS.map((g) => ({ label: g.label, prs: prs.filter(g.filter) }));
+  const visible = groups.filter((g) => g.prs.length > 0);
   // Publish the on-screen order (groups flattened) for j/k navigation.
-  const flat = groups.flat();
+  const flat = groups.flatMap((g) => g.prs);
   useEffect(() => {
     useKeyNav
       .getState()
@@ -84,9 +87,12 @@ function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
   }, [flat]);
   return (
     <>
-      {groups.map((group, i) => (
-        <div key={`group-${String(i)}-${group[0] ? rowKey(group[0]) : ""}`} className="space-y-1">
+      {visible.map(({ prs: group, label }, i) => (
+        <div key={label} className="space-y-1">
           {i > 0 ? <div className="mx-3 my-2 border-t border-edge/70" /> : null}
+          <div className="px-1 text-[10px] font-medium uppercase tracking-wide text-muted">
+            {label} ({group.length})
+          </div>
           {group.map((pr) => (
             <InboxRow key={rowKey(pr)} pr={pr} />
           ))}
@@ -135,8 +141,9 @@ export function InboxRow({ pr }: { pr: PullRequest }) {
         <span className="truncate font-mono">{slug}</span>
         <span className="ml-auto shrink-0">{relativeTime(pr.updated_at)}</span>
       </div>
-      <div className="line-clamp-1 text-[12px] text-cream">
+      <div className="line-clamp-1 flex items-center gap-1.5 text-[12px] text-cream">
         <span className="font-medium text-amber">#{pr.number}</span> {pr.title}
+        {pr.draft ? <Pill tone="muted">draft</Pill> : null}
       </div>
       <div className="mt-0.5 text-[10px] text-muted">{pr.author.login}</div>
     </button>
