@@ -21,6 +21,7 @@ pub struct FileConfig {
     pub pr_filters: Option<PrFilters>,
     pub pr_sort: Option<String>,
     pub inbox_all_repos: Option<bool>,
+    pub refresh_minutes: Option<u32>,
     pub agents: Option<Vec<AgentSpec>>,
 }
 
@@ -92,6 +93,10 @@ pub fn load_and_apply(settings: &mut Settings, cache: &Cache) -> Option<FileConf
     if let Some(all) = config.inbox_all_repos {
         settings.inbox_all_repos = all;
         overrides.push("inbox_all_repos".to_owned());
+    }
+    if let Some(minutes) = config.refresh_minutes {
+        settings.refresh_minutes = minutes;
+        overrides.push("refresh_minutes".to_owned());
     }
 
     let mut agent_count = 0;

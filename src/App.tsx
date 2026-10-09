@@ -1,12 +1,11 @@
-// App shell: header, collapsible side panes, and the main review /
-// settings views. The main page is always the pull-request review view;
-// settings is a secondary screen behind the gear.
+// App shell: header, the right-hand pane, and the main views. Review
+// status is home; the pull-request review view is what opening a PR
+// from it leads to, and settings sits behind the gear.
 
 import {
   ArrowLeft,
   Bot,
   Keyboard,
-  GitPullRequest,
   MessageSquare,
   Moon,
   Settings,
@@ -27,7 +26,6 @@ import { PrHeader } from "./components/PrHeader";
 import { ReviewStatusMenuButton, ReviewStatusView } from "./components/ReviewStatusView";
 import { ShortcutManager } from "./components/ShortcutManager";
 import { SettingsView } from "./components/SettingsView";
-import { Sidebar } from "./components/Sidebar";
 import { SidePane } from "./components/SidePane";
 import { ToastHost } from "./components/ToastHost";
 import { Button, EmptyState, IconButton, TandemMark } from "./components/ui";
@@ -42,6 +40,7 @@ export default function App() {
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
   const goHome = useAppStore((s) => s.goHome);
+  const selectedPr = useAppStore((s) => s.selectedPr);
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
 
@@ -87,7 +86,7 @@ export default function App() {
         <button
           type="button"
           onClick={goHome}
-          title="back to pull requests"
+          title="back to review status"
           className="flex items-center gap-2.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-panel-2"
         >
           <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-sky-deep to-sky text-white shadow-sm">
@@ -141,9 +140,15 @@ export default function App() {
           </IconButton>
           <IconButton
             onClick={() => {
-              setView(view === "settings" ? "review" : "settings");
+              setView(
+                view === "settings"
+                  ? selectedPr === null
+                    ? "review-status"
+                    : "review"
+                  : "settings",
+              );
             }}
-            title={view === "settings" ? "back to review" : "settings"}
+            title={view === "settings" ? "back" : "settings"}
             active={view === "settings"}
           >
             {view === "settings" ? <ArrowLeft size={15} /> : <Settings size={15} />}
@@ -195,11 +200,9 @@ function ReviewLayout() {
   const selectedPr = useAppStore((s) => s.selectedPr);
   const settings = useAppStore((s) => s.settings);
   const setView = useAppStore((s) => s.setView);
-  const prs = useAppStore((s) => s.prs);
   const runs = useAppStore((s) => s.runs);
-  const leftPinned = useAppStore((s) => s.leftPinned);
   const rightPinned = useAppStore((s) => s.rightPinned);
-  const togglePinned = useAppStore((s) => s.togglePinned);
+  const toggleRightPane = useAppStore((s) => s.toggleRightPane);
   const [tab, setTab] = useState<"comments" | "agents">("comments");
 
   const agentsWorking = runs.filter(isWorking).length;
@@ -247,27 +250,6 @@ function ReviewLayout() {
 
   return (
     <>
-      <SidePane
-        side="left"
-        pinned={leftPinned}
-        onTogglePin={() => {
-          togglePinned("left");
-        }}
-        widthClass="w-72"
-        rail={
-          <>
-            <GitPullRequest size={16} />
-            {prs.length > 0 ? (
-              <span className="rounded-full bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold text-cream">
-                {prs.length}
-              </span>
-            ) : null}
-          </>
-        }
-      >
-        <Sidebar />
-      </SidePane>
-
       <main className="flex min-w-0 flex-1 flex-col">
         {bundle ? (
           <>
@@ -289,7 +271,7 @@ function ReviewLayout() {
             title={selectedPr === null ? "pick a pull request" : "loading pull request…"}
             hint={
               selectedPr === null
-                ? "select a PR from the sidebar — Tandem loads from cache instantly and syncs GitHub in the background"
+                ? "open one from review status (⌘K jumps to any PR) — Tandem loads from cache instantly and syncs GitHub in the background"
                 : undefined
             }
           />
@@ -301,7 +283,7 @@ function ReviewLayout() {
           side="right"
           pinned={rightPinned}
           onTogglePin={() => {
-            togglePinned("right");
+            toggleRightPane();
           }}
           widthClass="w-80"
           rail={

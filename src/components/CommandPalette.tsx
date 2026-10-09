@@ -21,8 +21,8 @@ function collectItems(): Item[] {
   const s = useAppStore.getState();
   const all: PullRequest[] = [
     ...s.prs,
+    ...s.reviewRequests,
     ...Object.values(s.inbox).flatMap((list) => list),
-    ...(s.searchResults ?? []),
   ];
   const seen = new Set<string>();
   const items: Item[] = [];

@@ -25,6 +25,10 @@ pr_sort: opened-desc
 # false = inbox tabs scope to the selected repo
 inbox_all_repos: false
 
+# how often (minutes) the review-status lists refresh in the background;
+# 0 turns it off
+refresh_minutes: 5
+
 agents:
   - name: claude-reviewer
     runner:

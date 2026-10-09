@@ -6,13 +6,13 @@ import { useEffect } from "react";
 
 import { loadAgent } from "../state/persist";
 import { useKeyNav } from "../state/keyNav";
-import type { SidebarTab } from "../state/keyNav";
+import type { ReviewTab } from "../state/keyNav";
 import { useAppStore } from "../state/store";
 import { useModalHold } from "./ui";
 import { CommandPalette } from "./CommandPalette";
 import { ShortcutHelp } from "./ShortcutHelp";
 
-const TAB_ORDER: SidebarTab[] = ["requested", "authored", "mentions", "open"];
+const TAB_ORDER: ReviewTab[] = ["requested", "authored", "mentions", "find"];
 
 function inEditable(target: EventTarget | null): boolean {
   return (
@@ -57,7 +57,7 @@ export function ShortcutManager() {
             nav.setPalette(!nav.paletteOpen);
           },
           "1": () => {
-            app.setView("review");
+            app.setView("review-status");
           },
           "2": () => {
             app.setView("agents");
@@ -66,7 +66,7 @@ export function ShortcutManager() {
             app.setView("settings");
           },
           b: () => {
-            app.togglePinned(e.shiftKey ? "right" : "left");
+            app.toggleRightPane();
           },
         };
         const run = chord[e.key.toLowerCase()];
@@ -96,7 +96,8 @@ export function ShortcutManager() {
           nav.moveCursor(-1);
         },
         r: () => {
-          if (nav.tab === "open") void app.refreshPrs();
+          if (nav.tab === "find") void app.refreshPrs();
+          else if (nav.tab === "requested") void app.refreshReviewRequests();
           else void app.loadInbox(nav.tab, true);
           if (app.bundle) void app.refreshBundle();
         },
@@ -131,7 +132,7 @@ export function ShortcutManager() {
       TAB_ORDER.forEach((tab, i) => {
         single[String(i + 1)] = () => {
           nav.setTab(tab);
-          app.setView("review");
+          app.setView("review-status");
         };
       });
 

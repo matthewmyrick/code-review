@@ -256,6 +256,7 @@ export interface Settings {
   pr_filters: PrFilters;
   pr_sort: string;
   inbox_all_repos: boolean;
+  refresh_minutes: number;
   editor_command: string;
   repo_paths: Record<string, string>;
   version: number;

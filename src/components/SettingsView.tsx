@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ipc } from "../lib/ipc";
 import { PR_SORTS } from "../lib/sort";
-import type { FileConfigInfo, GithubAuth, PrFilters, Settings } from "../lib/types";
+import type { FileConfigInfo, GithubAuth, Settings } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { AgentEditor } from "./AgentEditor";
 import { EditorSection } from "./EditorSection";
@@ -148,74 +148,19 @@ function GithubSection({ settings }: { settings: Settings }) {
 
 function FiltersSection({ settings }: { settings: Settings }) {
   const saveSettings = useAppStore((s) => s.saveSettings);
-  const setRuntimeFilters = useAppStore((s) => s.setFilters);
   const setPrSort = useAppStore((s) => s.setPrSort);
   const orgRepos = useAppStore((s) => s.orgRepos);
-  const [filters, setFilters] = useState<PrFilters>(settings.pr_filters);
   const [sort, setSort] = useState(settings.pr_sort);
   const [allRepos, setAllRepos] = useState(settings.inbox_all_repos);
   const [defaultRepo, setDefaultRepo] = useState(settings.default_repo ?? "");
-  const patch = (p: Partial<PrFilters>) => {
-    setFilters((f) => ({ ...f, ...p }));
-  };
+  const [refreshMinutes, setRefreshMinutes] = useState(String(settings.refresh_minutes));
 
   return (
     <Section
       title="Default PR view"
-      hint="filters, ordering and inbox scope applied whenever you open a repo — adjustable in the sidebar anytime"
+      hint="ordering, which repo review status opens on, and how often its lists refresh"
     >
       <div className="flex flex-col gap-2 text-xs">
-        <div className="grid grid-cols-3 gap-2">
-          <input
-            value={filters.query}
-            onChange={(e) => {
-              patch({ query: e.target.value });
-            }}
-            placeholder="search text"
-            className={inputClass}
-          />
-          <div className="flex gap-1">
-            <input
-              value={filters.author}
-              onChange={(e) => {
-                patch({ author: e.target.value });
-              }}
-              placeholder="author"
-              className={inputClass}
-            />
-            <Button
-              onClick={() => {
-                void ipc
-                  .listGithubOwners()
-                  .then((o) => {
-                    patch({ author: o.viewer });
-                  })
-                  .catch(console.warn);
-              }}
-              title="use your authenticated GitHub username"
-            >
-              me
-            </Button>
-          </div>
-          <input
-            value={filters.label}
-            onChange={(e) => {
-              patch({ label: e.target.value });
-            }}
-            placeholder="label"
-            className={inputClass}
-          />
-        </div>
-        <label className="flex items-center gap-2 text-muted">
-          <input
-            type="checkbox"
-            checked={filters.hide_drafts}
-            onChange={(e) => {
-              patch({ hide_drafts: e.target.checked });
-            }}
-          />
-          hide draft PRs by default
-        </label>
         <div className="grid grid-cols-2 items-center gap-2">
           <label className="flex flex-col gap-1">
             <span className="text-muted">default sort order</span>
@@ -251,6 +196,22 @@ function FiltersSection({ settings }: { settings: Settings }) {
             </select>
           </label>
         </div>
+        <label className="flex flex-col gap-1">
+          <span className="text-muted">
+            background refresh (minutes) — review status re-checks GitHub this often while the
+            window is focused; 0 turns it off
+          </span>
+          <input
+            type="number"
+            min={0}
+            max={120}
+            value={refreshMinutes}
+            onChange={(e) => {
+              setRefreshMinutes(e.target.value);
+            }}
+            className={inputClass}
+          />
+        </label>
         <label className="flex items-center gap-2 text-muted">
           <input
             type="checkbox"
@@ -265,14 +226,14 @@ function FiltersSection({ settings }: { settings: Settings }) {
           <Button
             kind="primary"
             onClick={() => {
+              const minutes = Number.parseInt(refreshMinutes, 10);
               void saveSettings({
                 ...settings,
-                pr_filters: filters,
                 pr_sort: sort,
                 inbox_all_repos: allRepos,
                 default_repo: defaultRepo.trim() || null,
+                refresh_minutes: Number.isFinite(minutes) ? Math.min(120, Math.max(0, minutes)) : 5,
               });
-              setRuntimeFilters(filters);
               setPrSort(sort as Parameters<typeof setPrSort>[0]);
             }}
           >

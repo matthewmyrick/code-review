@@ -7,7 +7,6 @@ import type {
   AgentRun,
   AgentSpec,
   AppRelease,
-  ArchivedPr,
   FileConfigInfo,
   MergeOptions,
   OwnerList,
@@ -34,10 +33,8 @@ export const ipc = {
   syncPrBundle: (repo: string, number: number) =>
     invoke<PrBundle>("sync_pr_bundle", { repo, number }),
   getLastSynced: (key: string) => invoke<string | null>("get_last_synced", { key }),
-  searchPrs: (repo: string, query: string) => invoke<PullRequest[]>("search_prs", { repo, query }),
   listMyPrs: (scope: string, repo: string | null) =>
     invoke<PullRequest[]>("list_my_prs", { scope, repo }),
-  listArchivedPrs: (repo: string) => invoke<ArchivedPr[]>("list_archived_prs", { repo }),
   listFailingChecks: (repo: string, number: number) =>
     invoke<string[]>("list_failing_checks", { repo, number }),
   listPrCommits: (repo: string, number: number) =>

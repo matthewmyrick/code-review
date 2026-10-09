@@ -5,8 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
 
 import { ipc } from "../lib/ipc";
-import type { RunEvent, SyncEvent } from "../lib/types";
-import { EMPTY_FILTERS } from "../lib/types";
+import type { InboxScope, RunEvent, SyncEvent } from "../lib/types";
 
 import { sanitizePrSort } from "../lib/sort";
 import { recordRunUpdate } from "./notifications";
@@ -23,6 +22,27 @@ export type { Theme, View } from "./storeTypes";
 // React StrictMode double-invokes effects in dev; without this guard the
 // event listeners register twice and every log line shows up duplicated.
 let initStarted = false;
+
+/** Keeps the review-status lists warm without hammering GitHub: ticks
+ * on a coarse timer and on window focus, but only actually refetches
+ * once `refresh_minutes` has elapsed, and never while the window is
+ * hidden. Every list here is a GitHub *search*, which is the stingiest
+ * rate limit on the API, so the cadence is a user setting (0 = off). */
+function startAutoRefresh(get: () => AppStore) {
+  const TICK_MS = 30_000;
+  let last = Date.now();
+
+  const maybeRefresh = () => {
+    const minutes = get().settings?.refresh_minutes ?? 5;
+    if (minutes <= 0 || document.hidden) return;
+    if (Date.now() - last < minutes * 60_000) return;
+    last = Date.now();
+    void get().refreshInboxes();
+  };
+
+  setInterval(maybeRefresh, TICK_MS);
+  window.addEventListener("focus", maybeRefresh);
+}
 
 export const useAppStore = create<AppStore>((set, get) => {
   const fail = (e: unknown) => {
@@ -43,9 +63,8 @@ export const useAppStore = create<AppStore>((set, get) => {
   };
 
   return {
-    view: "review",
+    view: "review-status",
     theme: loadTheme(),
-    leftPinned: loadPinned("tandem-pin-left"),
     rightPinned: loadPinned("tandem-pin-right"),
     settings: null,
     selectedRepo: null,
@@ -58,9 +77,6 @@ export const useAppStore = create<AppStore>((set, get) => {
     syncing: {},
     prHasMore: false,
     prPage: 1,
-    archivedPrs: [],
-    filters: EMPTY_FILTERS,
-    searchResults: null,
     inbox: {},
     prSort: "opened-desc",
     viewer: loadViewer(),
@@ -123,7 +139,6 @@ export const useAppStore = create<AppStore>((set, get) => {
         set({
           settings,
           agentSpecs,
-          filters: settings.pr_filters,
           prSort: sanitizePrSort(settings.pr_sort),
         });
         await get().loadOrgRepos();
@@ -132,14 +147,11 @@ export const useAppStore = create<AppStore>((set, get) => {
         // with no repo to select yet, do it directly (auth-dependent, so
         // failures stay quiet).
         if (first) await get().selectRepo(first);
-        else get().loadInbox("requested").catch(console.warn);
         // Account-wide review-requested feed for the "review status"
-        // page — independent of the selected repo, kept warm on a
-        // standing timer so it's a real notification source.
+        // page — independent of the selected repo, kept warm so it's a
+        // real notification source.
         get().refreshReviewRequests().catch(console.warn);
-        setInterval(() => {
-          get().refreshReviewRequests().catch(console.warn);
-        }, 3 * 60_000);
+        startAutoRefresh(get);
         // Viewer login powers @mention highlighting and own-PR logic;
         // persisted so it's known instantly on every later launch.
         ipc
@@ -158,46 +170,33 @@ export const useAppStore = create<AppStore>((set, get) => {
       set({ view });
     },
 
-    setFilters: (patch) => {
-      set((s) => ({ filters: { ...s.filters, ...patch } }));
+    setPrSort: (sort) => {
+      set({ prSort: sort });
     },
 
-    resetFilters: () => {
-      set({ filters: get().settings?.pr_filters ?? EMPTY_FILTERS, searchResults: null });
-    },
-
-    clearFilters: () => {
-      set({ filters: EMPTY_FILTERS, searchResults: null });
-    },
-
-    searchPrs: async () => {
-      const { selectedRepo, filters } = get();
-      const query = filters.query.trim();
-      if (!selectedRepo || selectedRepo === "*" || !query) return;
+    // Account-wide, like everything else on the review-status page —
+    // these lists are never scoped to the selected repo.
+    loadInbox: async (scope, force) => {
+      if (!force && get().inbox[scope]) return;
       try {
-        set({ searchResults: await ipc.searchPrs(selectedRepo, query) });
+        // Deliberately does NOT clear the current list first: the
+        // background refresh would otherwise flash a spinner over a
+        // perfectly good list every few minutes.
+        const prs = await ipc.listMyPrs(scope, null);
+        set((s) => ({ inbox: { ...s.inbox, [scope]: prs } }));
       } catch (e) {
         fail(e);
       }
     },
 
-    clearSearch: () => {
-      set({ searchResults: null });
-    },
-
-    setPrSort: (sort) => {
-      set({ prSort: sort });
-    },
-
-    loadInbox: async (scope, force) => {
-      if (!force && get().inbox[scope]) return;
-      try {
-        const selected = get().selectedRepo;
-        const repo = selected !== null && selected !== "*" ? selected : null;
-        const prs = await ipc.listMyPrs(scope, repo);
-        set((s) => ({ inbox: { ...s.inbox, [scope]: prs } }));
-      } catch (e) {
-        fail(e);
+    // One pass over everything the review-status page shows: the
+    // review-request feed plus whichever inbox lists have been opened.
+    // Sequential on purpose — these are search calls, and firing them
+    // in parallel is exactly how you trip the rate limit.
+    refreshInboxes: async () => {
+      await get().refreshReviewRequests();
+      for (const scope of Object.keys(get().inbox) as InboxScope[]) {
+        if (get().inbox[scope] !== undefined) await get().loadInbox(scope, true);
       }
     },
 
@@ -219,20 +218,15 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     goHome: () => {
-      // From settings/agents, "home" means back to the review you were
-      // on — only a second press (already in review) clears the PR.
-      if (get().view !== "review") {
-        set({ view: "review" });
-        return;
-      }
-      set({ selectedPr: null, bundle: null });
+      // Review status is home; the open PR is dropped on the way so the
+      // review view doesn't linger behind it.
+      set({ view: "review-status", selectedPr: null, bundle: null });
     },
 
-    togglePinned: (side) => {
-      const key = side === "left" ? "leftPinned" : "rightPinned";
-      const value = !get()[key];
-      localStorage.setItem(side === "left" ? "tandem-pin-left" : "tandem-pin-right", String(value));
-      set({ [key]: value } as Partial<AppStore>);
+    toggleRightPane: () => {
+      const value = !get().rightPinned;
+      localStorage.setItem("tandem-pin-right", String(value));
+      set({ rightPinned: value });
     },
 
     selectPr: async (number) => {
