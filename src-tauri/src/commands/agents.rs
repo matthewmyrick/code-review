@@ -159,7 +159,7 @@ pub async fn start_agent_review(
     number: u64,
 ) -> Result<String, TandemError> {
     let repo = parse_repo(&repo)?;
-    let (spec, pr, raw_diff) = {
+    let (spec, pr, raw_diff, existing_summary) = {
         let cache = state.cache.lock().await;
         let spec = cache
             .list_agent_specs()?
@@ -172,10 +172,13 @@ pub async fn start_agent_review(
         let raw = cache
             .get_raw_diff(&repo, number, &detail.pull_request.head_sha)?
             .ok_or_else(|| TandemError::Agent("diff not cached yet — open the PR first".into()))?;
-        (spec, detail.pull_request, raw)
+        // A re-review revises what's already there instead of starting over.
+        let summary = cache.get_pr_summary(&repo, number)?.map(|s| s.body);
+        (spec, detail.pull_request, raw, summary)
     };
 
     let instructions = spec.prompt.clone();
+    let wants_summary = spec.summary;
     let pr_for_prompt = pr.clone();
     launch_run(
         app,
@@ -190,6 +193,8 @@ pub async fn start_agent_review(
                 run_id: run_id.to_owned(),
                 comments_file: comments_file.to_owned(),
                 diff_text: raw_diff,
+                wants_summary,
+                existing_summary,
             };
             build_prompt(&ctx, &pr_for_prompt, &instructions)
         },

@@ -4,12 +4,43 @@
 // the signed-in user get a highlight mark. Styling in styles.css.
 
 import type { Element, ElementContent, Root } from "hast";
+import type { ComponentProps, ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
-import rehypeSanitize from "rehype-sanitize";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
+import { parseCodeAnchor, scrollToCodeAnchor } from "../lib/codeAnchor";
 import { useAppStore } from "../state/store";
+
+// Sanitize strips unknown URL schemes, so `tandem:` has to be allowed
+// explicitly for agent summaries to link into the diff.
+const SCHEMA = {
+  ...defaultSchema,
+  protocols: {
+    ...defaultSchema.protocols,
+    href: [...(defaultSchema.protocols?.href ?? []), "tandem"],
+  },
+};
+
+/** Renders `tandem://path#L42` as an in-app jump; everything else is a
+ * normal link. */
+function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
+  const anchor = parseCodeAnchor(href);
+  if (anchor === null) return <a href={href}>{children}</a>;
+  return (
+    <button
+      type="button"
+      title={`jump to ${anchor.path}${anchor.line === null ? "" : `:${String(anchor.line)}`}`}
+      onClick={() => {
+        scrollToCodeAnchor(anchor);
+      }}
+      className="text-sky underline underline-offset-2 hover:text-cream"
+    >
+      {children}
+    </button>
+  );
+}
 
 /** Wrap `@login` occurrences in text nodes with <mark class="mention-you">.
  * Runs after sanitize so the mark survives; code/pre are left alone. */
@@ -55,10 +86,18 @@ function rehypeHighlightMention(login: string) {
 export function MarkdownBody({ text }: { text: string }) {
   const viewer = useAppStore((s) => s.viewer);
   const cleaned = text.replace(/<!--[\s\S]*?-->/g, "");
-  const plugins = [rehypeRaw, rehypeSanitize, ...(viewer ? [rehypeHighlightMention(viewer)] : [])];
+  const plugins: ComponentProps<typeof ReactMarkdown>["rehypePlugins"] = [
+    rehypeRaw,
+    [rehypeSanitize, SCHEMA],
+    ...(viewer ? [rehypeHighlightMention(viewer)] : []),
+  ];
   return (
     <div className="md-body">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={plugins}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={plugins}
+        components={{ a: MarkdownLink }}
+      >
         {cleaned}
       </ReactMarkdown>
     </div>

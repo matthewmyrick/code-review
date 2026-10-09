@@ -79,3 +79,15 @@ pub async fn delete_local_comment(
     notify_comments_changed(&app, &repo, number);
     Ok(())
 }
+
+/// Drop the PR's agent-written summary. The next review writes a fresh
+/// one rather than revising what was there.
+#[tauri::command]
+pub async fn delete_pr_summary(
+    state: State<'_, AppState>,
+    repo: String,
+    number: u64,
+) -> Result<(), TandemError> {
+    let repo = crate::commands::parse_repo(&repo)?;
+    state.cache.lock().await.delete_pr_summary(&repo, number)
+}

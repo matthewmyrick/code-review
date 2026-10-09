@@ -17,6 +17,7 @@
   --color-moss: #64b878;
   --color-ember: #e0716c;
   --color-amber: #dfb36a;
+  --color-plum: #a98bdd;
 
   --font-sans: "Avenir Next", "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
@@ -40,6 +41,7 @@
   --color-moss: #34794a;
   --color-ember: #bb4a44;
   --color-amber: #9c7430;
+  --color-plum: #6f4bb0;
 }
 
 html,

@@ -55,9 +55,27 @@ pub fn classify_line(line: &str) -> RunEventKind {
     }
     match serde_json::from_str::<TypedLine>(trimmed) {
         Ok(t) if t.kind == "tandem_comment" => RunEventKind::Comment,
+        Ok(t) if t.kind == "tandem_summary" => RunEventKind::Summary,
         Ok(_) => RunEventKind::Runner,
         Err(_) => RunEventKind::Raw,
     }
+}
+
+/// The payload an agent emits for the PR-level summary:
+/// `{"type":"tandem_summary","body":"<markdown>"}`
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct AgentSummary {
+    pub body: String,
+}
+
+/// Parse a `tandem_summary` line. `None` when the line isn't one.
+pub fn parse_summary(line: &str) -> Option<AgentSummary> {
+    let trimmed = line.trim();
+    if classify_line(trimmed) != RunEventKind::Summary {
+        return None;
+    }
+    let parsed: AgentSummary = serde_json::from_str(trimmed).ok()?;
+    (!parsed.body.trim().is_empty()).then_some(parsed)
 }
 
 /// Parse an `tandem_comment` line. Returns `None` when the line is not a
@@ -143,6 +161,44 @@ pub fn extract_embedded_comments(payload: &str) -> Vec<AgentComment> {
         .collect()
 }
 
+/// Same dig as [`extract_embedded_comments`], for the single
+/// `tandem_summary` line. Takes the last one if the agent emitted more
+/// than one — that's its latest word on the PR.
+pub fn extract_embedded_summary(payload: &str) -> Option<AgentSummary> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(payload) else {
+        return None;
+    };
+    let mut texts: Vec<&str> = Vec::new();
+    match value.get("type").and_then(|t| t.as_str()) {
+        Some("assistant") => {
+            let items = value.pointer("/message/content").and_then(|c| c.as_array());
+            for item in items.into_iter().flatten() {
+                if item.get("type").and_then(|t| t.as_str()) == Some("text") {
+                    if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                        texts.push(text);
+                    }
+                }
+            }
+        }
+        Some("result") => {
+            if let Some(text) = value.get("result").and_then(|t| t.as_str()) {
+                texts.push(text);
+            }
+        }
+        Some("text") => {
+            if let Some(text) = value.get("text").and_then(|t| t.as_str()) {
+                texts.push(text);
+            }
+        }
+        _ => {}
+    }
+    texts
+        .into_iter()
+        .flat_map(str::lines)
+        .filter_map(parse_summary)
+        .next_back()
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
@@ -207,6 +263,38 @@ mod tests {
         let found = extract_embedded_comments(&envelope);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].path, "b.ts");
+    }
+
+    #[test]
+    fn parses_summary_and_rejects_empty_or_wrong_type() {
+        let line =
+            r#"{"type":"tandem_summary","body":"Solid refactor. See [a.rs:3](tandem://a.rs#L3)."}"#;
+        assert_eq!(classify_line(line), RunEventKind::Summary);
+        assert!(parse_summary(line)
+            .unwrap()
+            .body
+            .contains("tandem://a.rs#L3"));
+        // A blank summary is worse than none — it would blank out the
+        // text a previous run wrote.
+        assert!(parse_summary(r#"{"type":"tandem_summary","body":"   "}"#).is_none());
+        assert!(
+            parse_summary(r#"{"type":"tandem_comment","path":"a","line":1,"body":"x"}"#).is_none()
+        );
+    }
+
+    #[test]
+    fn extracts_summary_from_result_text() {
+        let summary = r#"{"type":"tandem_summary","body":"overall: fine"}"#;
+        let envelope = serde_json::json!({
+            "type": "result",
+            "subtype": "success",
+            "result": format!("here you go\n{summary}")
+        })
+        .to_string();
+        assert_eq!(
+            extract_embedded_summary(&envelope).unwrap().body,
+            "overall: fine"
+        );
     }
 
     #[test]

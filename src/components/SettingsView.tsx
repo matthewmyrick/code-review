@@ -219,6 +219,7 @@ function FiltersSection({ settings }: { settings: Settings }) {
             onChange={(e) => {
               setAllRepos(e.target.checked);
             }}
+            className="size-3.5 accent-sky"
           />
           start in the all-repositories view instead (takes priority over the default repo above)
         </label>

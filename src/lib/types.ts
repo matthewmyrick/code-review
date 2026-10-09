@@ -188,6 +188,7 @@ export interface AgentSpec {
   env: Record<string, string>;
   network_allowlist: string[];
   timeout_minutes: number;
+  summary: boolean;
 }
 
 export type RunStatus = "starting" | "running" | "succeeded" | "failed" | "cancelled" | "timed_out";
@@ -262,10 +263,21 @@ export interface Settings {
   version: number;
 }
 
+export interface PrSummary {
+  repo: RepoRef;
+  pr_number: number;
+  body: string;
+  agent_name: string;
+  run_id: string;
+  head_sha: string;
+  updated_at: string;
+}
+
 export interface PrBundle {
   detail: PrDetail;
   diff: FileDiff[];
   comments: LocalComment[];
+  summary: PrSummary | null;
 }
 
 export interface ArchivedPr {
