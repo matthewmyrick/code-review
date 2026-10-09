@@ -13,6 +13,7 @@
 
 pub mod command;
 pub mod context;
+mod emitter;
 pub mod events;
 pub mod runner;
 

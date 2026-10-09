@@ -6,6 +6,11 @@ import type { AgentSpec } from "../lib/types";
 import { pushInfo } from "./toasts";
 import type { AppStore } from "./storeTypes";
 
+// Starts already in flight, keyed agent+repo+PR. The spawn takes long
+// enough that a double click (or a held keyboard shortcut) would
+// otherwise launch the same agent on the same PR twice.
+const inFlight = new Set<string>();
+
 type Set = (partial: Partial<AppStore> | ((state: AppStore) => Partial<AppStore>)) => void;
 type Get = () => AppStore;
 
@@ -38,11 +43,18 @@ export function agentActions(
     startAgentReview: async (agentName: string) => {
       const { selectedRepo, selectedPr } = get();
       if (!selectedRepo || selectedPr === null) return;
+      const key = `${agentName}@${selectedRepo}#${String(selectedPr)}`;
+      // A different agent on the same PR is intent; the same one twice
+      // in the same breath is a double click.
+      if (inFlight.has(key)) return;
+      inFlight.add(key);
       try {
         await ipc.startAgentReview(agentName, selectedRepo, selectedPr);
         await reloadRuns();
       } catch (e) {
         fail(e);
+      } finally {
+        inFlight.delete(key);
       }
     },
 
