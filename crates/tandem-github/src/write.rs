@@ -18,6 +18,26 @@ pub struct NewInlineComment<'a> {
     pub body: &'a str,
 }
 
+/// GraphQL answers 200 with an `errors` array instead of a status code,
+/// so every mutation has to look inside the body.
+fn graphql_error(value: &serde_json::Value, fallback: &str) -> Result<()> {
+    let Some(first) = value
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .and_then(|e| e.first())
+    else {
+        return Ok(());
+    };
+    let msg = first
+        .get("message")
+        .and_then(|m| m.as_str())
+        .unwrap_or(fallback);
+    Err(TandemError::GithubApi {
+        status: 0,
+        message: msg.to_owned(),
+    })
+}
+
 impl GithubClient {
     pub(crate) async fn post_json(
         &self,
@@ -286,19 +306,7 @@ impl GithubClient {
                 serde_json::json!({ "query": mutation, "variables": { "id": thread_id } }),
             )
             .await?;
-        if let Some(errors) = value.get("errors").and_then(|e| e.as_array()) {
-            if let Some(first) = errors.first() {
-                let msg = first
-                    .get("message")
-                    .and_then(|m| m.as_str())
-                    .unwrap_or("resolve mutation failed");
-                return Err(TandemError::GithubApi {
-                    status: 0,
-                    message: msg.to_owned(),
-                });
-            }
-        }
-        Ok(())
+        graphql_error(&value, "resolve mutation failed")
     }
 
     /// Enable auto-merge (GraphQL — on merge-queue repos this enqueues).
@@ -315,18 +323,20 @@ impl GithubClient {
                 }),
             )
             .await?;
-        if let Some(errors) = value.get("errors").and_then(|e| e.as_array()) {
-            if let Some(first) = errors.first() {
-                let msg = first
-                    .get("message")
-                    .and_then(|m| m.as_str())
-                    .unwrap_or("auto-merge mutation failed");
-                return Err(TandemError::GithubApi {
-                    status: 0,
-                    message: msg.to_owned(),
-                });
-            }
-        }
-        Ok(())
+        graphql_error(&value, "auto-merge mutation failed")
+    }
+
+    /// Take a PR out of draft (GraphQL) — explicit user action.
+    pub async fn mark_pr_ready_for_review(&self, node_id: &str) -> Result<()> {
+        let mutation = "mutation($id: ID!) {\
+            markPullRequestReadyForReview(input: {pullRequestId: $id}) {\
+            clientMutationId } }";
+        let value = self
+            .post_json(
+                "/graphql",
+                serde_json::json!({ "query": mutation, "variables": { "id": node_id } }),
+            )
+            .await?;
+        graphql_error(&value, "ready-for-review mutation failed")
     }
 }

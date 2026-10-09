@@ -14,7 +14,8 @@ import type { AgentRun, PullRequest } from "../lib/types";
 import { useIsCursor, useKeyNav } from "../state/keyNav";
 import { isWorking, useRunBoard } from "../state/runBoard";
 import { useAppStore } from "../state/store";
-import { Pill, Spinner } from "./ui";
+import { PrStateBadge } from "./PrStateBadge";
+import { Spinner } from "./ui";
 
 /** Reviews already finished on this PR, so a list makes it obvious
  * whether an agent has looked at it before. Counts completed `pr
@@ -117,9 +118,12 @@ export function InboxRow({ pr, aside }: { pr: PullRequest; aside?: ReactNode }) 
           <span className="truncate font-mono">{slug}</span>
           <span className="ml-auto shrink-0">{relativeTime(pr.updated_at)}</span>
         </div>
-        <div className="line-clamp-1 flex items-center gap-1.5 text-[12px] text-cream">
-          <span className="font-medium text-amber">#{pr.number}</span> {pr.title}
-          {pr.draft ? <Pill tone="muted">draft</Pill> : null}
+        <div className="flex items-center gap-1.5 text-[12px] text-cream">
+          <span className="shrink-0 font-medium text-amber">#{pr.number}</span>
+          {/* Badge before the title so a long title can't push the one
+              thing that says "this isn't ready" off the row. */}
+          <PrStateBadge pr={pr} />
+          <span className="truncate">{pr.title}</span>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted">
           {pr.author.login}

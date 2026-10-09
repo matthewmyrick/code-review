@@ -266,3 +266,23 @@ pub async fn resolve_github_thread(
     let client = state.github_client().await?;
     client.resolve_review_thread(&thread_id).await
 }
+
+/// Take your own draft PR out of draft (explicit user action). The UI
+/// only offers this on a draft you authored; GitHub rejects it
+/// otherwise.
+#[tauri::command]
+pub async fn mark_ready_for_review(
+    state: State<'_, AppState>,
+    repo: String,
+    number: u64,
+) -> Result<(), TandemError> {
+    let repo = parse_repo(&repo)?;
+    let client = state.github_client().await?;
+    // Fetch fresh to guarantee a node id (older cached PRs lack it).
+    let pr = client.pull_request(&repo, number).await?;
+    let node_id = pr.node_id.ok_or_else(|| TandemError::GithubApi {
+        status: 0,
+        message: "GitHub did not return a node id for this PR".into(),
+    })?;
+    client.mark_pr_ready_for_review(&node_id).await
+}

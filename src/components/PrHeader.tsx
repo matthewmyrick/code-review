@@ -1,7 +1,18 @@
-// PR title bar: branches, checks, reviews/approvers, labels — everything
-// pulled from GitHub, read-only.
+// PR title bar: state, branches, checks, reviews/approvers, labels.
+// Read-only apart from the explicit GitHub actions it offers (approve,
+// merge, ready-for-review).
 
-import { Check, ExternalLink, FileText, Link, Loader, RefreshCw, Sparkles, X } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  FileText,
+  GitPullRequestArrow,
+  Link,
+  Loader,
+  RefreshCw,
+  Sparkles,
+  X,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 
@@ -12,6 +23,7 @@ import { MergeControls } from "./MergeControls";
 import { CommitsSection } from "./CommitsSection";
 import { MergeStatus } from "./MergeStatus";
 import { MergedBanner } from "./MergedBanner";
+import { PrStateBadge } from "./PrStateBadge";
 import { OpenInEditorButton } from "./OpenInEditor";
 import { openExternal, prUrl } from "../lib/open";
 import { pushInfo } from "../state/toasts";
@@ -51,8 +63,10 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
     <header className="border-b border-edge bg-panel px-4 py-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-semibold text-cream">
-            {pr.title} <span className="font-normal text-muted">#{pr.number}</span>
+          <h1 className="flex items-center gap-2 text-[15px] font-semibold text-cream">
+            <PrStateBadge pr={pr} always />
+            <span className="truncate">{pr.title}</span>
+            <span className="shrink-0 font-normal text-muted">#{pr.number}</span>
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
             <span>{pr.author.login}</span>
@@ -77,6 +91,9 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
           </Button>
           <CopyUrlButton url={prUrl(pr.repo, pr.number)} />
           <OpenInEditorButton repo={`${pr.repo.owner}/${pr.repo.name}`} number={pr.number} />
+          {pr.draft && viewer !== null && viewer === pr.author.login ? (
+            <ReadyForReviewButton repo={`${pr.repo.owner}/${pr.repo.name}`} number={pr.number} />
+          ) : null}
           <MergeControls pr={pr} />
           {viewer !== null && viewer === pr.author.login ? null : <ApproveButton />}
           <Button
@@ -174,6 +191,38 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
         </details>
       ) : null}
     </header>
+  );
+}
+
+/** Take your own draft out of draft. Only rendered on a draft you
+ * authored — GitHub rejects it from anyone else. */
+function ReadyForReviewButton({ repo, number }: { repo: string; number: number }) {
+  const refreshBundle = useAppStore((s) => s.refreshBundle);
+  const [working, setWorking] = useState(false);
+  if (working) return <Spinner label="opening for review…" />;
+  return (
+    <Button
+      kind="primary"
+      title="mark this PR ready for review on GitHub (takes it out of draft)"
+      onClick={() => {
+        setWorking(true);
+        ipc
+          .markReadyForReview(repo, number)
+          .then(() => {
+            pushInfo("marked ready for review");
+            return refreshBundle();
+          })
+          .catch((e: unknown) => {
+            console.error("ready for review failed", e);
+            pushInfo("couldn't mark it ready — check GitHub");
+          })
+          .finally(() => {
+            setWorking(false);
+          });
+      }}
+    >
+      <GitPullRequestArrow size={12} /> ready for review
+    </Button>
   );
 }
 
