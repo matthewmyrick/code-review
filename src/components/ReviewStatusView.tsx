@@ -1,112 +1,37 @@
-// Full-page, account-wide review status: every PR across every tracked
-// org where your review is requested, or that you authored — unlike
-// the sidebar's inbox tabs, never scoped to whatever repo happens to
-// be selected. The "requested" tab is kept fresh by a standing timer
+// The home page: account-wide review status across every tracked org,
+// never scoped to one repo. "req" is kept fresh by a standing timer
 // (state/repoActions.ts refreshReviewRequests) that also toasts new
-// arrivals; "mine" loads lazily on first visit. Clicking a row opens it
-// in the review page, switching the repo picker to match (same
-// openPr() used everywhere else a PR row is clicked).
+// arrivals; "mine" and "mentions" load lazily on first visit; "find"
+// browses any repo's open PRs. Clicking a row opens it in the review
+// view, switching the repo to match.
 
-import { Inbox, Loader2, Play, RefreshCw, User } from "lucide-react";
+import { AtSign, Inbox, RefreshCw, Search, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { ipc } from "../lib/ipc";
 import { sortPrs } from "../lib/sort";
-import type { PullRequest } from "../lib/types";
+import type { InboxScope } from "../lib/types";
+import type { ReviewTab } from "../state/keyNav";
 import { useKeyNav } from "../state/keyNav";
-import { loadAgent, saveAgent } from "../state/persist";
-import { isWorking, useRunBoard } from "../state/runBoard";
 import { useAppStore } from "../state/store";
-import { InboxRow, ReadyGroupedRows, rowKey } from "./InboxList";
+import { FindPrTab } from "./FindPrTab";
+import { ApprovedFooter, InboxRow, ReadyGroupedRows, rowKey } from "./PrRows";
+import { QuickReviewControl } from "./QuickReviewControl";
 import { Button, IconButton, Spinner } from "./ui";
-
-/** Per-row "start review" control: pick an agent and kick off a review
- * right from this list, without opening the PR first. Shares the same
- * last-picked-agent memory as the review page's own agent picker. */
-function QuickReviewControl({ pr }: { pr: PullRequest }) {
-  const specs = useAppStore((s) => s.agentSpecs);
-  const quickStartReview = useAppStore((s) => s.quickStartReview);
-  const openPr = useAppStore((s) => s.openPr);
-  const [agentName, setAgentName] = useState(loadAgent);
-  const [starting, setStarting] = useState(false);
-  const selected = agentName || (specs[0]?.name ?? "");
-  const slug = `${pr.repo.owner}/${pr.repo.name}`;
-  // Any in-flight run on this PR, wherever it was started from — the
-  // run board is account-wide and updated live by tandem://run-updated.
-  const activeRun = useRunBoard((s) =>
-    Object.values(s.runs).find(
-      (r) => r.repo_slug === slug && r.pr_number === pr.number && isWorking(r),
-    ),
-  );
-
-  // Checked before the no-agents bail-out: a run can still be in flight
-  // for this PR even if every agent spec was deleted since.
-  if (activeRun ?? starting) {
-    const label = (activeRun?.purpose ?? "pr review") === "pr review" ? "reviewing" : "working";
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          void openPr(slug, pr.number);
-        }}
-        title={`${activeRun?.agent_name ?? selected} is ${label} — open the PR to watch`}
-        className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-sky/40 bg-sky/10 px-2 text-[11px] text-sky transition-colors hover:bg-sky/20"
-      >
-        <Loader2 size={11} className="animate-spin" />
-        {label}…
-      </button>
-    );
-  }
-
-  if (specs.length === 0) return null;
-
-  return (
-    <div className="flex items-stretch overflow-hidden rounded-lg border border-edge bg-panel-2 transition-colors focus-within:border-sky hover:border-edge">
-      <select
-        value={selected}
-        onChange={(e) => {
-          setAgentName(e.target.value);
-          saveAgent(e.target.value);
-        }}
-        title="agent for this review"
-        className="h-7 max-w-28 cursor-pointer border-0 bg-transparent pl-2 pr-1 text-[11px] text-muted outline-none transition-colors hover:text-cream"
-      >
-        {specs.map((spec) => (
-          <option key={spec.name} value={spec.name}>
-            {spec.name}
-          </option>
-        ))}
-      </select>
-      <span className="w-px bg-edge" />
-      <button
-        type="button"
-        disabled={!selected}
-        title={`start a ${selected} review of #${String(pr.number)}`}
-        onClick={() => {
-          setStarting(true);
-          void quickStartReview(slug, pr.number, selected).finally(() => {
-            setStarting(false);
-          });
-        }}
-        className="inline-flex h-7 w-7 items-center justify-center text-sky transition-all hover:bg-sky/15 active:scale-95 disabled:opacity-40"
-      >
-        <Play size={12} />
-      </button>
-    </div>
-  );
-}
 
 /** Header nav button: jumps to the review-status page, badged with how
  * many reviews are pending across every tracked org. */
 export function ReviewStatusMenuButton() {
   const count = useAppStore((s) => s.reviewRequests.length);
   const view = useAppStore((s) => s.view);
+  const selectedPr = useAppStore((s) => s.selectedPr);
   const setView = useAppStore((s) => s.setView);
 
   return (
     <IconButton
       onClick={() => {
-        setView(view === "review-status" ? "review" : "review-status");
+        // Only toggles back to the review view when there's a PR open
+        // to go back to — otherwise this is home and stays put.
+        setView(view === "review-status" && selectedPr !== null ? "review" : "review-status");
       }}
       title="review status — PRs across your orgs needing your review"
       active={view === "review-status"}
@@ -123,45 +48,43 @@ export function ReviewStatusMenuButton() {
   );
 }
 
-const TABS = [
+const TABS: { id: ReviewTab; label: string; icon: typeof Inbox }[] = [
   { id: "requested", label: "req", icon: Inbox },
   { id: "authored", label: "mine", icon: User },
-] as const;
-type Tab = (typeof TABS)[number]["id"];
+  { id: "mentions", label: "mentions", icon: AtSign },
+  { id: "find", label: "find PR", icon: Search },
+];
 
 export function ReviewStatusView() {
-  const [tab, setTab] = useState<Tab>("requested");
+  const tab = useKeyNav((s) => s.tab);
+  const setTab = useKeyNav((s) => s.setTab);
   const reviewRequests = useAppStore((s) => s.reviewRequests);
   const reviewRequestsSeeded = useAppStore((s) => s.reviewRequestsSeeded);
   const prSort = useAppStore((s) => s.prSort);
   const refreshReviewRequests = useAppStore((s) => s.refreshReviewRequests);
-  const [authored, setAuthored] = useState<PullRequest[] | undefined>(undefined);
+  const loadInbox = useAppStore((s) => s.loadInbox);
+  // "mine"/"mentions" live in the store's account-wide inbox map so the
+  // `r` shortcut can refresh whichever one is on screen.
+  const lazyScope: InboxScope | null = tab === "authored" || tab === "mentions" ? tab : null;
+  const lazyList = useAppStore((s) => (lazyScope === null ? undefined : s.inbox[lazyScope]));
 
   useEffect(() => {
     void refreshReviewRequests();
   }, [refreshReviewRequests]);
 
-  const loadAuthored = () => {
-    setAuthored(undefined);
-    ipc
-      .listMyPrs("authored", null)
-      .then(setAuthored)
-      .catch(() => {
-        setAuthored([]);
-      });
-  };
   useEffect(() => {
-    if (tab === "authored" && authored === undefined) loadAuthored();
-  }, [tab, authored]);
+    if (lazyScope !== null) void loadInbox(lazyScope);
+  }, [lazyScope, loadInbox]);
 
-  const prs = sortPrs(tab === "requested" ? reviewRequests : (authored ?? []), prSort);
-  const loading = tab === "requested" ? !reviewRequestsSeeded : authored === undefined;
+  const [refreshing, setRefreshing] = useState(false);
+  const prs = sortPrs(tab === "requested" ? reviewRequests : (lazyList ?? []), prSort);
+  const loading =
+    tab === "requested" ? !reviewRequestsSeeded : lazyScope !== null && lazyList === undefined;
 
-  // On "mine", ReadyGroupedRows below owns the keyNav list itself (it
-  // reorders into ready/open/draft groups); only publish the flat
-  // fetch order here for "req".
+  // "mine" reorders into ready/open/draft groups and publishes its own
+  // keyNav list; "find" publishes its own too.
   useEffect(() => {
-    if (tab !== "requested") return;
+    if (tab !== "requested" && tab !== "mentions") return;
     useKeyNav
       .getState()
       .setList(prs.map((pr) => ({ slug: `${pr.repo.owner}/${pr.repo.name}`, number: pr.number })));
@@ -174,14 +97,22 @@ export function ReviewStatusView() {
           <h1 className="text-lg font-semibold text-cream">Review status</h1>
           <p className="text-xs text-muted">every PR across your tracked orgs, account-wide</p>
         </div>
-        <Button
-          onClick={() => {
-            if (tab === "requested") void refreshReviewRequests();
-            else loadAuthored();
-          }}
-        >
-          <RefreshCw size={11} /> refresh
-        </Button>
+        {tab === "find" ? null : (
+          <Button
+            disabled={refreshing}
+            onClick={() => {
+              const done = () => {
+                setRefreshing(false);
+              };
+              setRefreshing(true);
+              if (tab === "requested") void refreshReviewRequests().finally(done);
+              else if (lazyScope !== null) void loadInbox(lazyScope, true).finally(done);
+              else done();
+            }}
+          >
+            <RefreshCw size={11} className={refreshing ? "animate-spin" : ""} /> refresh
+          </Button>
+        )}
       </div>
 
       <div className="flex border-b border-edge">
@@ -201,14 +132,16 @@ export function ReviewStatusView() {
         ))}
       </div>
 
-      {loading ? (
+      {tab === "find" ? (
+        <FindPrTab />
+      ) : loading ? (
         <div className="px-3 py-8">
           <Spinner label="searching github…" />
         </div>
       ) : prs.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted">
           <Inbox size={28} strokeWidth={1.5} />
-          {tab === "requested" ? "nothing to review — all clear" : "nothing open"}
+          {tab === "requested" ? "nothing to review — all clear" : "nothing here"}
         </div>
       ) : tab === "authored" ? (
         <ReadyGroupedRows prs={prs} renderAside={(pr) => <QuickReviewControl pr={pr} />} />
@@ -219,6 +152,8 @@ export function ReviewStatusView() {
           ))}
         </div>
       )}
+
+      {tab === "requested" && !loading ? <ApprovedFooter /> : null}
     </div>
   );
 }

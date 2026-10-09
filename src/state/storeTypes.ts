@@ -5,13 +5,11 @@ import type { PrSort } from "../lib/sort";
 import type {
   AgentRun,
   AgentSpec,
-  ArchivedPr,
   CommentStatus,
   LocalComment,
   NewLocalComment,
   PrBundle,
   InboxScope,
-  PrFilters,
   PullRequest,
   RepoSummary,
   RunEvent,
@@ -24,7 +22,6 @@ export type Theme = "dark" | "light";
 export interface AppStore {
   view: View;
   theme: Theme;
-  leftPinned: boolean;
   rightPinned: boolean;
   settings: Settings | null;
   selectedRepo: string | null;
@@ -37,9 +34,6 @@ export interface AppStore {
   syncing: Record<string, boolean>;
   prHasMore: boolean;
   prPage: number;
-  archivedPrs: ArchivedPr[];
-  filters: PrFilters;
-  searchResults: PullRequest[] | null;
   inbox: Partial<Record<InboxScope, PullRequest[]>>;
   prSort: PrSort;
   viewer: string | null;
@@ -64,19 +58,15 @@ export interface AppStore {
   setView: (view: View) => void;
   toggleTheme: () => void;
   goHome: () => void;
-  togglePinned: (side: "left" | "right") => void;
+  toggleRightPane: () => void;
   replyToComment: (commentId: string, body: string, agentName: string) => Promise<void>;
   mentionAgent: (agentName: string, commentId: string) => Promise<void>;
   commitSuggestion: (commentId: string) => Promise<void>;
   postToGithub: (commentId: string) => Promise<void>;
   approvePr: (body: string | null) => Promise<void>;
   loadMorePrs: () => Promise<void>;
-  setFilters: (patch: Partial<PrFilters>) => void;
-  resetFilters: () => void;
-  clearFilters: () => void;
-  searchPrs: () => Promise<void>;
-  clearSearch: () => void;
   loadInbox: (scope: InboxScope, force?: boolean) => Promise<void>;
+  refreshInboxes: () => Promise<void>;
   setPrSort: (sort: PrSort) => void;
   openPr: (repoSlug: string, number: number) => Promise<void>;
   selectRepo: (slug: string, presetPr?: number) => Promise<void>;

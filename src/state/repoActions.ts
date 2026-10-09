@@ -3,7 +3,7 @@
 // creation.
 
 import { ipc } from "../lib/ipc";
-import { EMPTY_FILTERS, type PullRequest } from "../lib/types";
+import type { PullRequest } from "../lib/types";
 import { sanitizePrSort } from "../lib/sort";
 import { runPool } from "../lib/pool";
 import { pushInfo } from "./toasts";
@@ -41,18 +41,11 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
         bundle: null,
         prs: [],
         prPage: 1,
-        archivedPrs: [],
-        searchResults: null,
-        inbox: {},
-        // Re-seed per-repo view state from the saved defaults.
-        filters: get().settings?.pr_filters ?? EMPTY_FILTERS,
+        // Re-seed the ordering from the saved default.
         prSort: sanitizePrSort(get().settings?.pr_sort ?? "opened-desc"),
         collaborators: [],
         allRepoProgress: null,
       });
-      // Sidebar badge count for the "req" tab — refetch on every switch
-      // even if that tab isn't the active one right now.
-      get().loadInbox("requested", true).catch(console.warn);
       // "*" = all repositories: aggregate open PRs across every repo in
       // tracked orgs, ALL_REPOS_CONCURRENCY at a time; inbox tabs search
       // account-wide.
@@ -93,18 +86,11 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
         .catch(console.warn);
       try {
         const cached = await ipc.getPullRequests(slug);
-        const cachedArchived = await ipc.listArchivedPrs(slug);
         if (!current()) return;
-        set({ prs: cached, archivedPrs: cachedArchived });
+        set({ prs: cached });
         const page = await ipc.syncPullRequests(slug, 1);
-        const freshArchived = await ipc.listArchivedPrs(slug);
         if (!current()) return;
-        set({
-          prs: page.prs,
-          prHasMore: page.has_more,
-          prPage: 1,
-          archivedPrs: freshArchived,
-        });
+        set({ prs: page.prs, prHasMore: page.has_more, prPage: 1 });
       } catch (e) {
         if (current()) fail(e);
       }
@@ -115,12 +101,7 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
       if (!repo) return;
       try {
         const page = await ipc.syncPullRequests(repo, 1);
-        set({
-          prs: page.prs,
-          prHasMore: page.has_more,
-          prPage: 1,
-          archivedPrs: await ipc.listArchivedPrs(repo),
-        });
+        set({ prs: page.prs, prHasMore: page.has_more, prPage: 1 });
       } catch (e) {
         fail(e);
       }

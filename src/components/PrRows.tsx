@@ -1,6 +1,6 @@
-// Account-wide PR inbox tabs: PRs across all repos where your review is
-// requested, you're mentioned, or you're otherwise involved. Loaded
-// lazily per tab; clicking a row jumps to the PR (any repo).
+// The PR row used by every list on the review-status page, plus the
+// ready/open/draft grouping and the "approved by you" footer. Clicking
+// a row opens that PR (any repo) in the review view.
 
 import { CheckCircle2, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
@@ -10,60 +10,25 @@ import { relativeTime } from "../lib/format";
 import { isReadyToMerge } from "../lib/ready";
 import { EdgeStripes, useFailingChecksTip } from "./EdgeStripes";
 import { sortPrs } from "../lib/sort";
-import type { InboxScope, PullRequest } from "../lib/types";
+import type { AgentRun, PullRequest } from "../lib/types";
 import { useIsCursor, useKeyNav } from "../state/keyNav";
+import { isWorking, useRunBoard } from "../state/runBoard";
 import { useAppStore } from "../state/store";
 import { Pill, Spinner } from "./ui";
 
-export function InboxList({ scope }: { scope: InboxScope }) {
-  const raw = useAppStore((s) => s.inbox[scope]);
-  const prSort = useAppStore((s) => s.prSort);
-  const loadInbox = useAppStore((s) => s.loadInbox);
-  const selectedRepo = useAppStore((s) => s.selectedRepo);
-  const prs = raw === undefined ? undefined : sortPrs(raw, prSort);
-
-  // selectRepo() clears `inbox` on every switch, but this effect only
-  // reruns on a dependency change — without selectedRepo here, staying
-  // on this tab while switching repos left it spinning forever, stuck
-  // on the cleared (undefined) state.
-  useEffect(() => {
-    void loadInbox(scope);
-  }, [scope, loadInbox, selectedRepo]);
-
-  return (
-    <div>
-      <div className="space-y-1 px-2 py-2">
-        {prs === undefined ? (
-          <div className="px-3 py-4">
-            <Spinner label="searching github…" />
-          </div>
-        ) : prs.length === 0 ? (
-          <div className="px-3 py-6 text-center text-xs text-muted">nothing here — all clear</div>
-        ) : scope === "authored" ? (
-          // Only YOUR PRs group into ready/open/draft with dividers —
-          // review-request and mention lists read better flat.
-          <ReadyGroupedRows prs={prs} />
-        ) : (
-          <FlatRows prs={prs} />
-        )}
-      </div>
-      {scope === "requested" ? <ApprovedFooter /> : null}
-    </div>
-  );
-}
-
-function FlatRows({ prs }: { prs: PullRequest[] }) {
-  useEffect(() => {
-    useKeyNav
-      .getState()
-      .setList(prs.map((pr) => ({ slug: `${pr.repo.owner}/${pr.repo.name}`, number: pr.number })));
-  }, [prs]);
-  return (
-    <>
-      {prs.map((pr) => (
-        <InboxRow key={rowKey(pr)} pr={pr} />
-      ))}
-    </>
+/** Reviews already finished on this PR, so a list makes it obvious
+ * whether an agent has looked at it before. Counts completed `pr
+ * review` runs only — in-flight ones show as their own indicator. */
+function useFinishedReviewCount(slug: string, number: number): number {
+  return useRunBoard(
+    (s) =>
+      Object.values(s.runs).filter(
+        (r: AgentRun) =>
+          r.repo_slug === slug &&
+          r.pr_number === number &&
+          r.purpose === "pr review" &&
+          !isWorking(r),
+      ).length,
   );
 }
 
@@ -123,6 +88,7 @@ export function InboxRow({ pr, aside }: { pr: PullRequest; aside?: ReactNode }) 
   const active = selectedRepo === slug && selectedPr === pr.number;
   const { onMouseEnter, onMouseLeave, tipEl } = useFailingChecksTip(pr);
   const isCursor = useIsCursor(slug, pr.number);
+  const reviews = useFinishedReviewCount(slug, pr.number);
   const ref = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     if (isCursor) ref.current?.scrollIntoView({ block: "nearest" });
@@ -155,7 +121,15 @@ export function InboxRow({ pr, aside }: { pr: PullRequest; aside?: ReactNode }) 
           <span className="font-medium text-amber">#{pr.number}</span> {pr.title}
           {pr.draft ? <Pill tone="muted">draft</Pill> : null}
         </div>
-        <div className="mt-0.5 text-[10px] text-muted">{pr.author.login}</div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted">
+          {pr.author.login}
+          {reviews > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-moss/15 px-1.5 text-[9px] font-medium text-moss">
+              <CheckCircle2 size={9} />
+              {reviews} review{reviews === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
       </button>
       {aside ? <div className="shrink-0">{aside}</div> : null}
     </div>
@@ -164,16 +138,15 @@ export function InboxRow({ pr, aside }: { pr: PullRequest; aside?: ReactNode }) 
 
 /** Bottom of the requested tab: PRs you already approved that are
  * still open — handy for "did that ever merge?" follow-ups. */
-function ApprovedFooter() {
+export function ApprovedFooter() {
   const raw = useAppStore((s) => s.inbox.approved);
   const prSort = useAppStore((s) => s.prSort);
   const loadInbox = useAppStore((s) => s.loadInbox);
-  const selectedRepo = useAppStore((s) => s.selectedRepo);
   const prs = raw === undefined ? undefined : sortPrs(raw, prSort);
 
   useEffect(() => {
     void loadInbox("approved");
-  }, [loadInbox, selectedRepo]);
+  }, [loadInbox]);
 
   return (
     <details open className="border-t border-edge/60 px-2 py-2">

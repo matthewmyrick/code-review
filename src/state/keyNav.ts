@@ -1,20 +1,19 @@
 // Keyboard-navigation state shared between the shortcut manager and the
-// sidebar lists: which tab is active, the flat ordered PR list currently
-// visible (published by whichever list renders), and the j/k cursor.
+// review-status lists: which tab is active, the flat ordered PR list
+// currently visible (published by whichever list renders), and the j/k
+// cursor.
 
 import { create } from "zustand";
 
-import type { InboxScope } from "../lib/types";
+export type ReviewTab = "requested" | "authored" | "mentions" | "find";
 
-export type SidebarTab = "open" | InboxScope;
+// v3: the tabs moved from the sidebar to the review-status page and
+// "open" became "find" — the key bump drops the stale saved value.
+const TAB_KEY = "tandem-review-tab-v3";
 
-// v2: the default tab moved to "requested" — key bump lands everyone
-// there once while still honoring later manual choices.
-const TAB_KEY = "tandem-sidebar-tab-v2";
-
-export function loadSidebarTab(): SidebarTab {
+export function loadReviewTab(): ReviewTab {
   const saved = localStorage.getItem(TAB_KEY);
-  return saved === "open" || saved === "mentions" || saved === "authored" ? saved : "requested";
+  return saved === "find" || saved === "mentions" || saved === "authored" ? saved : "requested";
 }
 
 export interface NavTarget {
@@ -23,9 +22,9 @@ export interface NavTarget {
 }
 
 interface KeyNavStore {
-  tab: SidebarTab;
-  setTab: (tab: SidebarTab) => void;
-  /** Ordered PRs currently visible in the sidebar list. */
+  tab: ReviewTab;
+  setTab: (tab: ReviewTab) => void;
+  /** Ordered PRs currently visible in the active list. */
   list: NavTarget[];
   setList: (list: NavTarget[]) => void;
   /** j/k cursor index into `list`; -1 = nothing highlighted yet. */
@@ -38,7 +37,7 @@ interface KeyNavStore {
 }
 
 export const useKeyNav = create<KeyNavStore>((set) => ({
-  tab: loadSidebarTab(),
+  tab: loadReviewTab(),
   setTab: (tab) => {
     localStorage.setItem(TAB_KEY, tab);
     set({ tab, cursor: -1 });

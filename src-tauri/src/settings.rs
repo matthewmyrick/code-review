@@ -31,6 +31,12 @@ pub struct Settings {
     pub pr_sort: String,
     /// Whether inbox tabs search every repo instead of the selected one.
     pub inbox_all_repos: bool,
+    /// How often (minutes) the review-status lists refresh themselves in
+    /// the background. 0 turns the background refresh off — these are
+    /// GitHub search calls, so the knob is here to stay under the rate
+    /// limit on big accounts.
+    #[serde(default = "default_refresh_minutes")]
+    pub refresh_minutes: u32,
     /// Command "open in editor" runs on a working tree — e.g. "code",
     /// "cursor", "zed", "subl". Terminal editors need a wrapper.
     #[serde(default = "default_editor_command")]
@@ -52,6 +58,10 @@ fn default_editor_command() -> String {
     "code".to_owned()
 }
 
+fn default_refresh_minutes() -> u32 {
+    5
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -61,6 +71,7 @@ impl Default for Settings {
             pr_filters: PrFilters::default(),
             pr_sort: default_pr_sort(),
             inbox_all_repos: false,
+            refresh_minutes: default_refresh_minutes(),
             editor_command: default_editor_command(),
             repo_paths: std::collections::BTreeMap::new(),
             version: SETTINGS_VERSION,

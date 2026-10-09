@@ -13,7 +13,7 @@ export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
     items: [
       { keys: "j / k", label: "next / previous pull request" },
       { keys: "↵", label: "open highlighted pull request" },
-      { keys: "1 2 3 4", label: "sidebar tabs: req · mine · mentions · open" },
+      { keys: "1 2 3 4", label: "review status tabs: req · mine · mentions · find" },
       { keys: "r", label: "refresh current list + PR" },
       { keys: "esc", label: "back to the list" },
     ],
@@ -22,9 +22,9 @@ export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
     title: "views",
     items: [
       { keys: "⌘K", label: "jump to any pull request" },
-      { keys: "⌘1 / ⌘2", label: "review view / agents dashboard" },
+      { keys: "⌘1 / ⌘2", label: "review status / agents dashboard" },
       { keys: "⌘,", label: "settings" },
-      { keys: "⌘B / ⌘⇧B", label: "toggle left / right pane" },
+      { keys: "⌘B", label: "toggle the right pane" },
       { keys: "⌘+ ⌘− ⌘0", label: "zoom in / out / reset" },
       { keys: "?", label: "this help" },
     ],
