@@ -5,8 +5,6 @@
 //! can append comments to. Events stream to the caller over a channel
 //! so the UI can tail the run live.
 
-use chrono::Utc;
-use std::io::Write as _;
 use std::path::PathBuf;
 use std::process::Stdio;
 use tandem_core::agent::{AgentSpec, RunEvent, RunEventKind, RunStatus};
@@ -16,6 +14,7 @@ use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::command::build_command;
+use crate::emitter::Emitter;
 use crate::events::{classify_line, extract_embedded_comments, parse_comment};
 
 #[derive(Debug, Clone)]
@@ -88,50 +87,6 @@ impl LocalProcessRunner {
     }
 }
 
-/// Serializes events to the log file and the live channel.
-struct Emitter {
-    run_id: String,
-    seq: u64,
-    log: std::fs::File,
-    tx: mpsc::UnboundedSender<RunEvent>,
-}
-
-impl Emitter {
-    fn new(
-        run_id: String,
-        log_path: &PathBuf,
-        tx: mpsc::UnboundedSender<RunEvent>,
-    ) -> Result<Self> {
-        let log = std::fs::File::create(log_path)?;
-        Ok(Self {
-            run_id,
-            seq: 0,
-            log,
-            tx,
-        })
-    }
-
-    fn emit(&mut self, kind: RunEventKind, payload: impl Into<String>) {
-        let event = RunEvent {
-            run_id: self.run_id.clone(),
-            seq: self.seq,
-            at: Utc::now(),
-            kind,
-            payload: payload.into(),
-        };
-        self.seq += 1;
-        if let Ok(json) = serde_json::to_string(&event) {
-            let _ = writeln!(self.log, "{json}");
-        }
-        let _ = self.tx.send(event);
-    }
-
-    fn lifecycle(&mut self, status: RunStatus, detail: &str) {
-        let payload = serde_json::json!({ "status": status, "detail": detail }).to_string();
-        self.emit(RunEventKind::Lifecycle, payload);
-    }
-}
-
 async fn drive(
     req: RunRequest,
     mut emitter: Emitter,
@@ -187,10 +142,19 @@ async fn run_process(
 
     if let Some(mut stdin) = child.stdin.take() {
         if !cmd.prompt_in_argv {
-            stdin
-                .write_all(req.prompt.as_bytes())
-                .await
-                .map_err(TandemError::Io)?;
+            // A runner that never reads stdin — or one that finishes
+            // before we get here — closes the pipe on us. That's its
+            // prerogative, not a failed run, so swallow the EPIPE.
+            match stdin.write_all(req.prompt.as_bytes()).await {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                    tracing::debug!(
+                        run_id = %req.run_id,
+                        "agent closed stdin before the prompt was written"
+                    );
+                }
+                Err(e) => return Err(TandemError::Io(e)),
+            }
         }
         drop(stdin);
     }
@@ -351,6 +315,29 @@ mod tests {
         assert_eq!(last.kind, RunEventKind::Lifecycle);
         assert!(last.payload.contains("succeeded"));
         assert!(dir.join("events.jsonl").exists());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// A runner that ignores stdin and exits immediately leaves us
+    /// writing into a closed pipe. With a prompt past the ~64KB pipe
+    /// buffer the EPIPE is guaranteed rather than a race, and the run
+    /// must still be reported on its exit status.
+    #[tokio::test]
+    async fn prompt_write_to_a_closed_stdin_is_not_a_failure() {
+        let dir = std::env::temp_dir().join(format!("tandem-test-{}", uuid::Uuid::new_v4()));
+        let req = RunRequest {
+            spec: spec_with_command("exit 0"),
+            prompt: "x".repeat(512 * 1024),
+            run_id: "run-epipe".into(),
+            run_dir: dir.clone(),
+            workdir: None,
+        };
+        let mut handle = LocalProcessRunner.start(req).unwrap();
+        let events = collect(&mut handle).await;
+
+        let last = events.last().expect("events");
+        assert_eq!(last.kind, RunEventKind::Lifecycle);
+        assert!(last.payload.contains("succeeded"), "got {}", last.payload);
         std::fs::remove_dir_all(dir).ok();
     }
 
