@@ -61,6 +61,9 @@ export function AgentPanel() {
   const highlightedRun = useHighlight((s) => s.runId);
   const [selected, setSelected] = useState<string>(loadAgent);
   const [openLog, setOpenLog] = useState<string | null>(null);
+  // Spawning the runner takes a beat; without this the button stays
+  // live and a second click starts a second agent on the same PR.
+  const [starting, setStarting] = useState(false);
 
   // A jump from the dashboard / bell lands on a run row — open its log
   // so errors are inspectable without an extra click.
@@ -108,12 +111,24 @@ export function AgentPanel() {
         </select>
         <Button
           kind="primary"
-          disabled={!agentName}
+          disabled={!agentName || starting}
+          title={starting ? "starting the agent…" : "start a review with this agent"}
           onClick={() => {
-            void startAgentReview(agentName);
+            setStarting(true);
+            void startAgentReview(agentName).finally(() => {
+              setStarting(false);
+            });
           }}
         >
-          <Play size={11} /> review
+          {starting ? (
+            <>
+              <Loader2 size={11} className="animate-spin" /> starting…
+            </>
+          ) : (
+            <>
+              <Play size={11} /> review
+            </>
+          )}
         </Button>
       </div>
 

@@ -23,7 +23,6 @@ import { DiffViewer } from "./components/DiffViewer";
 import { FileTreePanel } from "./components/FileTree";
 import { NotificationsBell } from "./components/NotificationsBell";
 import { PrHeader } from "./components/PrHeader";
-import { PrStateBadge } from "./components/PrStateBadge";
 import { ReviewStatusMenuButton, ReviewStatusView } from "./components/ReviewStatusView";
 import { ShortcutManager } from "./components/ShortcutManager";
 import { SummarySection } from "./components/SummarySection";
@@ -259,13 +258,8 @@ function ReviewLayout() {
             <div className="border-b border-edge px-4 pb-2">
               <SummarySection />
             </div>
-            <div className="relative flex min-h-0 flex-1">
+            <div className="flex min-h-0 flex-1">
               <FileTreePanel key={prKey} prKey={prKey} />
-              {/* The header is a long way from the code you're reading —
-                  keep the PR's state pinned in the diff's own corner. */}
-              <div className="pointer-events-none absolute right-5 top-2 z-20 opacity-95">
-                <PrStateBadge pr={bundle.detail.pull_request} always />
-              </div>
               <div id="diff-scroll" className="min-h-0 flex-1 overflow-y-auto">
                 <DiffViewer
                   diff={bundle.diff}
