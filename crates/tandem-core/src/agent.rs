@@ -66,6 +66,15 @@ pub struct AgentSpec {
     pub network_allowlist: Vec<String>,
     #[serde(default = "default_timeout_minutes")]
     pub timeout_minutes: u64,
+    /// Whether a review run also writes the PR-level summary shown above
+    /// the diff. On by default; turn it off for agents that should only
+    /// leave inline comments.
+    #[serde(default = "default_true")]
+    pub summary: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_timeout_minutes() -> u64 {
@@ -106,6 +115,8 @@ pub enum RunEventKind {
     Runner,
     /// A review comment the agent emitted (an `tandem_comment` line).
     Comment,
+    /// The PR-level write-up the agent emitted (a `tandem_summary` line).
+    Summary,
     /// Unstructured stdout/stderr.
     Raw,
 }

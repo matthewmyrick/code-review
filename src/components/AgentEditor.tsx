@@ -81,6 +81,7 @@ function newSpec(): AgentSpec {
     env: {},
     network_allowlist: defaultAllowlist("claude_headless"),
     timeout_minutes: 15,
+    summary: true,
   };
 }
 
@@ -330,6 +331,23 @@ function SpecForm(props: {
           />
         </label>
       </div>
+
+      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-edge/60 bg-panel-2/40 px-3 py-2">
+        <input
+          type="checkbox"
+          checked={spec.summary}
+          onChange={(e) => {
+            patch({ summary: e.target.checked });
+          }}
+          className="mt-0.5 size-3.5 accent-sky"
+        />
+        <span className="flex flex-col gap-0.5">
+          <span className="font-medium text-cream">PR summary</span>
+          <span className="text-muted">
+            write a short overview above the diff, revised on each re-review
+          </span>
+        </span>
+      </label>
 
       <label className="flex flex-col gap-1">
         <span className="text-muted">

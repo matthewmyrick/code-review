@@ -2,11 +2,13 @@
 //! row current, and forward everything to the frontend. Split out of
 //! agents.rs to stay under the 400-line file cap.
 
-use tandem_agents::events::parse_comment;
+use tandem_agents::events::{extract_embedded_summary, parse_comment, parse_summary};
 use tandem_cache::ReviewStore;
 use tandem_core::agent::{AgentRun, AgentSpec, RunEvent, RunEventKind, RunStatus};
 use tandem_core::github::RepoRef;
-use tandem_core::review::{CommentAuthorKind, CommentSeverity, DiffSide, NewLocalComment};
+use tandem_core::review::{
+    CommentAuthorKind, CommentSeverity, DiffSide, NewLocalComment, PrSummary,
+};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::state::AppState;
@@ -27,6 +29,11 @@ pub(crate) async fn pump_events(
             RunEventKind::Comment => {
                 handle_comment(&app, &event, &mut run, &spec, &repo, &head_sha).await;
             }
+            RunEventKind::Summary => {
+                if let Some(parsed) = parse_summary(&event.payload) {
+                    store_summary(&app, &parsed.body, &run, &spec, &repo, &head_sha).await;
+                }
+            }
             RunEventKind::Lifecycle => {
                 if let Some((status, detail)) = parse_lifecycle_status(&event.payload) {
                     run.status = status;
@@ -45,12 +52,56 @@ pub(crate) async fn pump_events(
                     persist_run(&app, &run).await;
                 }
             }
-            RunEventKind::Runner | RunEventKind::Raw => {}
+            RunEventKind::Runner | RunEventKind::Raw => {
+                // Headless runners wrap model text in envelopes, so the
+                // summary usually arrives in here rather than as a bare
+                // stdout line (same as comments).
+                if spec.summary {
+                    if let Some(parsed) = extract_embedded_summary(&event.payload) {
+                        store_summary(&app, &parsed.body, &run, &spec, &repo, &head_sha).await;
+                    }
+                }
+            }
         }
     }
     // Stream closed: drop the cancel handle for this run.
     let state = app.state::<AppState>();
     state.runs.lock().await.remove(&run.run_id);
+}
+
+/// Upsert the PR's summary and tell the UI. Skipped when the agent has
+/// summaries turned off, so a spec opt-out holds even if the model
+/// emits one anyway.
+async fn store_summary(
+    app: &AppHandle,
+    body: &str,
+    run: &AgentRun,
+    spec: &AgentSpec,
+    repo: &RepoRef,
+    head_sha: &str,
+) {
+    if !spec.summary {
+        return;
+    }
+    let summary = PrSummary {
+        repo: repo.clone(),
+        pr_number: run.pr_number,
+        body: body.to_owned(),
+        agent_name: spec.name.clone(),
+        run_id: run.run_id.clone(),
+        head_sha: head_sha.to_owned(),
+        updated_at: chrono::Utc::now(),
+    };
+    let state = app.state::<AppState>();
+    let result = { state.cache.lock().await.put_pr_summary(&summary) };
+    match result {
+        Ok(()) => {
+            if let Err(e) = app.emit("tandem://summary-updated", &summary) {
+                tracing::warn!(error = %e, "failed to emit summary-updated");
+            }
+        }
+        Err(e) => tracing::error!(error = %e, "failed to store PR summary"),
+    }
 }
 
 async fn handle_comment(

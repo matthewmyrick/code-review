@@ -79,6 +79,7 @@ export interface AppStore {
   addComment: (comment: NewLocalComment) => Promise<LocalComment | null>;
   setCommentStatus: (id: string, status: CommentStatus) => Promise<void>;
   deleteComment: (id: string) => Promise<void>;
+  deleteSummary: () => Promise<void>;
   saveAgentSpec: (spec: AgentSpec) => Promise<void>;
   deleteAgentSpec: (name: string) => Promise<void>;
   startAgentReview: (agentName: string) => Promise<void>;

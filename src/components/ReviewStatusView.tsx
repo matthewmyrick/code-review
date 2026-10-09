@@ -16,7 +16,7 @@ import { useAppStore } from "../state/store";
 import { FindPrTab } from "./FindPrTab";
 import { ApprovedFooter, InboxRow, ReadyGroupedRows, rowKey } from "./PrRows";
 import { QuickReviewControl } from "./QuickReviewControl";
-import { Button, IconButton, Spinner } from "./ui";
+import { Button, CountBadge, IconButton, Spinner } from "./ui";
 
 /** Header nav button: jumps to the review-status page, badged with how
  * many reviews are pending across every tracked org. */
@@ -77,6 +77,12 @@ export function ReviewStatusView() {
   }, [lazyScope, loadInbox]);
 
   const [refreshing, setRefreshing] = useState(false);
+  const counts = useAppStore((s) => s.inbox);
+  const tabCount = (id: ReviewTab): number | undefined => {
+    if (id === "requested") return reviewRequests.length;
+    if (id === "authored" || id === "mentions") return counts[id]?.length;
+    return undefined;
+  };
   const prs = sortPrs(tab === "requested" ? reviewRequests : (lazyList ?? []), prSort);
   const loading =
     tab === "requested" ? !reviewRequestsSeeded : lazyScope !== null && lazyList === undefined;
@@ -128,6 +134,7 @@ export function ReviewStatusView() {
             }`}
           >
             <Icon size={12} /> {label}
+            <CountBadge count={tabCount(id)} />
           </button>
         ))}
       </div>

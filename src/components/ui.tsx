@@ -17,13 +17,14 @@ export function Pill(props: { tone: Tone; children: ReactNode }) {
   );
 }
 
-type Tone = "sky" | "moss" | "ember" | "amber" | "muted" | "github";
+type Tone = "sky" | "moss" | "ember" | "amber" | "plum" | "muted" | "github";
 
 const toneClasses: Record<Tone, string> = {
   sky: "bg-sky/15 text-sky",
   moss: "bg-moss/15 text-moss",
   ember: "bg-ember/15 text-ember",
   amber: "bg-amber/15 text-amber",
+  plum: "bg-plum/15 text-plum",
   muted: "bg-edge/60 text-muted",
   // High-contrast on purpose: GitHub-origin content must be unmissable.
   github: "bg-cream text-ground shadow-sm",
@@ -151,6 +152,17 @@ export function IconButton(props: {
     >
       {props.children}
     </button>
+  );
+}
+
+/** The same count chip the header icons carry, for inline use on a tab
+ * label. Nothing renders when the count is zero or not loaded yet. */
+export function CountBadge({ count }: { count: number | undefined }) {
+  if (count === undefined || count === 0) return null;
+  return (
+    <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber px-1 text-[8px] font-bold text-ground">
+      {count > 9 ? "9+" : count}
+    </span>
   );
 }
 

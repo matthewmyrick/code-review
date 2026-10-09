@@ -112,3 +112,22 @@ pub struct NewLocalComment {
     #[serde(default)]
     pub github_comment_id: Option<u64>,
 }
+
+/// The PR-level write-up an agent produces alongside its inline
+/// comments. One per pull request: a re-review is handed the existing
+/// text and revises it rather than starting over, so this is the
+/// running account of what agents have found, not a per-run log.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrSummary {
+    pub repo: RepoRef,
+    pub pr_number: u64,
+    /// Markdown. May link to anchors like `tandem://src/x.rs#L42`.
+    pub body: String,
+    /// Agent that last wrote it, and the run that did so.
+    pub agent_name: String,
+    pub run_id: String,
+    /// Head SHA the latest revision reviewed — a summary written
+    /// against older commits is worth flagging as stale.
+    pub head_sha: String,
+    pub updated_at: DateTime<Utc>,
+}

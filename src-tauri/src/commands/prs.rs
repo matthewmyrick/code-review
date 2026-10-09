@@ -9,7 +9,7 @@ use serde::Serialize;
 use tandem_cache::{ArchiveStore, Cache, ReviewStore};
 use tandem_core::diff::FileDiff;
 use tandem_core::github::{ArchivedPr, PrDetail, PrState, PullRequest};
-use tandem_core::review::LocalComment;
+use tandem_core::review::{LocalComment, PrSummary};
 use tandem_core::TandemError;
 use tauri::{AppHandle, State};
 
@@ -23,6 +23,8 @@ pub struct PrBundle {
     pub detail: PrDetail,
     pub diff: Vec<FileDiff>,
     pub comments: Vec<LocalComment>,
+    /// The agent-written overview, when a review has produced one.
+    pub summary: Option<PrSummary>,
 }
 
 #[tauri::command]
@@ -135,10 +137,12 @@ pub async fn sync_pr_bundle(
             cache.archive_pr(&detail.pull_request, Utc::now())?;
         }
         let comments = cache.list_comments(&repo, number)?;
+        let summary = cache.get_pr_summary(&repo, number)?;
         Ok::<_, TandemError>(PrBundle {
             detail,
             diff,
             comments,
+            summary,
         })
     }
     .await;
@@ -222,14 +226,40 @@ pub async fn list_archived_prs(
     state.cache.lock().await.list_archived(&repo)
 }
 
+/// Drop everything cached for one PR immediately — its detail, diff,
+/// local comments, agent runs (and their logs), summary and checkout.
+/// Used when you leave a PR that has merged: it's done, so the app
+/// stops carrying it.
+#[tauri::command]
+pub async fn forget_pr(
+    state: State<'_, AppState>,
+    repo: String,
+    number: u64,
+) -> Result<(), TandemError> {
+    let repo = parse_repo(&repo)?;
+    let purged = {
+        let mut cache = state.cache.lock().await;
+        cache.forget_pr(&repo, number)?
+    };
+    remove_purged_dirs(&purged, &state.dirs);
+    Ok(())
+}
+
 /// Purge expired archive entries and their run directories on disk.
 pub(crate) fn purge_expired_data(
     cache: &mut Cache,
     dirs: &crate::settings::AppDirs,
 ) -> Result<(), TandemError> {
     let purged = cache.purge_expired(Utc::now())?;
-    for log_path in purged.log_paths {
-        let path = std::path::Path::new(&log_path);
+    remove_purged_dirs(&purged, dirs);
+    Ok(())
+}
+
+/// Mirror a DB purge on disk: the run log directories, and the agent
+/// checkouts named by workspace::ensure_pr_checkout's scheme.
+fn remove_purged_dirs(purged: &tandem_cache::PurgedRuns, dirs: &crate::settings::AppDirs) {
+    for log_path in &purged.log_paths {
+        let path = std::path::Path::new(log_path);
         // Only remove directories that live under our own runs dir.
         if let Some(dir) = path.parent() {
             if dir.starts_with(&dirs.runs_dir) {
@@ -237,18 +267,14 @@ pub(crate) fn purge_expired_data(
             }
         }
     }
-    // Mirrors workspace::ensure_pr_checkout's directory scheme — the
-    // on-disk clone an agent run checked out, now that its PR is
-    // archived and past the 3-day retention window.
-    for (repo, number) in purged.repos {
+    for (repo, number) in &purged.repos {
         let dir = dirs
             .worktrees_dir
             .join("agent-runs")
-            .join(&repo)
+            .join(repo)
             .join(number.to_string());
         remove_dir(&dir, "agent checkout");
     }
-    Ok(())
 }
 
 fn remove_dir(dir: &std::path::Path, kind: &str) {
@@ -279,10 +305,12 @@ fn load_bundle(
         .get_diff(repo, number, &detail.pull_request.head_sha)?
         .unwrap_or_default();
     let comments = cache.list_comments(repo, number)?;
+    let summary = cache.get_pr_summary(repo, number)?;
     Ok(Some(PrBundle {
         detail,
         diff,
         comments,
+        summary,
     }))
 }
 

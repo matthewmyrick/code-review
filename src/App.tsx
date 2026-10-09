@@ -25,6 +25,7 @@ import { NotificationsBell } from "./components/NotificationsBell";
 import { PrHeader } from "./components/PrHeader";
 import { ReviewStatusMenuButton, ReviewStatusView } from "./components/ReviewStatusView";
 import { ShortcutManager } from "./components/ShortcutManager";
+import { SummarySection } from "./components/SummarySection";
 import { SettingsView } from "./components/SettingsView";
 import { SidePane } from "./components/SidePane";
 import { ToastHost } from "./components/ToastHost";
@@ -96,6 +97,35 @@ export default function App() {
         </button>
         <div className="ml-auto flex items-center gap-1.5">
           <UpdateButton />
+          <ReviewStatusMenuButton />
+          <AgentsMenuButton />
+          <NotificationsBell />
+          <IconButton onClick={toggleTheme} title="toggle light/dark theme">
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+          </IconButton>
+          <IconButton
+            onClick={() => {
+              useKeyNav.getState().setHelp(true);
+            }}
+            title="keyboard shortcuts (?)"
+          >
+            <Keyboard size={15} />
+          </IconButton>
+          <IconButton
+            onClick={() => {
+              setView(
+                view === "settings"
+                  ? selectedPr === null
+                    ? "review-status"
+                    : "review"
+                  : "settings",
+              );
+            }}
+            title={view === "settings" ? "back" : "settings"}
+            active={view === "settings"}
+          >
+            {view === "settings" ? <ArrowLeft size={15} /> : <Settings size={15} />}
+          </IconButton>
           <span className="flex items-center gap-0.5 rounded-lg bg-panel-2/60 px-1">
             <IconButton
               onClick={() => {
@@ -124,35 +154,6 @@ export default function App() {
               <ZoomIn size={13} />
             </IconButton>
           </span>
-          <IconButton
-            onClick={() => {
-              useKeyNav.getState().setHelp(true);
-            }}
-            title="keyboard shortcuts (?)"
-          >
-            <Keyboard size={15} />
-          </IconButton>
-          <AgentsMenuButton />
-          <ReviewStatusMenuButton />
-          <NotificationsBell />
-          <IconButton onClick={toggleTheme} title="toggle light/dark theme">
-            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-          </IconButton>
-          <IconButton
-            onClick={() => {
-              setView(
-                view === "settings"
-                  ? selectedPr === null
-                    ? "review-status"
-                    : "review"
-                  : "settings",
-              );
-            }}
-            title={view === "settings" ? "back" : "settings"}
-            active={view === "settings"}
-          >
-            {view === "settings" ? <ArrowLeft size={15} /> : <Settings size={15} />}
-          </IconButton>
         </div>
       </div>
 
@@ -160,15 +161,15 @@ export default function App() {
       <ShortcutManager />
       <div className="flex min-h-0 flex-1">
         {view === "settings" ? (
-          <main className="animate-fade-up flex-1 overflow-y-auto">
+          <main className="animate-fade-up flex-1 overflow-y-scroll [scrollbar-gutter:stable]">
             <SettingsView />
           </main>
         ) : view === "agents" ? (
-          <main className="animate-fade-up flex-1 overflow-y-auto">
+          <main className="animate-fade-up flex-1 overflow-y-scroll [scrollbar-gutter:stable]">
             <AgentsDashboard />
           </main>
         ) : view === "review-status" ? (
-          <main className="animate-fade-up flex-1 overflow-y-auto">
+          <main className="animate-fade-up flex-1 overflow-y-scroll [scrollbar-gutter:stable]">
             <ReviewStatusView />
           </main>
         ) : (
@@ -254,6 +255,9 @@ function ReviewLayout() {
         {bundle ? (
           <>
             <PrHeader detail={bundle.detail} />
+            <div className="border-b border-edge px-4 pb-2">
+              <SummarySection />
+            </div>
             <div className="flex min-h-0 flex-1">
               <FileTreePanel key={prKey} prKey={prKey} />
               <div id="diff-scroll" className="min-h-0 flex-1 overflow-y-auto">

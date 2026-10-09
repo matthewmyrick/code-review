@@ -5,7 +5,7 @@ use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
 use tandem_core::agent::{AgentRun, AgentSpec, RunStatus};
 use tandem_core::github::RepoRef;
-use tandem_core::review::{CommentStatus, LocalComment, NewLocalComment};
+use tandem_core::review::{CommentStatus, LocalComment, NewLocalComment, PrSummary};
 use tandem_core::{Result, TandemError};
 use uuid::Uuid;
 
@@ -33,6 +33,12 @@ pub trait ReviewStore {
     fn list_recent_runs(&self, limit: u32) -> Result<Vec<AgentRun>>;
     fn delete_agent_run(&self, run_id: &str) -> Result<()>;
     fn sweep_stale_runs(&self) -> Result<u32>;
+
+    /// Upsert the PR's summary — a re-review replaces the previous text
+    /// with its revision of it.
+    fn put_pr_summary(&self, summary: &PrSummary) -> Result<()>;
+    fn get_pr_summary(&self, repo: &RepoRef, pr_number: u64) -> Result<Option<PrSummary>>;
+    fn delete_pr_summary(&self, repo: &RepoRef, pr_number: u64) -> Result<()>;
 }
 
 impl ReviewStore for Cache {
@@ -154,6 +160,50 @@ impl ReviewStore for Cache {
         }
         self.conn
             .execute("DELETE FROM local_comments WHERE id = ?1", params![id])
+            .map_err(cache_err)?;
+        Ok(())
+    }
+
+    fn put_pr_summary(&self, summary: &PrSummary) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO pr_summaries (repo, number, updated_at, json)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(repo, number) DO UPDATE SET
+                   updated_at = excluded.updated_at, json = excluded.json",
+                params![
+                    summary.repo.slug(),
+                    summary.pr_number,
+                    summary.updated_at.to_rfc3339(),
+                    serde_json::to_string(summary)?
+                ],
+            )
+            .map_err(cache_err)?;
+        Ok(())
+    }
+
+    fn get_pr_summary(&self, repo: &RepoRef, pr_number: u64) -> Result<Option<PrSummary>> {
+        let json: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT json FROM pr_summaries WHERE repo = ?1 AND number = ?2",
+                params![repo.slug(), pr_number],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(cache_err)?;
+        match json {
+            Some(json) => Ok(Some(serde_json::from_str(&json)?)),
+            None => Ok(None),
+        }
+    }
+
+    fn delete_pr_summary(&self, repo: &RepoRef, pr_number: u64) -> Result<()> {
+        self.conn
+            .execute(
+                "DELETE FROM pr_summaries WHERE repo = ?1 AND number = ?2",
+                params![repo.slug(), pr_number],
+            )
             .map_err(cache_err)?;
         Ok(())
     }

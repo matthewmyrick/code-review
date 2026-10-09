@@ -13,6 +13,11 @@ pub struct ReviewContext {
     pub run_id: String,
     pub comments_file: String,
     pub diff_text: String,
+    /// Whether this agent writes the PR-level summary (spec opt-out).
+    pub wants_summary: bool,
+    /// The summary already on this PR, if any — a re-review revises it
+    /// instead of starting from scratch.
+    pub existing_summary: Option<String>,
 }
 
 /// Assemble the full prompt fed to the runner on stdin:
@@ -52,6 +57,7 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
          the JSON string). Keep bodies concise and actionable. The \
          comments ARE the review — do not write a summary paragraph \
          instead of comments.\n\n\
+         {summary_contract}\
          ## Review instructions\n\
          {instructions}\n\n\
          ## Pull request description\n\
@@ -66,10 +72,49 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
         base = pr.base_ref,
         sha = pr.head_sha,
         comments_file = ctx.comments_file,
+        summary_contract = summary_contract(ctx),
         instructions = instructions,
         body = pr.body,
         diff = ctx.diff_text,
     )
+}
+
+/// The summary half of the contract, omitted entirely when the agent
+/// has summaries turned off. On a re-review the current text is handed
+/// over so the agent revises it — keeping what still holds, dropping
+/// what the new commits fixed — rather than writing a fresh one that
+/// loses earlier context.
+fn summary_contract(ctx: &ReviewContext) -> String {
+    if !ctx.wants_summary {
+        return String::new();
+    }
+    let mut out = String::from(
+        "## How to write the PR summary\n\
+         As well as the comments, emit exactly ONE summary line — same \
+         rules (own line, no code fences, in your final response text or \
+         the comments file):\n\n\
+         {\"type\":\"tandem_summary\",\"body\":\"<markdown>\"}\n\n\
+         It is the reviewer's overview of the whole PR: what it does, how \
+         sound it looks, and the themes behind your comments — not a \
+         restatement of each one. Keep it short: a few sentences or a \
+         handful of bullets. Link to the code you are discussing as \
+         [src/x.rs:42](tandem://src/x.rs#L42) — the reviewer clicks it \
+         and lands on that line of the diff, so prefer a link over \
+         describing where something lives.\n\n",
+    );
+    if let Some(existing) = &ctx.existing_summary {
+        out.push_str(
+            "### The summary already on this PR\n\
+             A previous run wrote the text below. Revise it rather than \
+             replacing it wholesale: keep what still holds, update what \
+             the new commits changed, drop what is now fixed, and add \
+             what you found this time. Emit the full revised text as your \
+             summary line.\n\n",
+        );
+        out.push_str(existing);
+        out.push_str("\n\n");
+    }
+    out
 }
 
 /// One message of a review-comment thread, oldest first.
@@ -267,6 +312,8 @@ mod tests {
             run_id: "run-1".into(),
             comments_file: "/tmp/run-1/comments.jsonl".into(),
             diff_text: "+ hello".into(),
+            wants_summary: true,
+            existing_summary: None,
         };
         let prompt = build_prompt(&ctx, &pr, "focus on correctness");
         assert!(prompt.contains("tandem_comment"));
@@ -275,6 +322,30 @@ mod tests {
         assert!(prompt.contains("focus on correctness"));
         assert!(prompt.contains("+ hello"));
         assert!(prompt.contains("never attempt to post to GitHub"));
+    }
+
+    #[test]
+    fn summary_contract_is_opt_out_and_carries_the_existing_text() {
+        let pr = fixture_pr();
+        let mut ctx = ReviewContext {
+            run_id: "run-1".into(),
+            comments_file: "/tmp/run-1/comments.jsonl".into(),
+            diff_text: "+ hello".into(),
+            wants_summary: false,
+            existing_summary: None,
+        };
+        let off = build_prompt(&ctx, &pr, "go");
+        assert!(!off.contains("tandem_summary"));
+
+        ctx.wants_summary = true;
+        let on = build_prompt(&ctx, &pr, "go");
+        assert!(on.contains("tandem_summary"));
+        assert!(!on.contains("already on this PR"));
+
+        ctx.existing_summary = Some("the story so far".into());
+        let revising = build_prompt(&ctx, &pr, "go");
+        assert!(revising.contains("already on this PR"));
+        assert!(revising.contains("the story so far"));
     }
 
     #[test]

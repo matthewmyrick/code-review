@@ -66,6 +66,16 @@ pub const MIGRATIONS: &[&str] = &[
         PRIMARY KEY (repo, number)
     );
     ",
+    // 003: one agent-written summary per PR
+    "
+    CREATE TABLE pr_summaries (
+        repo       TEXT NOT NULL,
+        number     INTEGER NOT NULL,
+        updated_at TEXT NOT NULL,
+        json       TEXT NOT NULL,
+        PRIMARY KEY (repo, number)
+    );
+    ",
 ];
 
 /// Run any migrations newer than the connection's `user_version`.

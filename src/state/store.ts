@@ -56,6 +56,16 @@ export const useAppStore = create<AppStore>((set, get) => {
     set({ bundle: { ...bundle, comments } });
   };
 
+  // A merged PR is done with: once you navigate away, drop everything
+  // cached for it so the app stops carrying finished work. Fire and
+  // forget — nothing on screen depends on it finishing.
+  const forgetIfMerged = () => {
+    const { selectedRepo, selectedPr, bundle } = get();
+    if (!selectedRepo || selectedPr === null) return;
+    if (bundle?.detail.pull_request.state !== "merged") return;
+    void ipc.forgetPr(selectedRepo, selectedPr).catch(console.warn);
+  };
+
   const reloadRuns = async () => {
     const { selectedRepo, selectedPr } = get();
     if (!selectedRepo || selectedPr === null) return;
@@ -107,6 +117,13 @@ export const useAppStore = create<AppStore>((set, get) => {
         recordRunUpdate(event.payload);
         useRunBoard.getState().ingest(event.payload);
         void reloadRuns().catch(console.error);
+      });
+      await listen<import("../lib/types").PrSummary>("tandem://summary-updated", (event) => {
+        const { selectedRepo, selectedPr, bundle } = get();
+        const summary = event.payload;
+        const slug = `${summary.repo.owner}/${summary.repo.name}`;
+        if (!bundle || slug !== selectedRepo || summary.pr_number !== selectedPr) return;
+        set({ bundle: { ...bundle, summary } });
       });
       await listen<{ run_id: string }>("tandem://run-deleted", (event) => {
         useRunBoard.getState().remove(event.payload.run_id);
@@ -167,6 +184,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     setView: (view) => {
+      if (view !== "review") forgetIfMerged();
       set({ view });
     },
 
@@ -220,6 +238,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     goHome: () => {
       // Review status is home; the open PR is dropped on the way so the
       // review view doesn't linger behind it.
+      forgetIfMerged();
       set({ view: "review-status", selectedPr: null, bundle: null });
     },
 
@@ -232,6 +251,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     selectPr: async (number) => {
       const repo = get().selectedRepo;
       if (!repo) return;
+      if (get().selectedPr !== number) forgetIfMerged();
       set({ selectedPr: number, bundle: null, agentEvents: [] });
       try {
         const cached = await ipc.getPrBundle(repo, number);
@@ -284,6 +304,17 @@ export const useAppStore = create<AppStore>((set, get) => {
       try {
         await ipc.setCommentStatus(id, status, selectedRepo, selectedPr);
         await reloadComments();
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    deleteSummary: async () => {
+      const { selectedRepo, selectedPr, bundle } = get();
+      if (!selectedRepo || selectedPr === null || !bundle) return;
+      try {
+        await ipc.deletePrSummary(selectedRepo, selectedPr);
+        set({ bundle: { ...bundle, summary: null } });
       } catch (e) {
         fail(e);
       }

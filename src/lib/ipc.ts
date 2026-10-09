@@ -39,6 +39,7 @@ export const ipc = {
     invoke<string[]>("list_failing_checks", { repo, number }),
   listPrCommits: (repo: string, number: number) =>
     invoke<PrCommit[]>("list_pr_commits", { repo, number }),
+  forgetPr: (repo: string, number: number) => invoke<null>("forget_pr", { repo, number }),
 
   // local review comments
   listLocalComments: (repo: string, number: number) =>
@@ -51,6 +52,8 @@ export const ipc = {
     invoke<null>("update_comment_body", { id, body, repo, number }),
   deleteLocalComment: (id: string, repo: string, number: number) =>
     invoke<null>("delete_local_comment", { id, repo, number }),
+  deletePrSummary: (repo: string, number: number) =>
+    invoke<null>("delete_pr_summary", { repo, number }),
 
   // agents
   listAgentSpecs: () => invoke<AgentSpec[]>("list_agent_specs"),

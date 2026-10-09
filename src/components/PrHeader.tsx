@@ -1,25 +1,17 @@
 // PR title bar: branches, checks, reviews/approvers, labels — everything
 // pulled from GitHub, read-only.
 
-import {
-  Check,
-  ExternalLink,
-  FileText,
-  GitMerge,
-  Link,
-  Loader,
-  OctagonAlert,
-  RefreshCw,
-  Sparkles,
-  X,
-} from "lucide-react";
-import { useState } from "react";
+import { Check, ExternalLink, FileText, Link, Loader, RefreshCw, Sparkles, X } from "lucide-react";
+import type { ReactNode } from "react";
+import { useRef, useState } from "react";
 
 import { shortSha } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import { ConflictHelper } from "./ConflictHelper";
 import { MergeControls } from "./MergeControls";
 import { CommitsSection } from "./CommitsSection";
+import { MergeStatus } from "./MergeStatus";
+import { MergedBanner } from "./MergedBanner";
 import { OpenInEditorButton } from "./OpenInEditor";
 import { openExternal, prUrl } from "../lib/open";
 import { pushInfo } from "../state/toasts";
@@ -39,6 +31,21 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
   const changesRequested = detail.reviews.filter((r) => r.verdict === "changes_requested");
   const failing = detail.checks.filter((c) => c.state === "failure");
   const pending = detail.checks.filter((c) => c.state === "pending");
+  // Clicking a checks pill is a question ("which ones?") — answer it by
+  // opening the full list and scrolling it into view, failures first.
+  const [checksOpen, setChecksOpen] = useState(false);
+  const checksRef = useRef<HTMLDetailsElement>(null);
+  const openChecks = () => {
+    setChecksOpen(true);
+    setTimeout(() => {
+      checksRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 0);
+  };
+  const orderedChecks = [
+    ...failing,
+    ...pending,
+    ...detail.checks.filter((c) => c.state !== "failure" && c.state !== "pending"),
+  ];
 
   return (
     <header className="border-b border-edge bg-panel px-4 py-3">
@@ -84,10 +91,20 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {failing.length > 0 ? <Pill tone="ember">{failing.length} checks failing</Pill> : null}
-        {pending.length > 0 ? <Pill tone="amber">{pending.length} checks running</Pill> : null}
+        {failing.length > 0 ? (
+          <ChecksPill tone="ember" onClick={openChecks}>
+            {failing.length} checks failing
+          </ChecksPill>
+        ) : null}
+        {pending.length > 0 ? (
+          <ChecksPill tone="amber" onClick={openChecks}>
+            {pending.length} checks running
+          </ChecksPill>
+        ) : null}
         {failing.length === 0 && pending.length === 0 && detail.checks.length > 0 ? (
-          <Pill tone="moss">checks green</Pill>
+          <ChecksPill tone="moss" onClick={openChecks}>
+            checks green
+          </ChecksPill>
         ) : null}
         {approvals.map((r) => (
           <Pill key={r.author.login} tone="moss">
@@ -110,6 +127,8 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
           </Pill>
         ))}
       </div>
+
+      <MergedBanner pr={pr} />
 
       <ConflictHelper pr={pr} />
 
@@ -134,12 +153,19 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
       <CommitsSection repo={pr.repo} number={pr.number} />
 
       {detail.checks.length > 0 ? (
-        <details className="mt-2">
+        <details
+          ref={checksRef}
+          open={checksOpen}
+          onToggle={(e) => {
+            setChecksOpen(e.currentTarget.open);
+          }}
+          className="mt-2"
+        >
           <summary className="cursor-pointer text-[11px] text-muted hover:text-cream">
             all checks ({detail.checks.length})
           </summary>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            {detail.checks.map((check) => (
+            {orderedChecks.map((check) => (
               <Pill key={check.name} tone={checkTone(check.state)}>
                 {check.name}
               </Pill>
@@ -151,8 +177,24 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
   );
 }
 
-/// Approve on GitHub via a popover: optional multi-line markdown review
-/// body (with AI polish), explicit confirm.
+/** A checks pill that opens the full check list when clicked. */
+function ChecksPill(props: {
+  tone: "ember" | "amber" | "moss";
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      title="show every check"
+      className="rounded-full transition-transform hover:brightness-125 active:scale-95"
+    >
+      <Pill tone={props.tone}>{props.children}</Pill>
+    </button>
+  );
+}
+
 /** Copy-URL with a transient success check in place of the link icon. */
 function CopyUrlButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -177,6 +219,8 @@ function CopyUrlButton({ url }: { url: string }) {
   );
 }
 
+/// Approve on GitHub via a popover: optional multi-line markdown review
+/// body (with AI polish), explicit confirm.
 function ApproveButton() {
   const approvePr = useAppStore((s) => s.approvePr);
   const [open, setOpen] = useState(false);
@@ -278,76 +322,5 @@ function ApproveButton() {
         </div>
       ) : null}
     </span>
-  );
-}
-
-/// One line of truth about merge readiness: who approved, and exactly
-/// what's blocking when GitHub says the PR can't merge yet.
-function MergeStatus(props: {
-  state: string | null;
-  approvals: string[];
-  changesRequested: string[];
-  failing: string[];
-}) {
-  const { state } = props;
-  const pill = (() => {
-    switch (state ?? "") {
-      case "clean":
-      case "has_hooks":
-        return { label: "ready to merge", tone: "moss" as const };
-      case "unstable":
-        return { label: "checks pending", tone: "amber" as const };
-      case "behind":
-        return { label: "behind base", tone: "amber" as const };
-      case "dirty":
-        return { label: "merge conflicts", tone: "ember" as const };
-      case "blocked":
-        return { label: "blocked", tone: "ember" as const };
-      case "draft":
-        return { label: "draft", tone: "muted" as const };
-      default:
-        return null;
-    }
-  })();
-
-  const blockers: string[] = [];
-  if (props.changesRequested.length > 0) {
-    blockers.push(`changes requested by ${props.changesRequested.join(", ")}`);
-  }
-  if (props.failing.length > 0) {
-    const names = props.failing.slice(0, 3).join(", ");
-    const more = props.failing.length > 3 ? ` +${String(props.failing.length - 3)} more` : "";
-    blockers.push(`failing checks: ${names}${more}`);
-  }
-  if (state === "dirty") blockers.push("merge conflicts with the base branch");
-  if (state === "behind") blockers.push("branch is behind the base branch");
-  if (state === "blocked" && blockers.length === 0) {
-    blockers.push("required approvals or checks not yet satisfied");
-  }
-
-  if (!pill && props.approvals.length === 0 && blockers.length === 0) return null;
-
-  return (
-    <div className="mt-2 rounded-lg border border-edge/60 bg-panel-2/40 px-3 py-2 text-[11px]">
-      <div className="flex flex-wrap items-center gap-2">
-        <GitMerge size={12} className="text-muted" />
-        {pill ? <Pill tone={pill.tone}>{pill.label}</Pill> : null}
-        <span className="text-muted">
-          {props.approvals.length > 0
-            ? `approved by ${props.approvals.join(", ")}`
-            : "no approvals yet"}
-        </span>
-      </div>
-      {blockers.length > 0 ? (
-        <div className="mt-1 space-y-0.5">
-          {blockers.map((reason) => (
-            <div key={reason} className="flex items-center gap-1.5 text-ember">
-              <OctagonAlert size={11} className="shrink-0" />
-              {reason}
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
   );
 }

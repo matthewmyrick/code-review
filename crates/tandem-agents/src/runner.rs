@@ -320,6 +320,7 @@ mod tests {
             env: BTreeMap::new(),
             network_allowlist: vec![],
             timeout_minutes: 1,
+            summary: true,
         }
     }
 

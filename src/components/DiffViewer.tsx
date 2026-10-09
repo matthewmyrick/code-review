@@ -213,7 +213,12 @@ function HunkView({ path, language, hunk, comments, githubComments, reviewThread
 
         return (
           <div key={i}>
-            <div className={`group-line relative ${rowClass}`} onMouseEnter={extendDrag}>
+            <div
+              className={`group-line relative ${rowClass}`}
+              data-new-line={line.new_line ?? undefined}
+              data-old-line={line.old_line ?? undefined}
+              onMouseEnter={extendDrag}
+            >
               <button
                 type="button"
                 className="diff-add-btn"

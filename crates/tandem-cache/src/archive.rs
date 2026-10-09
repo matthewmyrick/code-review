@@ -38,12 +38,44 @@ pub struct PurgedRuns {
     pub repos: Vec<(String, u64)>,
 }
 
+/// Every table keyed by a single PR. Used both by the retention sweep
+/// and by `forget_pr`, so neither can drift and leave rows behind.
+const PR_SCOPED_DELETES: &[&str] = &[
+    "DELETE FROM pull_requests WHERE repo = ?1 AND number = ?2",
+    "DELETE FROM pr_details WHERE repo = ?1 AND number = ?2",
+    "DELETE FROM diffs WHERE repo = ?1 AND number = ?2",
+    "DELETE FROM local_comments WHERE repo = ?1 AND pr_number = ?2",
+    "DELETE FROM agent_runs WHERE repo = ?1 AND pr_number = ?2",
+    "DELETE FROM pr_summaries WHERE repo = ?1 AND number = ?2",
+    "DELETE FROM archived_prs WHERE repo = ?1 AND number = ?2",
+];
+
+/// Log paths of the runs belonging to one PR, so the caller can delete
+/// their directories off disk after the rows are gone.
+fn run_log_paths(conn: &rusqlite::Connection, repo: &str, number: u64) -> Result<Vec<String>> {
+    let mut stmt = conn
+        .prepare("SELECT json FROM agent_runs WHERE repo = ?1 AND pr_number = ?2")
+        .map_err(cache_err)?;
+    let rows = stmt
+        .query_map(params![repo, number], |row| row.get::<_, String>(0))
+        .map_err(cache_err)?;
+    let mut paths = Vec::new();
+    for row in rows {
+        let run: tandem_core::agent::AgentRun = serde_json::from_str(&row.map_err(cache_err)?)?;
+        paths.push(run.log_path);
+    }
+    Ok(paths)
+}
+
 pub trait ArchiveStore {
     /// Record a merged PR in the archive (no-op if already archived).
     fn archive_pr(&self, pr: &PullRequest, now: DateTime<Utc>) -> Result<()>;
     fn list_archived(&self, repo: &RepoRef) -> Result<Vec<ArchivedPr>>;
     /// Delete every trace of archive entries whose deadline has passed.
     fn purge_expired(&mut self, now: DateTime<Utc>) -> Result<PurgedRuns>;
+    /// Delete everything cached for one PR right now, without waiting
+    /// for the retention window — "I'm done with this one, forget it".
+    fn forget_pr(&mut self, repo: &RepoRef, number: u64) -> Result<PurgedRuns>;
 }
 
 impl ArchiveStore for Cache {
@@ -110,30 +142,12 @@ impl ArchiveStore for Cache {
 
         let mut log_paths = Vec::new();
         for (repo, number) in &expired {
-            let mut stmt = self
-                .conn
-                .prepare("SELECT json FROM agent_runs WHERE repo = ?1 AND pr_number = ?2")
-                .map_err(cache_err)?;
-            let rows = stmt
-                .query_map(params![repo, number], |row| row.get::<_, String>(0))
-                .map_err(cache_err)?;
-            for row in rows {
-                let run: tandem_core::agent::AgentRun =
-                    serde_json::from_str(&row.map_err(cache_err)?)?;
-                log_paths.push(run.log_path);
-            }
+            log_paths.extend(run_log_paths(&self.conn, repo, *number)?);
         }
 
         let tx = self.conn.transaction().map_err(cache_err)?;
         for (repo, number) in &expired {
-            for sql in [
-                "DELETE FROM pull_requests WHERE repo = ?1 AND number = ?2",
-                "DELETE FROM pr_details WHERE repo = ?1 AND number = ?2",
-                "DELETE FROM diffs WHERE repo = ?1 AND number = ?2",
-                "DELETE FROM local_comments WHERE repo = ?1 AND pr_number = ?2",
-                "DELETE FROM agent_runs WHERE repo = ?1 AND pr_number = ?2",
-                "DELETE FROM archived_prs WHERE repo = ?1 AND number = ?2",
-            ] {
+            for sql in PR_SCOPED_DELETES {
                 tx.execute(sql, params![repo, number]).map_err(cache_err)?;
             }
             tracing::info!(repo, number, "purged archived PR data");
@@ -142,6 +156,21 @@ impl ArchiveStore for Cache {
         Ok(PurgedRuns {
             log_paths,
             repos: expired,
+        })
+    }
+
+    fn forget_pr(&mut self, repo: &RepoRef, number: u64) -> Result<PurgedRuns> {
+        let slug = repo.slug();
+        let log_paths = run_log_paths(&self.conn, &slug, number)?;
+        let tx = self.conn.transaction().map_err(cache_err)?;
+        for sql in PR_SCOPED_DELETES {
+            tx.execute(sql, params![slug, number]).map_err(cache_err)?;
+        }
+        tx.commit().map_err(cache_err)?;
+        tracing::info!(repo = %slug, number, "forgot PR data");
+        Ok(PurgedRuns {
+            log_paths,
+            repos: vec![(slug, number)],
         })
     }
 }
