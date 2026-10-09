@@ -34,6 +34,7 @@ import { Button, EmptyState, IconButton, TandemMark } from "./components/ui";
 import { UpdateButton } from "./components/UpdateButton";
 import { useKeyNav } from "./state/keyNav";
 import { applyZoom, loadZoom } from "./state/persist";
+import { isWorking } from "./state/runBoard";
 import { useAppStore } from "./state/store";
 
 export default function App() {
@@ -173,6 +174,22 @@ export default function App() {
   );
 }
 
+/** How many agent runs are working on the open PR right now — the same
+ * pulsing count the header's agents button shows, so an in-flight run
+ * is just as visible from the PR's own right-hand pane. `inline` drops
+ * the corner-overlay positioning for use next to a tab label. */
+function WorkingBadge({ count, inline }: { count: number; inline?: boolean }) {
+  return (
+    <span
+      className={`flex size-3.5 animate-pulse items-center justify-center rounded-full bg-sky text-[8px] font-bold text-ground ${
+        inline ? "" : "absolute -right-1.5 -top-1.5"
+      }`}
+    >
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
 function ReviewLayout() {
   const bundle = useAppStore((s) => s.bundle);
   const selectedPr = useAppStore((s) => s.selectedPr);
@@ -185,7 +202,7 @@ function ReviewLayout() {
   const togglePinned = useAppStore((s) => s.togglePinned);
   const [tab, setTab] = useState<"comments" | "agents">("comments");
 
-  const agentRunning = runs.some((r) => r.status === "starting" || r.status === "running");
+  const agentsWorking = runs.filter(isWorking).length;
   const commentCount = bundle
     ? bundle.comments.length + bundle.detail.comments.length + bundle.detail.review_bodies.length
     : 0;
@@ -291,7 +308,7 @@ function ReviewLayout() {
             <>
               <span className="relative">
                 <Bot size={16} />
-                {agentRunning ? <span className="run-dot" /> : null}
+                {agentsWorking > 0 ? <WorkingBadge count={agentsWorking} /> : null}
               </span>
               {commentCount > 0 ? (
                 <span className="rounded-full bg-panel-2 px-1.5 py-0.5 text-[10px] font-semibold text-cream">
@@ -316,6 +333,9 @@ function ReviewLayout() {
                 >
                   {t === "agents" ? <Bot size={13} /> : <MessageSquare size={13} />}
                   {t === "agents" ? "agents" : `comments (${String(commentCount)})`}
+                  {t === "agents" && agentsWorking > 0 ? (
+                    <WorkingBadge count={agentsWorking} inline />
+                  ) : null}
                 </button>
               ))}
             </div>

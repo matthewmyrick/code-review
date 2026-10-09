@@ -3,6 +3,7 @@
 
 import { ipc } from "../lib/ipc";
 import type { AgentSpec } from "../lib/types";
+import { pushInfo } from "./toasts";
 import type { AppStore } from "./storeTypes";
 
 type Set = (partial: Partial<AppStore> | ((state: AppStore) => Partial<AppStore>)) => void;
@@ -79,6 +80,24 @@ export function agentActions(
       try {
         await ipc.mentionAgent(agentName, commentId);
         await reloadRuns();
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    // Start a review on a PR without navigating to it first (e.g. from
+    // the Review Status page). start_agent_review reads the diff from
+    // cache rather than syncing it itself, so this syncs the bundle
+    // first — the same step selectPr() already does for the normal
+    // open-a-PR flow.
+    quickStartReview: async (repo: string, number: number, agentName: string) => {
+      try {
+        await ipc.syncPrBundle(repo, number);
+        await ipc.startAgentReview(agentName, repo, number);
+        pushInfo(`Started ${agentName} review of ${repo}#${String(number)}`);
+        if (get().selectedRepo === repo && get().selectedPr === number) {
+          await reloadRuns();
+        }
       } catch (e) {
         fail(e);
       }

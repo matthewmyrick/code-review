@@ -7,16 +7,94 @@
 // in the review page, switching the repo picker to match (same
 // openPr() used everywhere else a PR row is clicked).
 
-import { Inbox, RefreshCw, User } from "lucide-react";
+import { Inbox, Loader2, Play, RefreshCw, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { ipc } from "../lib/ipc";
 import { sortPrs } from "../lib/sort";
 import type { PullRequest } from "../lib/types";
 import { useKeyNav } from "../state/keyNav";
+import { loadAgent, saveAgent } from "../state/persist";
+import { isWorking, useRunBoard } from "../state/runBoard";
 import { useAppStore } from "../state/store";
 import { InboxRow, ReadyGroupedRows, rowKey } from "./InboxList";
 import { Button, IconButton, Spinner } from "./ui";
+
+/** Per-row "start review" control: pick an agent and kick off a review
+ * right from this list, without opening the PR first. Shares the same
+ * last-picked-agent memory as the review page's own agent picker. */
+function QuickReviewControl({ pr }: { pr: PullRequest }) {
+  const specs = useAppStore((s) => s.agentSpecs);
+  const quickStartReview = useAppStore((s) => s.quickStartReview);
+  const openPr = useAppStore((s) => s.openPr);
+  const [agentName, setAgentName] = useState(loadAgent);
+  const [starting, setStarting] = useState(false);
+  const selected = agentName || (specs[0]?.name ?? "");
+  const slug = `${pr.repo.owner}/${pr.repo.name}`;
+  // Any in-flight run on this PR, wherever it was started from — the
+  // run board is account-wide and updated live by tandem://run-updated.
+  const activeRun = useRunBoard((s) =>
+    Object.values(s.runs).find(
+      (r) => r.repo_slug === slug && r.pr_number === pr.number && isWorking(r),
+    ),
+  );
+
+  // Checked before the no-agents bail-out: a run can still be in flight
+  // for this PR even if every agent spec was deleted since.
+  if (activeRun ?? starting) {
+    const label = (activeRun?.purpose ?? "pr review") === "pr review" ? "reviewing" : "working";
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          void openPr(slug, pr.number);
+        }}
+        title={`${activeRun?.agent_name ?? selected} is ${label} — open the PR to watch`}
+        className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-sky/40 bg-sky/10 px-2 text-[11px] text-sky transition-colors hover:bg-sky/20"
+      >
+        <Loader2 size={11} className="animate-spin" />
+        {label}…
+      </button>
+    );
+  }
+
+  if (specs.length === 0) return null;
+
+  return (
+    <div className="flex items-stretch overflow-hidden rounded-lg border border-edge bg-panel-2 transition-colors focus-within:border-sky hover:border-edge">
+      <select
+        value={selected}
+        onChange={(e) => {
+          setAgentName(e.target.value);
+          saveAgent(e.target.value);
+        }}
+        title="agent for this review"
+        className="h-7 max-w-28 cursor-pointer border-0 bg-transparent pl-2 pr-1 text-[11px] text-muted outline-none transition-colors hover:text-cream"
+      >
+        {specs.map((spec) => (
+          <option key={spec.name} value={spec.name}>
+            {spec.name}
+          </option>
+        ))}
+      </select>
+      <span className="w-px bg-edge" />
+      <button
+        type="button"
+        disabled={!selected}
+        title={`start a ${selected} review of #${String(pr.number)}`}
+        onClick={() => {
+          setStarting(true);
+          void quickStartReview(slug, pr.number, selected).finally(() => {
+            setStarting(false);
+          });
+        }}
+        className="inline-flex h-7 w-7 items-center justify-center text-sky transition-all hover:bg-sky/15 active:scale-95 disabled:opacity-40"
+      >
+        <Play size={12} />
+      </button>
+    </div>
+  );
+}
 
 /** Header nav button: jumps to the review-status page, badged with how
  * many reviews are pending across every tracked org. */
@@ -133,11 +211,11 @@ export function ReviewStatusView() {
           {tab === "requested" ? "nothing to review — all clear" : "nothing open"}
         </div>
       ) : tab === "authored" ? (
-        <ReadyGroupedRows prs={prs} />
+        <ReadyGroupedRows prs={prs} renderAside={(pr) => <QuickReviewControl pr={pr} />} />
       ) : (
         <div className="space-y-1.5">
           {prs.map((pr) => (
-            <InboxRow key={rowKey(pr)} pr={pr} />
+            <InboxRow key={rowKey(pr)} pr={pr} aside={<QuickReviewControl pr={pr} />} />
           ))}
         </div>
       )}
