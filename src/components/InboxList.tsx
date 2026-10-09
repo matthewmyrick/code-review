@@ -3,6 +3,7 @@
 // lazily per tab; clicking a row jumps to the PR (any repo).
 
 import { CheckCircle2, RefreshCw } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 
 import { relativeTime } from "../lib/format";
@@ -74,8 +75,16 @@ const GROUPS: { label: string; filter: (pr: PullRequest) => boolean }[] = [
 
 /** Three labeled groups, each keeping the chosen sort order, separated
  * by a divider: ready to merge, then open-not-approved, then drafts
- * last — so it's obvious at a glance which PRs are still drafts. */
-export function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
+ * last — so it's obvious at a glance which PRs are still drafts.
+ * `renderAside`, when given, adds a per-row control (e.g. quick-start-
+ * review) on the right of each row. */
+export function ReadyGroupedRows({
+  prs,
+  renderAside,
+}: {
+  prs: PullRequest[];
+  renderAside?: (pr: PullRequest) => ReactNode;
+}) {
   const groups = GROUPS.map((g) => ({ label: g.label, prs: prs.filter(g.filter) }));
   const visible = groups.filter((g) => g.prs.length > 0);
   // Publish the on-screen order (groups flattened) for j/k navigation.
@@ -94,7 +103,7 @@ export function ReadyGroupedRows({ prs }: { prs: PullRequest[] }) {
             {label} ({group.length})
           </div>
           {group.map((pr) => (
-            <InboxRow key={rowKey(pr)} pr={pr} />
+            <InboxRow key={rowKey(pr)} pr={pr} aside={renderAside?.(pr)} />
           ))}
         </div>
       ))}
@@ -106,7 +115,7 @@ export function rowKey(pr: PullRequest): string {
   return `${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`;
 }
 
-export function InboxRow({ pr }: { pr: PullRequest }) {
+export function InboxRow({ pr, aside }: { pr: PullRequest; aside?: ReactNode }) {
   const openPr = useAppStore((s) => s.openPr);
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectedPr = useAppStore((s) => s.selectedPr);
@@ -119,34 +128,37 @@ export function InboxRow({ pr }: { pr: PullRequest }) {
     if (isCursor) ref.current?.scrollIntoView({ block: "nearest" });
   }, [isCursor]);
   return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={() => {
-        void openPr(slug, pr.number);
-      }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className={`animate-fade-up relative block w-full overflow-hidden rounded-lg border px-3 py-2 text-left transition-all ${
-        active
-          ? "border-sky/40 bg-panel-2 shadow-sm"
-          : isCursor
-            ? "border-sky/60 bg-panel-2/60 ring-1 ring-sky/30"
-            : "border-transparent hover:border-edge hover:bg-panel-2/60"
-      }`}
-    >
-      <EdgeStripes pr={pr} />
-      {tipEl}
-      <div className="mb-0.5 flex items-center gap-2 text-[10px] text-muted">
-        <span className="truncate font-mono">{slug}</span>
-        <span className="ml-auto shrink-0">{relativeTime(pr.updated_at)}</span>
-      </div>
-      <div className="line-clamp-1 flex items-center gap-1.5 text-[12px] text-cream">
-        <span className="font-medium text-amber">#{pr.number}</span> {pr.title}
-        {pr.draft ? <Pill tone="muted">draft</Pill> : null}
-      </div>
-      <div className="mt-0.5 text-[10px] text-muted">{pr.author.login}</div>
-    </button>
+    <div className="flex items-center gap-1.5">
+      <button
+        ref={ref}
+        type="button"
+        onClick={() => {
+          void openPr(slug, pr.number);
+        }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        className={`animate-fade-up relative block min-w-0 flex-1 overflow-hidden rounded-lg border px-3 py-2 text-left transition-all ${
+          active
+            ? "border-sky/40 bg-panel-2 shadow-sm"
+            : isCursor
+              ? "border-sky/60 bg-panel-2/60 ring-1 ring-sky/30"
+              : "border-transparent hover:border-edge hover:bg-panel-2/60"
+        }`}
+      >
+        <EdgeStripes pr={pr} />
+        {tipEl}
+        <div className="mb-0.5 flex items-center gap-2 text-[10px] text-muted">
+          <span className="truncate font-mono">{slug}</span>
+          <span className="ml-auto shrink-0">{relativeTime(pr.updated_at)}</span>
+        </div>
+        <div className="line-clamp-1 flex items-center gap-1.5 text-[12px] text-cream">
+          <span className="font-medium text-amber">#{pr.number}</span> {pr.title}
+          {pr.draft ? <Pill tone="muted">draft</Pill> : null}
+        </div>
+        <div className="mt-0.5 text-[10px] text-muted">{pr.author.login}</div>
+      </button>
+      {aside ? <div className="shrink-0">{aside}</div> : null}
+    </div>
   );
 }
 

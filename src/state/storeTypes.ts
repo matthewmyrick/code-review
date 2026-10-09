@@ -92,5 +92,6 @@ export interface AppStore {
   saveAgentSpec: (spec: AgentSpec) => Promise<void>;
   deleteAgentSpec: (name: string) => Promise<void>;
   startAgentReview: (agentName: string) => Promise<void>;
+  quickStartReview: (repo: string, number: number, agentName: string) => Promise<void>;
   cancelRun: (runId: string) => Promise<void>;
 }
