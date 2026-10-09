@@ -40,6 +40,8 @@ export const ipc = {
   listPrCommits: (repo: string, number: number) =>
     invoke<PrCommit[]>("list_pr_commits", { repo, number }),
   forgetPr: (repo: string, number: number) => invoke<null>("forget_pr", { repo, number }),
+  markReadyForReview: (repo: string, number: number) =>
+    invoke<null>("mark_ready_for_review", { repo, number }),
 
   // local review comments
   listLocalComments: (repo: string, number: number) =>
