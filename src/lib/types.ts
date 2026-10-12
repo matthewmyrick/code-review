@@ -170,6 +170,15 @@ export interface NewLocalComment {
 
 // ---- agents ---------------------------------------------------------------
 
+/** An MCP server the local `claude` CLI knows about. */
+export interface McpServer {
+  name: string;
+  /** Prefix its tools carry, e.g. "mcp__linear". */
+  tool_prefix: string;
+  detail: string;
+  connected: boolean;
+}
+
 export type RunnerKind =
   | { kind: "claude_headless" }
   | { kind: "codex_headless" }

@@ -6,7 +6,7 @@ mod settings;
 mod state;
 
 use commands::{
-    agents, conflicts, github_write, merge, prs, review, settings_cmd, text_tools, threads,
+    agents, conflicts, github_write, mcp, merge, prs, review, settings_cmd, text_tools, threads,
     updates, workspace,
 };
 use state::AppState;
@@ -74,6 +74,7 @@ pub fn run() {
             review::update_comment_body,
             review::delete_local_comment,
             review::delete_pr_summary,
+            mcp::list_mcp_servers,
             agents::list_agent_specs,
             agents::save_agent_spec,
             agents::delete_agent_spec,
