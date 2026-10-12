@@ -73,6 +73,12 @@ pub struct LocalComment {
     pub status: CommentStatus,
     /// Agent run that produced this comment, if any.
     pub run_id: Option<String>,
+    /// What kind of remark this is — "coding-standards" when it cites
+    /// the repo's own conventions, "correctness", "tests", and so on.
+    /// Free-form on purpose: an agent knows its reasons better than a
+    /// fixed enum would.
+    #[serde(default)]
+    pub tag: Option<String>,
     /// Root comment this replies to; None for top-level comments.
     #[serde(default)]
     pub parent_id: Option<String>,
@@ -107,6 +113,8 @@ pub struct NewLocalComment {
     pub author_name: String,
     pub severity: CommentSeverity,
     pub run_id: Option<String>,
+    #[serde(default)]
+    pub tag: Option<String>,
     #[serde(default)]
     pub parent_id: Option<String>,
     #[serde(default)]

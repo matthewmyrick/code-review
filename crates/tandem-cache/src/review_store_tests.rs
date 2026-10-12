@@ -22,6 +22,7 @@ fn new_comment(repo: &RepoRef) -> NewLocalComment {
         author_name: "claude".into(),
         severity: CommentSeverity::Suggestion,
         run_id: Some("run-1".into()),
+        tag: Some("coding-standards".into()),
         parent_id: None,
         end_line: None,
         suggestion: None,

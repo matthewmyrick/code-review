@@ -102,6 +102,7 @@ fn summary_thread_root(
         author_name: summary.agent_name.clone(),
         severity: CommentSeverity::Info,
         run_id: Some(summary.run_id.clone()),
+        tag: None,
         parent_id: None,
         github_comment_id: None,
     })?;
@@ -133,6 +134,7 @@ fn add_reply(
         author_name: "you".into(),
         severity: CommentSeverity::Info,
         run_id: None,
+        tag: None,
         parent_id: Some(root.id.clone()),
         github_comment_id: None,
     })?;
@@ -236,7 +238,7 @@ async fn launch_thread_run(
         pr,
         "thread reply",
         target,
-        move |run_id, comments_file| {
+        move |run_id, comments_file, _workdir| {
             let ctx = ReplyContext {
                 run_id: run_id.to_owned(),
                 comments_file: comments_file.to_owned(),

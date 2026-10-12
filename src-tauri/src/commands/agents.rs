@@ -3,6 +3,7 @@
 
 use chrono::Utc;
 use tandem_agents::context::{build_prompt, ReviewContext};
+use tandem_agents::conventions;
 use tandem_agents::runner::{LocalProcessRunner, RunRequest};
 use tandem_cache::ReviewStore;
 use tandem_core::agent::{AgentRun, AgentSpec, RunEvent, RunStatus};
@@ -188,13 +189,19 @@ pub async fn start_agent_review(
         pr,
         "pr review",
         None,
-        move |run_id, comments_file| {
+        move |run_id, comments_file, workdir| {
+            // The checkout is where the repo states its own rules; with
+            // no checkout the agent reviews on general principles.
+            let conventions = workdir
+                .map(|dir| conventions::block(&conventions::collect(dir)))
+                .unwrap_or_default();
             let ctx = ReviewContext {
                 run_id: run_id.to_owned(),
                 comments_file: comments_file.to_owned(),
                 diff_text: raw_diff,
                 wants_summary,
                 existing_summary,
+                conventions,
             };
             build_prompt(&ctx, &pr_for_prompt, &instructions)
         },
@@ -214,7 +221,7 @@ pub(crate) async fn launch_run(
     pr: tandem_core::github::PullRequest,
     purpose: &str,
     target_comment_id: Option<String>,
-    build_prompt_fn: impl FnOnce(&str, &str) -> String,
+    build_prompt_fn: impl FnOnce(&str, &str, Option<&std::path::Path>) -> String,
 ) -> Result<String, TandemError> {
     let run_id = uuid::Uuid::new_v4().to_string();
     let run_dir = state.dirs.runs_dir.join(&run_id);
@@ -222,12 +229,12 @@ pub(crate) async fn launch_run(
         .join("comments.jsonl")
         .to_string_lossy()
         .into_owned();
-    let prompt = build_prompt_fn(&run_id, &comments_file);
-
     // Best-effort: give the run a real checkout to work from (git log,
     // file tree) instead of just the diff text in its prompt. Never
     // blocks the run — no `gh`, no network, private-repo auth trouble,
-    // etc. all just fall back to today's diff-only behavior.
+    // etc. all just fall back to today's diff-only behavior. Done
+    // before the prompt because the prompt reads the repo's own
+    // convention files out of it.
     let workdir = match crate::commands::workspace::ensure_pr_checkout(state, &repo, pr.number)
         .await
     {
@@ -237,6 +244,8 @@ pub(crate) async fn launch_run(
             None
         }
     };
+
+    let prompt = build_prompt_fn(&run_id, &comments_file, workdir.as_deref());
 
     let request = RunRequest {
         spec: spec.clone(),

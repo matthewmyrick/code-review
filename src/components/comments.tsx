@@ -146,6 +146,7 @@ function ReplyComposer({ root, onDone }: { root: LocalComment; onDone: () => voi
       end_line: root.end_line,
       body: text,
       suggestion: null,
+      tag: null,
       author_kind: "human",
       author_name: "you",
       severity: "info",
@@ -227,6 +228,7 @@ export function CommentCard(props: {
         {!props.isReply ? (
           <Pill tone={severityTone(comment.severity)}>{comment.severity}</Pill>
         ) : null}
+        {comment.tag !== null && !props.isReply ? <Pill tone="moss">{comment.tag}</Pill> : null}
         {comment.status !== "open" && !props.isReply ? (
           <Pill tone="muted">{comment.status}</Pill>
         ) : null}

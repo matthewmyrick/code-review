@@ -20,6 +20,9 @@ pub struct AgentComment {
     pub line: u64,
     #[serde(default = "default_severity")]
     pub severity: String,
+    /// What kind of remark this is, e.g. "coding-standards".
+    #[serde(default)]
+    pub tag: Option<String>,
     pub body: String,
     /// Set when the comment is a reply within an existing thread.
     #[serde(default)]
@@ -97,6 +100,7 @@ impl AgentComment {
             "side": self.side,
             "line": self.line,
             "severity": self.severity,
+            "tag": self.tag,
             "body": self.body,
             "parent_id": self.parent_id,
             "end_line": self.end_line,
