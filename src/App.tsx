@@ -4,10 +4,12 @@
 
 import {
   ArrowLeft,
+  ArrowRight,
   Bot,
   Keyboard,
   MessageSquare,
   Moon,
+  Search,
   Settings,
   Sun,
   ZoomIn,
@@ -21,6 +23,7 @@ import { AgentsDashboard, AgentsMenuButton } from "./components/AgentsDashboard"
 import { CommentsPanel } from "./components/CommentsPanel";
 import { DiffViewer } from "./components/DiffViewer";
 import { FileTreePanel } from "./components/FileTree";
+import { PrSearchPane, usePrSearch } from "./components/PrSearchPane";
 import { NotificationsBell } from "./components/NotificationsBell";
 import { PrHeader } from "./components/PrHeader";
 import { ReviewStatusMenuButton, ReviewStatusView } from "./components/ReviewStatusView";
@@ -35,7 +38,7 @@ import { useKeyNav } from "./state/keyNav";
 import { applyZoom, loadZoom } from "./state/persist";
 import { isWorking } from "./state/runBoard";
 import { useAppStore } from "./state/store";
-import { goBack, useCanGoBack } from "./state/navHistory";
+import { goBack, goForward, useCanGoBack, useCanGoForward } from "./state/navHistory";
 
 export default function App() {
   const init = useAppStore((s) => s.init);
@@ -97,10 +100,12 @@ export default function App() {
           <span className="text-sm font-semibold tracking-wide text-cream">Tandem</span>
         </button>
         <BackButton />
+        <ForwardButton />
         <div className="ml-auto flex items-center gap-1.5">
           <UpdateButton />
           <ReviewStatusMenuButton />
           <AgentsMenuButton />
+          <PrSearchButton />
           <NotificationsBell />
           <IconButton onClick={toggleTheme} title="toggle light/dark theme">
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
@@ -161,6 +166,7 @@ export default function App() {
 
       <ToastHost />
       <ShortcutManager />
+      <PrSearchPane />
       <div className="flex min-h-0 flex-1">
         {view === "settings" ? (
           <main className="animate-fade-up flex-1 overflow-y-scroll [scrollbar-gutter:stable]">
@@ -349,6 +355,39 @@ function BackButton() {
       disabled={!canGoBack}
     >
       <ArrowLeft size={15} />
+    </IconButton>
+  );
+}
+
+/** Retrace a step you took back. */
+function ForwardButton() {
+  const canGoForward = useCanGoForward();
+  return (
+    <IconButton
+      onClick={() => {
+        void goForward();
+      }}
+      title={canGoForward ? "forward (\u2318])" : "nowhere to go forward to"}
+      disabled={!canGoForward}
+    >
+      <ArrowRight size={15} />
+    </IconButton>
+  );
+}
+
+/** Open the find-a-PR pane from anywhere. */
+function PrSearchButton() {
+  const open = usePrSearch((s) => s.open);
+  const setOpen = usePrSearch((s) => s.setOpen);
+  return (
+    <IconButton
+      onClick={() => {
+        setOpen(!open);
+      }}
+      title="search pull requests (\u2318F)"
+      active={open}
+    >
+      <Search size={15} />
     </IconButton>
   );
 }

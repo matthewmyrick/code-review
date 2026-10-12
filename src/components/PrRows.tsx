@@ -15,7 +15,7 @@ import { useIsCursor, useKeyNav } from "../state/keyNav";
 import { isWorking, useRunBoard } from "../state/runBoard";
 import { useAppStore } from "../state/store";
 import { PrStateBadge } from "./PrStateBadge";
-import { Spinner } from "./ui";
+import { Pill, Spinner } from "./ui";
 
 /** Reviews already finished on this PR, so a list makes it obvious
  * whether an agent has looked at it before. Counts completed `pr
@@ -81,7 +81,16 @@ export function rowKey(pr: PullRequest): string {
   return `${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`;
 }
 
-export function InboxRow({ pr, aside }: { pr: PullRequest; aside?: ReactNode }) {
+export function InboxRow({
+  pr,
+  aside,
+  note,
+}: {
+  pr: PullRequest;
+  aside?: ReactNode;
+  /** Short reason this row is in the list, when it isn't obvious. */
+  note?: string;
+}) {
   const openPr = useAppStore((s) => s.openPr);
   const selectedRepo = useAppStore((s) => s.selectedRepo);
   const selectedPr = useAppStore((s) => s.selectedPr);
@@ -123,6 +132,7 @@ export function InboxRow({ pr, aside }: { pr: PullRequest; aside?: ReactNode }) 
           {/* Badge before the title so a long title can't push the one
               thing that says "this isn't ready" off the row. */}
           <PrStateBadge pr={pr} />
+          {note === undefined ? null : <Pill tone="sky">{note}</Pill>}
           <span className="truncate">{pr.title}</span>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted">

@@ -6,7 +6,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use tandem_cache::{ArchiveStore, Cache, ReviewStore};
+use tandem_cache::{ArchiveStore, Cache, ReviewStore, ReviewedPrs};
 use tandem_core::diff::FileDiff;
 use tandem_core::github::{ArchivedPr, PrDetail, PrState, PullRequest};
 use tandem_core::review::{LocalComment, PrSummary};
@@ -324,4 +324,50 @@ pub async fn list_pr_commits(
     let repo = parse_repo(&repo)?;
     let client = state.github_client().await?;
     client.pr_commits(&repo, number).await
+}
+
+/// How many reviewed PRs we'll follow. Past a dozen this stops being a
+/// short list you act on and starts being a second inbox.
+const REVIEWED_LIMIT: u32 = 12;
+
+/// PRs you've run an agent review on, still open, that GitHub isn't
+/// already asking you to review. They ride along in the requested tab
+/// until they merge, so following a PR you looked at doesn't mean
+/// adding yourself as a reviewer.
+#[tauri::command]
+pub async fn list_reviewed_prs(
+    state: State<'_, AppState>,
+) -> Result<Vec<PullRequest>, TandemError> {
+    let candidates = {
+        let cache = state.cache.lock().await;
+        let mut out = Vec::new();
+        for (slug, number) in cache.list_reviewed_prs(REVIEWED_LIMIT)? {
+            let Ok(repo) = parse_repo(&slug) else {
+                continue;
+            };
+            // A PR already known to be finished needs no round trip —
+            // and must not come back either way.
+            let cached = cache.get_pr_detail(&repo, number)?;
+            if cached.is_some_and(|d| d.pull_request.state != PrState::Open) {
+                continue;
+            }
+            out.push((repo, number));
+        }
+        out
+    };
+
+    let client = state.github_client().await?;
+    let mut prs = Vec::new();
+    for (repo, number) in candidates {
+        // One at a time on purpose: this is a dozen calls at most, and
+        // the requested tab already fans out hard enough.
+        match client.pull_request(&repo, number).await {
+            Ok(pr) if pr.state == PrState::Open => prs.push(pr),
+            Ok(_) => {}
+            Err(e) => {
+                tracing::warn!(repo = %repo.slug(), number, error = %e, "reviewed PR refresh failed")
+            }
+        }
+    }
+    Ok(prs)
 }

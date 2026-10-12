@@ -94,6 +94,7 @@ export const useAppStore = create<AppStore>((set, get) => {
     allRepoProgress: null,
     orgRepos: [],
     reviewRequests: [],
+    reviewing: [],
     reviewRequestsSeeded: false,
 
     init: async () => {

@@ -33,6 +33,7 @@ export const ipc = {
   syncPrBundle: (repo: string, number: number) =>
     invoke<PrBundle>("sync_pr_bundle", { repo, number }),
   getLastSynced: (key: string) => invoke<string | null>("get_last_synced", { key }),
+  listReviewedPrs: () => invoke<PullRequest[]>("list_reviewed_prs"),
   listMyPrs: (scope: string, repo: string | null) =>
     invoke<PullRequest[]>("list_my_prs", { scope, repo }),
   listFailingChecks: (repo: string, number: number) =>

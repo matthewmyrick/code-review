@@ -67,6 +67,7 @@ pub fn run() {
             prs::list_failing_checks,
             prs::list_pr_commits,
             prs::forget_pr,
+            prs::list_reviewed_prs,
             review::list_local_comments,
             review::add_local_comment,
             review::set_comment_status,

@@ -7,6 +7,7 @@ import { Check, ChevronDown, GitPullRequest, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fuzzyScore } from "../lib/fuzzy";
+import { parsePrUrl } from "../lib/prUrl";
 import { sortPrs } from "../lib/sort";
 import { useKeyNav } from "../state/keyNav";
 import { useAppStore } from "../state/store";
@@ -26,6 +27,7 @@ export function FindPrTab() {
   const loadMorePrs = useAppStore((s) => s.loadMorePrs);
   const syncing = useAppStore((s) => s.syncing);
   const allRepoProgress = useAppStore((s) => s.allRepoProgress);
+  const openPr = useAppStore((s) => s.openPr);
 
   const sorted = useMemo(() => sortPrs(prs, prSort), [prs, prSort]);
   const loading = selectedRepo !== null && (syncing[`prs:${selectedRepo}`] ?? false);
@@ -45,6 +47,9 @@ export function FindPrTab() {
         selected={selectedRepo}
         onPick={(slug) => {
           void selectRepo(slug);
+        }}
+        onOpenPr={(slug, number) => {
+          void openPr(slug, number);
         }}
       />
 
@@ -96,10 +101,13 @@ function RepoPicker({
   repos,
   selected,
   onPick,
+  onOpenPr,
 }: {
   repos: string[];
   selected: string | null;
   onPick: (slug: string) => void;
+  /** A pasted PR URL skips the repo entirely and opens that PR. */
+  onOpenPr: (slug: string, number: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -131,6 +139,9 @@ function RepoPicker({
       .map((x) => x.slug);
   }, [repos, query]);
 
+  // Pasting a PR link is the fastest way in — don't make someone pick
+  // the repo and then hunt for a number they already have.
+  const pasted = parsePrUrl(query);
   const label = selected === ALL ? "all repositories" : (selected ?? "select a repository…");
 
   return (
@@ -163,10 +174,32 @@ function RepoPicker({
             onChange={(e) => {
               setQuery(e.target.value);
             }}
-            placeholder="filter repos…"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && pasted) {
+                onOpenPr(pasted.slug, pasted.number);
+                setOpen(false);
+              }
+            }}
+            placeholder="filter repos, or paste a PR URL…"
             className="w-full border-b border-edge bg-transparent px-3 py-2 text-xs text-cream outline-none placeholder:text-muted"
           />
           <div className="max-h-72 overflow-y-auto">
+            {pasted ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenPr(pasted.slug, pasted.number);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 border-b border-edge/60 bg-sky/10 px-3 py-2 text-left text-xs text-sky transition-colors hover:bg-sky/20"
+              >
+                <GitPullRequest size={12} className="shrink-0" />
+                <span className="truncate font-mono">
+                  open {pasted.slug}#{pasted.number}
+                </span>
+                <span className="ml-auto shrink-0 text-[10px] text-muted">↵</span>
+              </button>
+            ) : null}
             <PickerRow
               label="all repositories"
               active={selected === ALL}

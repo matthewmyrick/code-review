@@ -50,6 +50,9 @@ export interface AppStore {
    * Refreshed on init and on a standing timer; feeds the "review
    * status" page and its new-arrival toasts. */
   reviewRequests: PullRequest[];
+  /** Open PRs you've run a review on that nobody asked you to review —
+   * they ride along in the requested tab until they merge. */
+  reviewing: PullRequest[];
   /** False until the first `refreshReviewRequests` completes — guards
    * against toasting for every already-pending request on startup. */
   reviewRequestsSeeded: boolean;
@@ -72,6 +75,7 @@ export interface AppStore {
   selectRepo: (slug: string, presetPr?: number) => Promise<void>;
   loadOrgRepos: () => Promise<void>;
   refreshReviewRequests: () => Promise<void>;
+  loadReviewing: () => Promise<void>;
   selectPr: (number: number) => Promise<void>;
   refreshPrs: () => Promise<void>;
   refreshBundle: () => Promise<void>;
