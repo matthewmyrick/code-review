@@ -69,6 +69,11 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
             <span className="shrink-0 font-normal text-muted">#{pr.number}</span>
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+            {/* Which repo this is — obvious from the list you came
+                through, not at all obvious once you're reading a diff. */}
+            <span className="font-mono text-cream">
+              {pr.repo.owner}/{pr.repo.name}
+            </span>
             <span>{pr.author.login}</span>
             <span className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[11px]">
               {pr.head_ref} → {pr.base_ref}

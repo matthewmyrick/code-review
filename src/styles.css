@@ -296,3 +296,14 @@ body {
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ---- find on screen (⌘F) ---------------------------------------------- */
+
+::highlight(tandem-find) {
+  background: color-mix(in srgb, var(--color-amber) 35%, transparent);
+  color: var(--color-cream);
+}
+::highlight(tandem-find-current) {
+  background: var(--color-amber);
+  color: var(--color-ground);
+}

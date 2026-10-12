@@ -6,10 +6,10 @@
 // view, switching the repo to match.
 
 import { AtSign, Inbox, RefreshCw, Search, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { sortPrs } from "../lib/sort";
-import type { InboxScope } from "../lib/types";
+import type { InboxScope, PullRequest } from "../lib/types";
 import type { ReviewTab } from "../state/keyNav";
 import { useKeyNav } from "../state/keyNav";
 import { useAppStore } from "../state/store";
@@ -62,6 +62,8 @@ export function ReviewStatusView() {
   const reviewRequestsSeeded = useAppStore((s) => s.reviewRequestsSeeded);
   const prSort = useAppStore((s) => s.prSort);
   const refreshReviewRequests = useAppStore((s) => s.refreshReviewRequests);
+  const reviewing = useAppStore((s) => s.reviewing);
+  const loadReviewing = useAppStore((s) => s.loadReviewing);
   const loadInbox = useAppStore((s) => s.loadInbox);
   // "mine"/"mentions" live in the store's account-wide inbox map so the
   // `r` shortcut can refresh whichever one is on screen.
@@ -69,8 +71,8 @@ export function ReviewStatusView() {
   const lazyList = useAppStore((s) => (lazyScope === null ? undefined : s.inbox[lazyScope]));
 
   useEffect(() => {
-    void refreshReviewRequests();
-  }, [refreshReviewRequests]);
+    void refreshReviewRequests().then(loadReviewing);
+  }, [refreshReviewRequests, loadReviewing]);
 
   useEffect(() => {
     if (lazyScope !== null) void loadInbox(lazyScope);
@@ -79,7 +81,7 @@ export function ReviewStatusView() {
   const [refreshing, setRefreshing] = useState(false);
   const counts = useAppStore((s) => s.inbox);
   const tabCount = (id: ReviewTab): number | undefined => {
-    if (id === "requested") return reviewRequests.length;
+    if (id === "requested") return reviewRequests.length + reviewing.length;
     if (id === "authored" || id === "mentions") return counts[id]?.length;
     return undefined;
   };
@@ -89,12 +91,18 @@ export function ReviewStatusView() {
 
   // "mine" reorders into ready/open/draft groups and publishes its own
   // keyNav list; "find" publishes its own too.
+  const navPrs = useMemo(
+    () => (tab === "requested" ? [...prs, ...reviewing] : prs),
+    [tab, prs, reviewing],
+  );
   useEffect(() => {
     if (tab !== "requested" && tab !== "mentions") return;
     useKeyNav
       .getState()
-      .setList(prs.map((pr) => ({ slug: `${pr.repo.owner}/${pr.repo.name}`, number: pr.number })));
-  }, [tab, prs]);
+      .setList(
+        navPrs.map((pr) => ({ slug: `${pr.repo.owner}/${pr.repo.name}`, number: pr.number })),
+      );
+  }, [tab, navPrs]);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-3 p-6">
@@ -111,7 +119,8 @@ export function ReviewStatusView() {
                 setRefreshing(false);
               };
               setRefreshing(true);
-              if (tab === "requested") void refreshReviewRequests().finally(done);
+              if (tab === "requested")
+                void refreshReviewRequests().then(loadReviewing).finally(done);
               else if (lazyScope !== null) void loadInbox(lazyScope, true).finally(done);
               else done();
             }}
@@ -145,7 +154,7 @@ export function ReviewStatusView() {
         <div className="px-3 py-8">
           <Spinner label="searching github…" />
         </div>
-      ) : prs.length === 0 ? (
+      ) : prs.length === 0 && !(tab === "requested" && reviewing.length > 0) ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted">
           <Inbox size={28} strokeWidth={1.5} />
           {tab === "requested" ? "nothing to review — all clear" : "nothing here"}
@@ -160,7 +169,30 @@ export function ReviewStatusView() {
         </div>
       )}
 
+      {tab === "requested" && reviewing.length > 0 ? <ReviewingRows prs={reviewing} /> : null}
+
       {tab === "requested" && !loading ? <ApprovedFooter /> : null}
+    </div>
+  );
+}
+
+/** PRs you reviewed without being asked — kept in sight until they
+ * merge, below the ones GitHub actually assigned you. */
+function ReviewingRows({ prs }: { prs: PullRequest[] }) {
+  return (
+    <div className="space-y-1">
+      <div className="mx-3 my-2 border-t border-edge/70" />
+      <div className="px-1 text-[10px] font-medium uppercase tracking-wide text-muted">
+        reviewing · not requested ({prs.length})
+      </div>
+      {prs.map((pr) => (
+        <InboxRow
+          key={rowKey(pr)}
+          pr={pr}
+          note="reviewing"
+          aside={<QuickReviewControl pr={pr} />}
+        />
+      ))}
     </div>
   );
 }

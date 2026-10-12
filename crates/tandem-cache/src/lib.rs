@@ -12,9 +12,11 @@ mod archive;
 mod review_store;
 #[cfg(test)]
 mod review_store_tests;
+mod reviewed;
 mod schema;
 mod store;
 
 pub use archive::{purge_deadline, ArchiveStore, PurgedRuns};
 pub use review_store::ReviewStore;
+pub use reviewed::ReviewedPrs;
 pub use store::Cache;
