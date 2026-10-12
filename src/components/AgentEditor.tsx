@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import type { AgentSpec, RunnerKind } from "../lib/types";
 import { useAppStore } from "../state/store";
+import { McpServerPicker } from "./McpServers";
 import { Button } from "./ui";
 
 const inputClass =
@@ -331,6 +332,15 @@ function SpecForm(props: {
           />
         </label>
       </div>
+
+      {spec.runner.kind === "claude_headless" ? (
+        <McpServerPicker
+          allowed={spec.allowed_tools}
+          onChange={(allowed_tools) => {
+            patch({ allowed_tools });
+          }}
+        />
+      ) : null}
 
       <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-edge/60 bg-panel-2/40 px-3 py-2">
         <input

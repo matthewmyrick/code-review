@@ -13,6 +13,7 @@ import type {
   RepoSummary,
   CommentStatus,
   LocalComment,
+  McpServer,
   NewLocalComment,
   PrBundle,
   PrCommit,
@@ -61,6 +62,7 @@ export const ipc = {
     invoke<null>("delete_pr_summary", { repo, number }),
 
   // agents
+  listMcpServers: () => invoke<McpServer[]>("list_mcp_servers"),
   listAgentSpecs: () => invoke<AgentSpec[]>("list_agent_specs"),
   saveAgentSpec: (spec: AgentSpec) => invoke<null>("save_agent_spec", { spec }),
   deleteAgentSpec: (name: string) => invoke<null>("delete_agent_spec", { name }),

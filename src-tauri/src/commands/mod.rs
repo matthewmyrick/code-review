@@ -4,6 +4,7 @@ mod agent_pump;
 pub mod agents;
 pub mod conflicts;
 pub mod github_write;
+pub mod mcp;
 pub mod merge;
 pub mod prs;
 pub mod review;
