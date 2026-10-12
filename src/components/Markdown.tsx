@@ -10,7 +10,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
-import { parseCodeAnchor, scrollToCodeAnchor } from "../lib/codeAnchor";
+import { followLink, resolveLink } from "../lib/codeAnchor";
 import { useAppStore } from "../state/store";
 
 // Sanitize strips unknown URL schemes, so `tandem:` has to be allowed
@@ -23,22 +23,32 @@ const SCHEMA = {
   },
 };
 
-/** Renders `tandem://path#L42` as an in-app jump; everything else is a
- * normal link. */
+/** Every link in agent prose goes through here. A plain <a> would
+ * navigate the webview and unload the app, so nothing is ever followed
+ * natively: repo paths jump into the diff (or GitHub when the file
+ * isn't part of this PR), and web links open in the browser. */
 function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
-  const anchor = parseCodeAnchor(href);
-  if (anchor === null) return <a href={href}>{children}</a>;
+  const pr = useAppStore((s) => s.bundle?.detail.pull_request ?? null);
+  const target = resolveLink(href);
+  if (target.kind === "none") return <span>{children}</span>;
+
+  const title =
+    target.kind === "external"
+      ? target.url
+      : `${target.anchor.path}${target.anchor.line === null ? "" : `:${String(target.anchor.line)}`} — in the diff, or on ${pr?.base_ref ?? "the base branch"}`;
+
   return (
-    <button
-      type="button"
-      title={`jump to ${anchor.path}${anchor.line === null ? "" : `:${String(anchor.line)}`}`}
-      onClick={() => {
-        scrollToCodeAnchor(anchor);
+    <a
+      href={href}
+      title={title}
+      onClick={(e) => {
+        e.preventDefault();
+        followLink(target, pr?.repo ?? null, pr?.base_ref ?? "HEAD");
       }}
-      className="text-sky underline underline-offset-2 hover:text-cream"
+      className="cursor-pointer text-sky underline underline-offset-2 hover:text-cream"
     >
       {children}
-    </button>
+    </a>
   );
 }
 

@@ -137,6 +137,9 @@ export interface LocalComment {
   author_kind: CommentAuthorKind;
   author_name: string;
   severity: CommentSeverity;
+  /** What kind of remark it is, e.g. "coding-standards" — free-form,
+   * set by the agent; null when it didn't say. */
+  tag: string | null;
   status: CommentStatus;
   run_id: string | null;
   parent_id: string | null;
@@ -159,6 +162,7 @@ export interface NewLocalComment {
   author_kind: CommentAuthorKind;
   author_name: string;
   severity: CommentSeverity;
+  tag: string | null;
   run_id: string | null;
   parent_id: string | null;
   github_comment_id: number | null;

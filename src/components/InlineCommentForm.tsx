@@ -109,6 +109,7 @@ export function InlineCommentForm(props: {
       end_line: endLine > props.line ? endLine : null,
       body: text,
       suggestion: null,
+      tag: null,
       author_kind: "human",
       author_name: "you",
       severity,

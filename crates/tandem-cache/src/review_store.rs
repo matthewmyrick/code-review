@@ -60,6 +60,7 @@ impl ReviewStore for Cache {
             severity: new.severity,
             status: CommentStatus::Open,
             run_id: new.run_id,
+            tag: new.tag,
             parent_id: new.parent_id,
             github_comment_id: new.github_comment_id,
             posted_github_id: None,

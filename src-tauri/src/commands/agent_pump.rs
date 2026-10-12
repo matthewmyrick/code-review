@@ -149,6 +149,7 @@ async fn handle_comment(
         author_name: spec.name.clone(),
         severity: parse_severity(&parsed.severity),
         run_id: Some(run.run_id.clone()),
+        tag: parsed.tag.clone(),
         parent_id: parsed.parent_id.clone(),
         github_comment_id: None,
     };

@@ -7,6 +7,8 @@
 
 use tandem_core::github::PullRequest;
 
+use crate::summary::summary_contract;
+
 /// Everything the agent needs to know about where it is running.
 #[derive(Debug, Clone)]
 pub struct ReviewContext {
@@ -18,6 +20,9 @@ pub struct ReviewContext {
     /// The summary already on this PR, if any — a re-review revises it
     /// instead of starting from scratch.
     pub existing_summary: Option<String>,
+    /// The repo's own conventions, rendered by [`crate::conventions`];
+    /// empty when the checkout states none.
+    pub conventions: String,
 }
 
 /// Assemble the full prompt fed to the runner on stdin:
@@ -41,7 +46,13 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
          {{\"type\":\"tandem_comment\",\"path\":\"<file>\",\"side\":\"new|old\",\
          \"line\":<n>,\"end_line\":<n|null>,\
          \"severity\":\"info|suggestion|issue|blocker\",\
+         \"tag\":\"<kind>\",\
          \"body\":\"<markdown>\",\"suggestion\":<null or \"replacement code\">}}\n\n\
+         `tag` says what kind of remark it is, in one or two words: \
+         \"coding-standards\" when it holds the code to a rule this \
+         repo states, else something plain like \"correctness\", \
+         \"tests\", \"performance\", \"security\", \"naming\" or \
+         \"docs\". Omit it when nothing fits.\n\n\
          Rules: `line` is the line number in the new file (or old file \
          when side=old) and must be a line that appears in the diff below. \
          When you can propose an exact fix, set `suggestion` to the \
@@ -58,6 +69,7 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
          comments ARE the review — do not write a summary paragraph \
          instead of comments.\n\n\
          {summary_contract}\
+         {conventions}\
          ## Review instructions\n\
          {instructions}\n\n\
          ## Pull request description\n\
@@ -73,48 +85,11 @@ pub fn build_prompt(ctx: &ReviewContext, pr: &PullRequest, instructions: &str) -
         sha = pr.head_sha,
         comments_file = ctx.comments_file,
         summary_contract = summary_contract(ctx),
+        conventions = ctx.conventions,
         instructions = instructions,
         body = pr.body,
         diff = ctx.diff_text,
     )
-}
-
-/// The summary half of the contract, omitted entirely when the agent
-/// has summaries turned off. On a re-review the current text is handed
-/// over so the agent revises it — keeping what still holds, dropping
-/// what the new commits fixed — rather than writing a fresh one that
-/// loses earlier context.
-fn summary_contract(ctx: &ReviewContext) -> String {
-    if !ctx.wants_summary {
-        return String::new();
-    }
-    let mut out = String::from(
-        "## How to write the PR summary\n\
-         As well as the comments, emit exactly ONE summary line — same \
-         rules (own line, no code fences, in your final response text or \
-         the comments file):\n\n\
-         {\"type\":\"tandem_summary\",\"body\":\"<markdown>\"}\n\n\
-         It is the reviewer's overview of the whole PR: what it does, how \
-         sound it looks, and the themes behind your comments — not a \
-         restatement of each one. Keep it short: a few sentences or a \
-         handful of bullets. Link to the code you are discussing as \
-         [src/x.rs:42](tandem://src/x.rs#L42) — the reviewer clicks it \
-         and lands on that line of the diff, so prefer a link over \
-         describing where something lives.\n\n",
-    );
-    if let Some(existing) = &ctx.existing_summary {
-        out.push_str(
-            "### The summary already on this PR\n\
-             A previous run wrote the text below. Revise it rather than \
-             replacing it wholesale: keep what still holds, update what \
-             the new commits changed, drop what is now fixed, and add \
-             what you found this time. Emit the full revised text as your \
-             summary line.\n\n",
-        );
-        out.push_str(existing);
-        out.push_str("\n\n");
-    }
-    out
 }
 
 /// One message of a review-comment thread, oldest first.
@@ -314,6 +289,7 @@ mod tests {
             diff_text: "+ hello".into(),
             wants_summary: true,
             existing_summary: None,
+            conventions: String::new(),
         };
         let prompt = build_prompt(&ctx, &pr, "focus on correctness");
         assert!(prompt.contains("tandem_comment"));
@@ -322,6 +298,34 @@ mod tests {
         assert!(prompt.contains("focus on correctness"));
         assert!(prompt.contains("+ hello"));
         assert!(prompt.contains("never attempt to post to GitHub"));
+        // The tag field is part of the contract the agent is shown.
+        assert!(prompt.contains("coding-standards"));
+        // No conventions in this fixture, so no empty heading for them.
+        assert!(!prompt.contains("This repo's conventions"));
+    }
+
+    #[test]
+    fn conventions_land_above_the_review_instructions() {
+        let pr = fixture_pr();
+        let ctx = ReviewContext {
+            run_id: "run-1".into(),
+            comments_file: "/tmp/c.jsonl".into(),
+            diff_text: String::new(),
+            wants_summary: false,
+            existing_summary: None,
+            conventions: crate::conventions::block(&[crate::conventions::ConventionDoc {
+                path: "AGENTS.md".into(),
+                text: "no unwrap outside tests".into(),
+                truncated: false,
+            }]),
+        };
+        let prompt = build_prompt(&ctx, &pr, "be thorough");
+        let rules = prompt.find("no unwrap outside tests").unwrap();
+        let instructions = prompt.find("be thorough").unwrap();
+        assert!(
+            rules < instructions,
+            "conventions must precede instructions"
+        );
     }
 
     #[test]
@@ -333,6 +337,7 @@ mod tests {
             diff_text: "+ hello".into(),
             wants_summary: false,
             existing_summary: None,
+            conventions: String::new(),
         };
         let off = build_prompt(&ctx, &pr, "go");
         assert!(!off.contains("tandem_summary"));
