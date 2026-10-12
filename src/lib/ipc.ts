@@ -42,6 +42,8 @@ export const ipc = {
   forgetPr: (repo: string, number: number) => invoke<null>("forget_pr", { repo, number }),
   markReadyForReview: (repo: string, number: number) =>
     invoke<null>("mark_ready_for_review", { repo, number }),
+  replyToSummary: (agentName: string, repo: string, number: number, body: string) =>
+    invoke<string>("reply_to_summary", { agentName, repo, number, body }),
 
   // local review comments
   listLocalComments: (repo: string, number: number) =>

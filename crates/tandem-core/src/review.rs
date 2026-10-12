@@ -130,4 +130,9 @@ pub struct PrSummary {
     /// against older commits is worth flagging as stale.
     pub head_sha: String,
     pub updated_at: DateTime<Utc>,
+    /// Root of the local comment thread discussing this summary, once
+    /// you've replied to it at least once. The summary row is stored as
+    /// JSON, so this needed no migration.
+    #[serde(default)]
+    pub thread_root_id: Option<String>,
 }

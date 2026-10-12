@@ -271,6 +271,8 @@ export interface PrSummary {
   run_id: string;
   head_sha: string;
   updated_at: string;
+  /** Root of the local thread discussing this summary, once started. */
+  thread_root_id: string | null;
 }
 
 export interface PrBundle {

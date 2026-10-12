@@ -11,6 +11,7 @@ use tandem_core::TandemError;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::agents::launch_run;
+use crate::commands::parse_repo;
 use crate::state::AppState;
 
 /// Add your reply to a thread, then have `agent_name` answer it.
@@ -29,28 +30,113 @@ pub async fn reply_to_comment(
     let root_id = {
         let cache = state.cache.lock().await;
         let root = resolve_root(&cache, &comment_id)?;
-        cache.add_comment(NewLocalComment {
-            repo: root.repo.clone(),
-            pr_number: root.pr_number,
-            head_sha: root.head_sha.clone(),
-            path: root.path.clone(),
-            side: root.side,
-            line: root.line,
-            end_line: root.end_line,
-            body: body.clone(),
-            suggestion: None,
-            author_kind: CommentAuthorKind::Human,
-            author_name: "you".into(),
-            severity: CommentSeverity::Info,
-            run_id: None,
-            parent_id: Some(root.id.clone()),
-            github_comment_id: None,
-        })?;
+        add_reply(&cache, &root, &body)?;
         notify(&app, &root);
         root.id
     };
 
     launch_thread_run(app, &state, &agent_name, &root_id).await
+}
+
+/// Reply to the agent's PR summary, starting the discussion thread the
+/// first time. The root is a PR-level comment seeded with the summary
+/// text, so the agent answering sees what's being discussed and the
+/// thread lives with the rest of the review instead of in its own silo.
+#[tauri::command]
+pub async fn reply_to_summary(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    agent_name: String,
+    repo: String,
+    number: u64,
+    body: String,
+) -> Result<String, TandemError> {
+    if body.trim().is_empty() {
+        return Err(TandemError::Config("reply cannot be empty".into()));
+    }
+    let repo = parse_repo(&repo)?;
+
+    let root_id = {
+        let cache = state.cache.lock().await;
+        let root = summary_thread_root(&app, &cache, &repo, number)?;
+        add_reply(&cache, &root, &body)?;
+        notify(&app, &root);
+        root.id
+    };
+
+    launch_thread_run(app, &state, &agent_name, &root_id).await
+}
+
+/// The summary's thread root, created on first reply and remembered on
+/// the summary itself so a re-review keeps the same conversation.
+fn summary_thread_root(
+    app: &AppHandle,
+    cache: &tandem_cache::Cache,
+    repo: &tandem_core::github::RepoRef,
+    number: u64,
+) -> Result<LocalComment, TandemError> {
+    let mut summary = cache
+        .get_pr_summary(repo, number)?
+        .ok_or_else(|| TandemError::Cache("there's no summary to reply to yet".into()))?;
+    if let Some(existing) = summary
+        .thread_root_id
+        .as_deref()
+        .map(|id| cache.get_comment(id))
+        .transpose()?
+        .flatten()
+    {
+        return Ok(existing);
+    }
+    let root = cache.add_comment(NewLocalComment {
+        repo: repo.clone(),
+        pr_number: number,
+        head_sha: summary.head_sha.clone(),
+        // PR-level: the summary is about the whole PR, not a line.
+        path: String::new(),
+        side: DiffSide::New,
+        line: 0,
+        end_line: None,
+        body: summary.body.clone(),
+        suggestion: None,
+        author_kind: CommentAuthorKind::Agent,
+        author_name: summary.agent_name.clone(),
+        severity: CommentSeverity::Info,
+        run_id: Some(summary.run_id.clone()),
+        parent_id: None,
+        github_comment_id: None,
+    })?;
+    summary.thread_root_id = Some(root.id.clone());
+    cache.put_pr_summary(&summary)?;
+    if let Err(e) = app.emit("tandem://summary-updated", &summary) {
+        tracing::warn!(error = %e, "failed to emit summary-updated");
+    }
+    Ok(root)
+}
+
+/// Append your message to a thread, inheriting the root's anchor.
+fn add_reply(
+    cache: &tandem_cache::Cache,
+    root: &LocalComment,
+    body: &str,
+) -> Result<(), TandemError> {
+    cache.add_comment(NewLocalComment {
+        repo: root.repo.clone(),
+        pr_number: root.pr_number,
+        head_sha: root.head_sha.clone(),
+        path: root.path.clone(),
+        side: root.side,
+        line: root.line,
+        end_line: root.end_line,
+        body: body.to_owned(),
+        suggestion: None,
+        author_kind: CommentAuthorKind::Human,
+        author_name: "you".into(),
+        severity: CommentSeverity::Info,
+        run_id: None,
+        parent_id: Some(root.id.clone()),
+        github_comment_id: None,
+    })?;
+    Ok(())
 }
 
 /// Summon an agent into an existing thread (the @mention path) without

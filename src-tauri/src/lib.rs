@@ -86,6 +86,7 @@ pub fn run() {
             agents::delete_agent_run,
             threads::reply_to_comment,
             threads::mention_agent,
+            threads::reply_to_summary,
             conflicts::start_conflict_resolution,
             github_write::post_comment_to_github,
             github_write::approve_pr,

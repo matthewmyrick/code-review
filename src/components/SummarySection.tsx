@@ -1,23 +1,41 @@
 // The agent's PR-level write-up, shown above the diff next to the PR's
 // own description. One per PR: a re-review hands the agent this text to
-// revise, so it's the running account rather than a per-run log.
+// revise, so it's the running account rather than a per-run log. You
+// can reply underneath it, which turns the summary into a thread the
+// agent answers in — the same threading the inline comments use, rooted
+// on a PR-level comment seeded with the summary.
 
-import { Bot, Trash2 } from "lucide-react";
+import { Bot, CornerDownLeft, Loader2, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
+import { ipc } from "../lib/ipc";
+import type { LocalComment, RepoRef } from "../lib/types";
+import { loadAgent, saveAgent } from "../state/persist";
 import { useAppStore } from "../state/store";
+import { pushInfo } from "../state/toasts";
 import { MarkdownBody } from "./Markdown";
 import { Pill } from "./ui";
 
 export function SummarySection() {
   const summary = useAppStore((s) => s.bundle?.summary ?? null);
+  const headSha = useAppStore((s) => s.bundle?.detail.pull_request.head_sha);
+  const comments = useAppStore((s) => s.bundle?.comments);
   const deleteSummary = useAppStore((s) => s.deleteSummary);
   if (summary === null) return null;
 
-  const headSha = useAppStore.getState().bundle?.detail.pull_request.head_sha;
   // Written against commits that have since been pushed over — say so
   // rather than quietly presenting it as current.
   const stale = headSha !== undefined && headSha !== summary.head_sha;
+  const root = summary.thread_root_id;
+  // Oldest first — it reads as a conversation, not a feed.
+  const replies =
+    root === null
+      ? []
+      : (comments ?? [])
+          .filter((c) => c.parent_id === root)
+          .slice()
+          .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
   return (
     <details open className="mt-2">
@@ -41,7 +59,99 @@ export function SummarySection() {
       </summary>
       <div className="mt-2 max-h-96 overflow-y-auto rounded-lg border border-moss/30 bg-moss/5 p-3">
         <MarkdownBody text={summary.body} />
+        {replies.length > 0 ? <Thread replies={replies} /> : null}
+        <ReplyBox repo={summary.repo} number={summary.pr_number} agent={summary.agent_name} />
       </div>
     </details>
+  );
+}
+
+function Thread({ replies }: { replies: LocalComment[] }) {
+  return (
+    <div className="mt-3 space-y-2 border-t border-moss/20 pt-3">
+      {replies.map((reply) => (
+        <div key={reply.id} className="rounded-lg bg-panel-2/60 p-2">
+          <div className="mb-1 flex items-center gap-1.5 text-[10px] text-muted">
+            <span className={reply.author_kind === "agent" ? "text-moss" : "text-cream"}>
+              {reply.author_name}
+            </span>
+            <span>· {relativeTime(reply.created_at)}</span>
+          </div>
+          <MarkdownBody text={reply.body} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Ask the agent something about its own summary. Sending starts a run
+ * that answers into the thread, so the button stays disabled until the
+ * call returns rather than letting a double-tap start two. */
+function ReplyBox({ repo, number, agent }: { repo: RepoRef; number: number; agent: string }) {
+  const specs = useAppStore((s) => s.agentSpecs);
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  // Default to whoever wrote the summary — you're talking to them.
+  const [who, setWho] = useState(() => (specs.some((s) => s.name === agent) ? agent : loadAgent()));
+  const slug = `${repo.owner}/${repo.name}`;
+
+  const send = () => {
+    if (!body.trim() || sending || !who) return;
+    setSending(true);
+    ipc
+      .replyToSummary(who, slug, number, body.trim())
+      .then(() => {
+        setBody("");
+        pushInfo(`${who} is answering…`);
+      })
+      .catch((e: unknown) => {
+        console.error("summary reply failed", e);
+        pushInfo("couldn't send that reply");
+      })
+      .finally(() => {
+        setSending(false);
+      });
+  };
+
+  if (specs.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex items-end gap-1.5 border-t border-moss/20 pt-3">
+      <textarea
+        value={body}
+        onChange={(e) => {
+          setBody(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
+        }}
+        placeholder={`ask ${who || "the agent"} about this summary — ⌘↵ to send`}
+        className="min-h-9 flex-1 resize-y rounded-lg border border-edge bg-ground p-2 text-xs leading-relaxed text-cream outline-none focus:border-sky"
+      />
+      <select
+        value={who}
+        onChange={(e) => {
+          setWho(e.target.value);
+          saveAgent(e.target.value);
+        }}
+        title="agent to answer"
+        className="h-8 max-w-28 cursor-pointer rounded-lg border border-edge bg-panel-2 px-1.5 text-[11px] text-muted"
+      >
+        {specs.map((spec) => (
+          <option key={spec.name} value={spec.name}>
+            {spec.name}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={send}
+        disabled={!body.trim() || sending}
+        title="send (⌘↵)"
+        className="inline-flex h-8 items-center gap-1 rounded-lg bg-sky-deep px-2 text-[11px] font-medium text-white transition-colors hover:bg-sky disabled:pointer-events-none disabled:opacity-40"
+      >
+        {sending ? <Loader2 size={11} className="animate-spin" /> : <CornerDownLeft size={11} />}
+      </button>
+    </div>
   );
 }
