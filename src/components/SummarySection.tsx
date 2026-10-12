@@ -5,7 +5,7 @@
 // agent answers in — the same threading the inline comments use, rooted
 // on a PR-level comment seeded with the summary.
 
-import { Bot, CornerDownLeft, Loader2, Trash2 } from "lucide-react";
+import { Bot, CornerDownLeft, Loader2, Trash2, User } from "lucide-react";
 import { useState } from "react";
 
 import { relativeTime } from "../lib/format";
@@ -69,17 +69,33 @@ export function SummarySection() {
 function Thread({ replies }: { replies: LocalComment[] }) {
   return (
     <div className="mt-3 space-y-2 border-t border-moss/20 pt-3">
-      {replies.map((reply) => (
-        <div key={reply.id} className="rounded-lg bg-panel-2/60 p-2">
-          <div className="mb-1 flex items-center gap-1.5 text-[10px] text-muted">
-            <span className={reply.author_kind === "agent" ? "text-moss" : "text-cream"}>
-              {reply.author_name}
-            </span>
-            <span>· {relativeTime(reply.created_at)}</span>
+      {replies.map((reply) => {
+        // Who said what has to be readable at a glance: your messages
+        // sit in sky, the agent's in the same moss as the summary it's
+        // talking about.
+        const mine = reply.author_kind !== "agent";
+        return (
+          <div
+            key={reply.id}
+            className={`rounded-lg border-l-2 p-2 ${
+              mine ? "border-sky/70 bg-sky/10" : "border-moss/60 bg-panel-2/70"
+            }`}
+          >
+            <div className="mb-1 flex items-center gap-1.5 text-[10px] text-muted">
+              {mine ? (
+                <User size={10} className="text-sky" />
+              ) : (
+                <Bot size={10} className="text-moss" />
+              )}
+              <span className={mine ? "font-medium text-sky" : "font-medium text-moss"}>
+                {reply.author_name}
+              </span>
+              <span>· {relativeTime(reply.created_at)}</span>
+            </div>
+            <MarkdownBody text={reply.body} />
           </div>
-          <MarkdownBody text={reply.body} />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
