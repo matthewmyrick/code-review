@@ -130,7 +130,7 @@ export function InboxRow({ pr, aside }: { pr: PullRequest; aside?: ReactNode }) 
           {reviews > 0 ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-moss/15 px-1.5 text-[9px] font-medium text-moss">
               <CheckCircle2 size={9} />
-              {reviews} review{reviews === 1 ? "" : "s"}
+              {reviews} bot review{reviews === 1 ? "" : "s"}
             </span>
           ) : null}
         </div>

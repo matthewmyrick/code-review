@@ -25,6 +25,7 @@ export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
       { keys: "⌘1 / ⌘2", label: "review status / agents dashboard" },
       { keys: "⌘,", label: "settings" },
       { keys: "⌘B", label: "toggle the right pane" },
+      { keys: "⌘[", label: "back to where you were (last 5)" },
       { keys: "⌘+ ⌘− ⌘0", label: "zoom in / out / reset" },
       { keys: "?", label: "this help" },
     ],

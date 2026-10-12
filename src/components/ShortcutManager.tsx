@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { loadAgent } from "../state/persist";
 import { useKeyNav } from "../state/keyNav";
 import type { ReviewTab } from "../state/keyNav";
+import { goBack } from "../state/navHistory";
 import { useAppStore } from "../state/store";
 import { useModalHold } from "./ui";
 import { CommandPalette } from "./CommandPalette";
@@ -67,6 +68,9 @@ export function ShortcutManager() {
           },
           b: () => {
             app.toggleRightPane();
+          },
+          "[": () => {
+            void goBack();
           },
         };
         const run = chord[e.key.toLowerCase()];

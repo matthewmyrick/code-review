@@ -138,13 +138,15 @@ export function IconButton(props: {
    * keeps it styled like it's permanently hovered so it reads as "you
    * are here" rather than just another button. */
   active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={props.onClick}
       title={props.title}
-      className={`inline-flex size-8 items-center justify-center rounded-lg text-sm ring-1 transition-all duration-150 hover:bg-panel-2 hover:text-cream hover:ring-edge/60 active:scale-95 ${
+      disabled={props.disabled ?? false}
+      className={`inline-flex size-8 items-center justify-center rounded-lg text-sm ring-1 transition-all duration-150 hover:bg-panel-2 hover:text-cream hover:ring-edge/60 active:scale-95 disabled:pointer-events-none disabled:opacity-30 ${
         (props.active ?? false)
           ? "bg-panel-2 text-cream ring-edge/60"
           : "text-muted ring-transparent"

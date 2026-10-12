@@ -83,19 +83,30 @@ async fn store_summary(
     if !spec.summary {
         return;
     }
-    let summary = PrSummary {
-        repo: repo.clone(),
-        pr_number: run.pr_number,
-        body: body.to_owned(),
-        agent_name: spec.name.clone(),
-        run_id: run.run_id.clone(),
-        head_sha: head_sha.to_owned(),
-        updated_at: chrono::Utc::now(),
-    };
     let state = app.state::<AppState>();
-    let result = { state.cache.lock().await.put_pr_summary(&summary) };
+    let result = {
+        let cache = state.cache.lock().await;
+        // A re-review rewrites the body; the discussion hanging off it
+        // carries over.
+        let thread_root_id = cache
+            .get_pr_summary(repo, run.pr_number)
+            .ok()
+            .flatten()
+            .and_then(|s| s.thread_root_id);
+        let summary = PrSummary {
+            repo: repo.clone(),
+            pr_number: run.pr_number,
+            body: body.to_owned(),
+            agent_name: spec.name.clone(),
+            run_id: run.run_id.clone(),
+            head_sha: head_sha.to_owned(),
+            updated_at: chrono::Utc::now(),
+            thread_root_id,
+        };
+        cache.put_pr_summary(&summary).map(|()| summary)
+    };
     match result {
-        Ok(()) => {
+        Ok(summary) => {
             if let Err(e) = app.emit("tandem://summary-updated", &summary) {
                 tracing::warn!(error = %e, "failed to emit summary-updated");
             }

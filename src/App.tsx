@@ -35,6 +35,7 @@ import { useKeyNav } from "./state/keyNav";
 import { applyZoom, loadZoom } from "./state/persist";
 import { isWorking } from "./state/runBoard";
 import { useAppStore } from "./state/store";
+import { goBack, useCanGoBack } from "./state/navHistory";
 
 export default function App() {
   const init = useAppStore((s) => s.init);
@@ -95,6 +96,7 @@ export default function App() {
           </span>
           <span className="text-sm font-semibold tracking-wide text-cream">Tandem</span>
         </button>
+        <BackButton />
         <div className="ml-auto flex items-center gap-1.5">
           <UpdateButton />
           <ReviewStatusMenuButton />
@@ -332,5 +334,21 @@ function ReviewLayout() {
         </SidePane>
       ) : null}
     </>
+  );
+}
+
+/** Step back out of a detour, up to five places deep. */
+function BackButton() {
+  const canGoBack = useCanGoBack();
+  return (
+    <IconButton
+      onClick={() => {
+        void goBack();
+      }}
+      title={canGoBack ? "back (\u2318[)" : "nowhere to go back to"}
+      disabled={!canGoBack}
+    >
+      <ArrowLeft size={15} />
+    </IconButton>
   );
 }
