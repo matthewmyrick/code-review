@@ -14,6 +14,7 @@ export const SHORTCUT_GROUPS: { title: string; items: Shortcut[] }[] = [
       { keys: "j / k", label: "next / previous pull request" },
       { keys: "↵", label: "open highlighted pull request" },
       { keys: "1 2 3 4", label: "review status tabs: req · mine · mentions · find" },
+      { keys: "/", label: "filter the list you're looking at" },
       { keys: "r", label: "refresh current list + PR" },
       { keys: "esc", label: "back to the list" },
     ],

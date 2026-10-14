@@ -5,9 +5,10 @@
 // browses any repo's open PRs. Clicking a row opens it in the review
 // view, switching the repo to match.
 
-import { AtSign, Inbox, RefreshCw, Search, User } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AtSign, Inbox, RefreshCw, Search, User, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { fuzzyScore } from "../lib/fuzzy";
 import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
 import type { ReviewTab } from "../state/keyNav";
@@ -85,15 +86,18 @@ export function ReviewStatusView() {
     if (id === "authored" || id === "mentions") return counts[id]?.length;
     return undefined;
   };
-  const prs = sortPrs(tab === "requested" ? reviewRequests : (lazyList ?? []), prSort);
+  const [filter, setFilter] = useState("");
+  const all = sortPrs(tab === "requested" ? reviewRequests : (lazyList ?? []), prSort);
+  const prs = useMemo(() => matching(all, filter), [all, filter]);
+  const shownReviewing = useMemo(() => matching(reviewing, filter), [reviewing, filter]);
   const loading =
     tab === "requested" ? !reviewRequestsSeeded : lazyScope !== null && lazyList === undefined;
 
   // "mine" reorders into ready/open/draft groups and publishes its own
   // keyNav list; "find" publishes its own too.
   const navPrs = useMemo(
-    () => (tab === "requested" ? [...prs, ...reviewing] : prs),
-    [tab, prs, reviewing],
+    () => (tab === "requested" ? [...prs, ...shownReviewing] : prs),
+    [tab, prs, shownReviewing],
   );
   useEffect(() => {
     if (tab !== "requested" && tab !== "mentions") return;
@@ -148,16 +152,29 @@ export function ReviewStatusView() {
         ))}
       </div>
 
+      {tab === "find" ? null : (
+        <PrFilter
+          value={filter}
+          onChange={setFilter}
+          shown={prs.length + (tab === "requested" ? shownReviewing.length : 0)}
+          total={all.length + (tab === "requested" ? reviewing.length : 0)}
+        />
+      )}
+
       {tab === "find" ? (
         <FindPrTab />
       ) : loading ? (
         <div className="px-3 py-8">
           <Spinner label="searching github…" />
         </div>
-      ) : prs.length === 0 && !(tab === "requested" && reviewing.length > 0) ? (
+      ) : prs.length === 0 && !(tab === "requested" && shownReviewing.length > 0) ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted">
           <Inbox size={28} strokeWidth={1.5} />
-          {tab === "requested" ? "nothing to review — all clear" : "nothing here"}
+          {filter.trim()
+            ? `nothing matches “${filter.trim()}”`
+            : tab === "requested"
+              ? "nothing to review — all clear"
+              : "nothing here"}
         </div>
       ) : tab === "authored" ? (
         <ReadyGroupedRows prs={prs} renderAside={(pr) => <QuickReviewControl pr={pr} />} />
@@ -169,9 +186,97 @@ export function ReviewStatusView() {
         </div>
       )}
 
-      {tab === "requested" && reviewing.length > 0 ? <ReviewingRows prs={reviewing} /> : null}
+      {tab === "requested" && shownReviewing.length > 0 ? (
+        <ReviewingRows prs={shownReviewing} />
+      ) : null}
 
       {tab === "requested" && !loading ? <ApprovedFooter /> : null}
+    </div>
+  );
+}
+
+/** Fuzzy-match a list against the filter box: repo, number, title and
+ * author all count, so "myr 1295" or "observability" both land. */
+function matching(prs: PullRequest[], filter: string): PullRequest[] {
+  const query = filter.trim();
+  if (!query) return prs;
+  return prs
+    .map((pr) => ({
+      pr,
+      rank: fuzzyScore(
+        query,
+        `${pr.repo.owner}/${pr.repo.name} #${String(pr.number)} ${pr.title} ${pr.author.login}`,
+      ),
+    }))
+    .filter((x): x is { pr: PullRequest; rank: number } => x.rank !== null)
+    .sort((a, b) => b.rank - a.rank)
+    .map((x) => x.pr);
+}
+
+/** Filter box under the tabs. `/` focuses it from anywhere on the page,
+ * the way list UIs have done since forever; Esc clears and lets go. */
+function PrFilter({
+  value,
+  onChange,
+  shown,
+  total,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  shown: number;
+  total: number;
+}) {
+  const ref = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, [contenteditable='true']")) return;
+      e.preventDefault();
+      ref.current?.focus();
+      ref.current?.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  return (
+    <div className="flex h-8 items-center gap-2 rounded-lg border border-edge bg-panel-2 px-2.5 focus-within:border-sky">
+      <Search size={12} className="shrink-0 text-muted" />
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return;
+          if (value) onChange("");
+          else e.currentTarget.blur();
+        }}
+        placeholder="filter these pull requests — repo, number, title or author (/)"
+        className="h-full min-w-0 flex-1 bg-transparent text-xs text-cream outline-none placeholder:text-muted"
+      />
+      {value.trim() ? (
+        <>
+          <span className="shrink-0 text-[10px] tabular-nums text-muted">
+            {shown} / {total}
+          </span>
+          <button
+            type="button"
+            title="clear (esc)"
+            onClick={() => {
+              onChange("");
+            }}
+            className="inline-flex size-5 shrink-0 items-center justify-center rounded text-muted transition-colors hover:bg-panel hover:text-cream"
+          >
+            <X size={11} />
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }

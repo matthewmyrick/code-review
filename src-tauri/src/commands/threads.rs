@@ -2,8 +2,10 @@
 //! then (when an agent is involved) launch a run that has the whole
 //! thread as context and answers back into the same thread.
 
-use tandem_agents::context::{build_reply_prompt, ReplyContext, ThreadMessage};
-use tandem_cache::ReviewStore;
+use tandem_agents::context::ThreadMessage;
+use tandem_agents::conversation;
+use tandem_agents::reply::{build_reply_prompt, ReplyContext};
+use tandem_cache::{CommentRevisions, ReviewStore, SummaryStore};
 use tandem_core::review::{
     CommentAuthorKind, CommentSeverity, DiffSide, LocalComment, NewLocalComment,
 };
@@ -12,6 +14,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::agents::launch_run;
 use crate::commands::parse_repo;
+use crate::commands::thread_context::{extract_file_diff, sibling_threads};
 use crate::state::AppState;
 
 /// Add your reply to a thread, then have `agent_name` answer it.
@@ -181,7 +184,7 @@ async fn launch_thread_run(
     agent_name: &str,
     comment_id: &str,
 ) -> Result<String, TandemError> {
-    let (root, spec, pr, diff_excerpt, thread) = {
+    let (root, spec, pr, diff_excerpt, thread, conversation) = {
         let cache = state.cache.lock().await;
         let root = resolve_root(&cache, comment_id)?;
         let spec = cache
@@ -213,16 +216,35 @@ async fn launch_thread_run(
             .filter(|c| c.id == root.id || c.parent_id.as_deref() == Some(root.id.as_str()))
             .collect();
         messages.sort_by_key(|c| c.created_at);
-        thread.extend(messages.into_iter().map(|c| ThreadMessage {
-            author: c.author_name,
-            body: c.body,
-        }));
+        for comment in messages {
+            // Say when a message has been rewritten — especially the
+            // agent's own, so it doesn't argue with wording the
+            // reviewer deliberately changed.
+            let edited = cache.revision_count(&comment.id).unwrap_or(0) > 0;
+            thread.push(ThreadMessage {
+                author: if edited {
+                    format!("{} (edited by the reviewer)", comment.author_name)
+                } else {
+                    comment.author_name.clone()
+                },
+                body: comment.body.clone(),
+            });
+        }
 
         let excerpt = extract_file_diff(&raw, &root.path);
-        (root, spec, detail.pull_request, excerpt, thread)
+        let siblings = sibling_threads(&cache, &detail, &root)?;
+        (
+            root,
+            spec,
+            detail.pull_request,
+            excerpt,
+            thread,
+            conversation::render(&siblings),
+        )
     };
 
     let instructions = spec.prompt.clone();
+    let pr_body = pr.body.clone();
     let pr_for_prompt = pr.clone();
     let repo = root.repo.clone();
     let side = match root.side {
@@ -242,6 +264,8 @@ async fn launch_thread_run(
             let ctx = ReplyContext {
                 run_id: run_id.to_owned(),
                 comments_file: comments_file.to_owned(),
+                conversation,
+                pr_body: pr_body.clone(),
                 parent_id: root.id.clone(),
                 path: root.path.clone(),
                 side,
@@ -252,46 +276,4 @@ async fn launch_thread_run(
         },
     )
     .await
-}
-
-/// Pull one file's section out of a raw multi-file unified diff; falls
-/// back to the whole diff when the file isn't found.
-fn extract_file_diff(raw: &str, path: &str) -> String {
-    let mut out = String::new();
-    let mut in_file = false;
-    for line in raw.lines() {
-        if line.starts_with("diff --git ") {
-            in_file = line.contains(&format!(" b/{path}")) || line.contains(&format!("a/{path} "));
-        }
-        if in_file {
-            out.push_str(line);
-            out.push('\n');
-        }
-    }
-    if out.is_empty() {
-        raw.to_owned()
-    } else {
-        out
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod tests {
-    use super::extract_file_diff;
-
-    #[test]
-    fn extracts_single_file_section() {
-        let raw = "diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n@@ -1 +1 @@\n-x\n+y\n\
-                   diff --git a/b.ts b/b.ts\n--- a/b.ts\n+++ b/b.ts\n@@ -1 +1 @@\n-p\n+q\n";
-        let got = extract_file_diff(raw, "b.ts");
-        assert!(got.contains("+++ b/b.ts"));
-        assert!(!got.contains("a.rs"));
-    }
-
-    #[test]
-    fn falls_back_to_full_diff() {
-        let raw = "diff --git a/a.rs b/a.rs\n+x\n";
-        assert_eq!(extract_file_diff(raw, "missing.py"), raw);
-    }
 }

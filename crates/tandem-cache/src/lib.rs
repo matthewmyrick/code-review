@@ -13,10 +13,14 @@ mod review_store;
 #[cfg(test)]
 mod review_store_tests;
 mod reviewed;
+mod revisions;
 mod schema;
 mod store;
+mod summaries;
 
 pub use archive::{purge_deadline, ArchiveStore, PurgedRuns};
 pub use review_store::ReviewStore;
 pub use reviewed::ReviewedPrs;
+pub use revisions::CommentRevisions;
 pub use store::Cache;
+pub use summaries::SummaryStore;

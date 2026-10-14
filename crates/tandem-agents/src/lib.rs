@@ -14,8 +14,10 @@
 pub mod command;
 pub mod context;
 pub mod conventions;
+pub mod conversation;
 mod emitter;
 pub mod events;
+pub mod reply;
 pub mod runner;
 mod summary;
 

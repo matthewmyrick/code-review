@@ -72,6 +72,7 @@ pub fn run() {
             review::add_local_comment,
             review::set_comment_status,
             review::update_comment_body,
+            review::list_comment_revisions,
             review::delete_local_comment,
             review::delete_pr_summary,
             mcp::list_mcp_servers,

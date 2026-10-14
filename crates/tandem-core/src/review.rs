@@ -73,6 +73,11 @@ pub struct LocalComment {
     pub status: CommentStatus,
     /// Agent run that produced this comment, if any.
     pub run_id: Option<String>,
+    /// How many times the body has been rewritten. The versions
+    /// themselves live in `comment_revisions`; this is here so a list
+    /// can show "edited" without a query per comment.
+    #[serde(default)]
+    pub edit_count: u32,
     /// What kind of remark this is — "coding-standards" when it cites
     /// the repo's own conventions, "correctness", "tests", and so on.
     /// Free-form on purpose: an agent knows its reasons better than a
@@ -119,6 +124,20 @@ pub struct NewLocalComment {
     pub parent_id: Option<String>,
     #[serde(default)]
     pub github_comment_id: Option<u64>,
+}
+
+/// One superseded version of a comment body. The current text lives on
+/// the comment itself; this is what it used to say.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentRevision {
+    pub id: String,
+    pub comment_id: String,
+    /// When this version was replaced.
+    pub edited_at: DateTime<Utc>,
+    /// Who wrote this version — the agent for the text it generated,
+    /// "you" for a version you had edited into place.
+    pub editor: String,
+    pub body: String,
 }
 
 /// The PR-level write-up an agent produces alongside its inline

@@ -11,6 +11,7 @@ import type {
   MergeOptions,
   OwnerList,
   RepoSummary,
+  CommentRevision,
   CommentStatus,
   LocalComment,
   McpServer,
@@ -54,6 +55,7 @@ export const ipc = {
     invoke<LocalComment>("add_local_comment", { comment }),
   setCommentStatus: (id: string, status: CommentStatus, repo: string, number: number) =>
     invoke<null>("set_comment_status", { id, status, repo, number }),
+  listCommentRevisions: (id: string) => invoke<CommentRevision[]>("list_comment_revisions", { id }),
   updateCommentBody: (id: string, body: string, repo: string, number: number) =>
     invoke<null>("update_comment_body", { id, body, repo, number }),
   deleteLocalComment: (id: string, repo: string, number: number) =>

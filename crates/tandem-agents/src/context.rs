@@ -100,83 +100,6 @@ pub struct ThreadMessage {
     pub body: String,
 }
 
-/// Everything a reply run needs to continue a comment thread.
-#[derive(Debug, Clone)]
-pub struct ReplyContext {
-    pub run_id: String,
-    pub comments_file: String,
-    /// Root comment id — the agent's reply must carry this as parent_id.
-    pub parent_id: String,
-    pub path: String,
-    pub side: String,
-    pub line: u64,
-    /// Diff excerpt for the file under discussion.
-    pub diff_text: String,
-}
-
-/// Prompt for continuing a discussion on an existing local comment.
-pub fn build_reply_prompt(
-    ctx: &ReplyContext,
-    pr: &PullRequest,
-    thread: &[ThreadMessage],
-    instructions: &str,
-) -> String {
-    let mut rendered_thread = String::new();
-    for msg in thread {
-        rendered_thread.push_str(&format!("### {}\n{}\n\n", msg.author, msg.body));
-    }
-    format!(
-        "# Tandem review thread\n\
-         You are running inside Tandem, a local code-review app, continuing \
-         a discussion about one review comment. Your reply stays LOCAL — \
-         never attempt to post to GitHub or call `gh`.\n\n\
-         - run id: {run_id}\n\
-         - repository: {repo}\n\
-         - pull request: #{number} — {title}\n\
-         - comment anchor: {path}:{line} (side: {side})\n\n\
-         ## The thread so far (oldest first)\n\
-         {thread}\
-         ## How to reply\n\
-         Respond to the latest message. Emit EXACTLY ONE JSON object on \
-         its own line in your final response (no code fences):\n\n\
-         {{\"type\":\"tandem_comment\",\"path\":\"{path}\",\"side\":\"{side}\",\
-         \"line\":{line},\"end_line\":null,\"severity\":\"info\",\
-         \"parent_id\":\"{parent_id}\",\"body\":\"<your reply, markdown>\",\
-         \"suggestion\":null}}\n\n\
-         When the reviewer asks for a concrete code change, set \
-         `suggestion` to the COMPLETE replacement for lines \
-         line..=end_line of {path} (new side; preserve indentation; no \
-         code fences; escape newlines as \\n). Re-anchor `line` and \
-         `end_line` to the EXACT range your fix replaces — e.g. a whole \
-         block, not just the thread's anchor line. To DELETE lines \
-         outright, set `suggestion` to the empty string \"\" with \
-         line/end_line covering the lines to remove. The reviewer gets a \
-         one-click 'commit suggestion' button that commits your \
-         suggestion verbatim to the PR branch — so prefer a committable \
-         suggestion over prose instructions whenever the fix is exact.\n\n\
-         The `body` MUST be well-formatted GitHub-flavored markdown — \
-         code spans, fenced code blocks, tables and lists where they help \
-         (escape newlines as \\n inside the JSON string). Keep the reply \
-         focused and conversational — you are talking with the reviewer. \
-         Acknowledge if they are right; push back with evidence if not.\n\n\
-         ## Original review instructions\n\
-         {instructions}\n\n\
-         ## Diff context for {path}\n\
-         ```diff\n{diff}\n```\n",
-        run_id = ctx.run_id,
-        repo = pr.repo.slug(),
-        number = pr.number,
-        title = pr.title,
-        path = ctx.path,
-        side = ctx.side,
-        line = ctx.line,
-        parent_id = ctx.parent_id,
-        thread = rendered_thread,
-        instructions = instructions,
-        diff = ctx.diff_text,
-    )
-}
-
 /// One likely-conflicting file: the PR touches it AND the base branch
 /// changed it since the merge-base.
 #[derive(Debug, Clone)]
@@ -243,14 +166,14 @@ pub fn build_conflict_prompt(ctx: &ConflictContext, pr: &PullRequest) -> String 
     )
 }
 
+/// A PR fixture shared by this module's tests and reply.rs's.
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
-mod tests {
-    use super::*;
+pub(crate) mod test_pr {
     use chrono::Utc;
-    use tandem_core::github::{PrState, RepoRef, User};
+    use tandem_core::github::{PrState, PullRequest, RepoRef, User};
 
-    fn fixture_pr() -> PullRequest {
+    pub(crate) fn fixture_pr() -> PullRequest {
         PullRequest {
             repo: RepoRef::parse("o/r").unwrap(),
             number: 42,
@@ -279,6 +202,13 @@ mod tests {
             unresolved_threads: 0,
         }
     }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::test_pr::fixture_pr;
+    use super::*;
 
     #[test]
     fn prompt_contains_contract_and_diff() {
@@ -351,27 +281,5 @@ mod tests {
         let revising = build_prompt(&ctx, &pr, "go");
         assert!(revising.contains("already on this PR"));
         assert!(revising.contains("the story so far"));
-    }
-
-    #[test]
-    fn reply_prompt_teaches_suggestions() {
-        let ctx = ReplyContext {
-            run_id: "run-2".into(),
-            comments_file: "/tmp/run-2/comments.jsonl".into(),
-            parent_id: "root-1".into(),
-            path: "src/x.rs".into(),
-            side: "new".into(),
-            line: 56,
-            diff_text: "+ hi".into(),
-        };
-        let thread = vec![ThreadMessage {
-            author: "you".into(),
-            body: "remove this line please".into(),
-        }];
-        let prompt = build_reply_prompt(&ctx, &fixture_pr(), &thread, "be terse");
-        assert!(prompt.contains("\"suggestion\":null"));
-        assert!(prompt.contains("end_line"));
-        assert!(prompt.contains("DELETE lines"));
-        assert!(prompt.contains("parent_id"));
     }
 }

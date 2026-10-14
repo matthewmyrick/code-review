@@ -44,6 +44,9 @@ const PR_SCOPED_DELETES: &[&str] = &[
     "DELETE FROM pull_requests WHERE repo = ?1 AND number = ?2",
     "DELETE FROM pr_details WHERE repo = ?1 AND number = ?2",
     "DELETE FROM diffs WHERE repo = ?1 AND number = ?2",
+    // Before local_comments: the subquery needs those rows to exist.
+    "DELETE FROM comment_revisions WHERE comment_id IN
+       (SELECT id FROM local_comments WHERE repo = ?1 AND pr_number = ?2)",
     "DELETE FROM local_comments WHERE repo = ?1 AND pr_number = ?2",
     "DELETE FROM agent_runs WHERE repo = ?1 AND pr_number = ?2",
     "DELETE FROM pr_summaries WHERE repo = ?1 AND number = ?2",
@@ -175,7 +178,7 @@ impl ArchiveStore for Cache {
     }
 }
 
-fn parse_ts(s: &str) -> Result<DateTime<Utc>> {
+pub(crate) fn parse_ts(s: &str) -> Result<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(s)
         .map(|dt| dt.with_timezone(&Utc))
         .map_err(|e| TandemError::Cache(format!("bad timestamp in archive: {e}")))

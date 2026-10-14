@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { mentionsUser, relativeTime } from "../lib/format";
 import { githubCommentUrl, openExternal, postedCommentUrl } from "../lib/open";
+import { CommentBody } from "./CommentBody";
 import { MarkdownBody } from "./Markdown";
 import { SuggestionBlock } from "./SuggestionBlock";
 import { extractMentions, MentionInput } from "./MentionInput";
@@ -234,7 +235,7 @@ export function CommentCard(props: {
         ) : null}
         <span className="ml-auto text-[11px] text-muted">{relativeTime(comment.created_at)}</span>
       </div>
-      <MarkdownBody text={comment.body} />
+      <CommentBody comment={comment} />
       {comment.suggestion !== null ? <SuggestionBlock comment={comment} /> : null}
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         {!props.isReply && comment.status !== "open" ? (
