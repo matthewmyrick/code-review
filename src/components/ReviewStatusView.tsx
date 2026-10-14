@@ -6,13 +6,14 @@
 // view, switching the repo to match.
 
 import { AtSign, Inbox, RefreshCw, Search, User, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fuzzyScore } from "../lib/fuzzy";
 import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
 import type { ReviewTab } from "../state/keyNav";
 import { useKeyNav } from "../state/keyNav";
+import { useReviewedKeys } from "../state/runBoard";
 import { useAppStore } from "../state/store";
 import { FindPrTab } from "./FindPrTab";
 import { ApprovedFooter, InboxRow, ReadyGroupedRows, rowKey } from "./PrRows";
@@ -87,6 +88,16 @@ export function ReviewStatusView() {
     return undefined;
   };
   const [filter, setFilter] = useState("");
+  const reviewedKeys = useReviewedKeys();
+  // An agent reviewed it and then nothing happened — not approved, not
+  // merged. That review is sitting there unused, so it goes first.
+  const unacted = useCallback(
+    (pr: PullRequest) =>
+      reviewedKeys.has(`${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`) &&
+      pr.state === "open" &&
+      pr.review_decision !== "approved",
+    [reviewedKeys],
+  );
   const all = sortPrs(tab === "requested" ? reviewRequests : (lazyList ?? []), prSort);
   const prs = useMemo(() => matching(all, filter), [all, filter]);
   const shownReviewing = useMemo(() => matching(reviewing, filter), [reviewing, filter]);
@@ -95,9 +106,13 @@ export function ReviewStatusView() {
 
   // "mine" reorders into ready/open/draft groups and publishes its own
   // keyNav list; "find" publishes its own too.
+  // Requested splits into "reviewed, nothing done" then the rest; mine
+  // lets ReadyGroupedRows do the same at the top of its own grouping.
+  const waiting = useMemo(() => prs.filter(unacted), [prs, unacted]);
+  const rest = useMemo(() => prs.filter((pr) => !unacted(pr)), [prs, unacted]);
   const navPrs = useMemo(
-    () => (tab === "requested" ? [...prs, ...shownReviewing] : prs),
-    [tab, prs, shownReviewing],
+    () => (tab === "requested" ? [...waiting, ...rest, ...shownReviewing] : prs),
+    [tab, waiting, rest, prs, shownReviewing],
   );
   useEffect(() => {
     if (tab !== "requested" && tab !== "mentions") return;
@@ -177,10 +192,25 @@ export function ReviewStatusView() {
               : "nothing here"}
         </div>
       ) : tab === "authored" ? (
-        <ReadyGroupedRows prs={prs} renderAside={(pr) => <QuickReviewControl pr={pr} />} />
+        <ReadyGroupedRows
+          prs={prs}
+          unacted={unacted}
+          renderAside={(pr) => <QuickReviewControl pr={pr} />}
+        />
       ) : (
         <div className="space-y-1.5">
-          {prs.map((pr) => (
+          {waiting.length > 0 ? (
+            <>
+              <div className="px-1 text-[10px] font-medium uppercase tracking-wide text-amber">
+                reviewed · nothing done with it yet ({waiting.length})
+              </div>
+              {waiting.map((pr) => (
+                <InboxRow key={rowKey(pr)} pr={pr} aside={<QuickReviewControl pr={pr} />} />
+              ))}
+              <div className="mx-3 my-2 border-t border-edge/70" />
+            </>
+          ) : null}
+          {rest.map((pr) => (
             <InboxRow key={rowKey(pr)} pr={pr} aside={<QuickReviewControl pr={pr} />} />
           ))}
         </div>

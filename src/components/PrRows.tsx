@@ -47,11 +47,20 @@ const GROUPS: { label: string; filter: (pr: PullRequest) => boolean }[] = [
 export function ReadyGroupedRows({
   prs,
   renderAside,
+  unacted,
 }: {
   prs: PullRequest[];
   renderAside?: (pr: PullRequest) => ReactNode;
+  /** PRs an agent reviewed that nothing has been done with — they lead,
+   * above the usual ready/open/draft split. */
+  unacted?: (pr: PullRequest) => boolean;
 }) {
-  const groups = GROUPS.map((g) => ({ label: g.label, prs: prs.filter(g.filter) }));
+  const leading = unacted ? prs.filter(unacted) : [];
+  const remaining = unacted ? prs.filter((pr) => !unacted(pr)) : prs;
+  const groups = [
+    { label: "reviewed · nothing done with it yet", prs: leading },
+    ...GROUPS.map((g) => ({ label: g.label, prs: remaining.filter(g.filter) })),
+  ];
   const visible = groups.filter((g) => g.prs.length > 0);
   // Publish the on-screen order (groups flattened) for j/k navigation.
   const flat = groups.flatMap((g) => g.prs);
@@ -65,7 +74,11 @@ export function ReadyGroupedRows({
       {visible.map(({ prs: group, label }, i) => (
         <div key={label} className="space-y-1">
           {i > 0 ? <div className="mx-3 my-2 border-t border-edge/70" /> : null}
-          <div className="px-1 text-[10px] font-medium uppercase tracking-wide text-muted">
+          <div
+            className={`px-1 text-[10px] font-medium uppercase tracking-wide ${
+              label.startsWith("reviewed") ? "text-amber" : "text-muted"
+            }`}
+          >
             {label} ({group.length})
           </div>
           {group.map((pr) => (

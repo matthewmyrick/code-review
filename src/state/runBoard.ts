@@ -3,6 +3,7 @@
 // to a finished/errored run it counts as processed and leaves the
 // needs-attention list (working runs never count as processed).
 
+import { useMemo } from "react";
 import { create } from "zustand";
 
 import type { AgentRun } from "../lib/types";
@@ -78,6 +79,21 @@ export const useRunBoard = create<RunBoardStore>((set, get) => ({
 }));
 
 /** Runs still needing the user's eyes: finished or errored, not yet viewed. */
+/** PRs an agent has finished reviewing, keyed "owner/repo#number".
+ * Lists use this to surface reviews nothing has been done with yet. */
+export function useReviewedKeys(): Set<string> {
+  const runs = useRunBoard((s) => s.runs);
+  return useMemo(() => {
+    const out = new Set<string>();
+    for (const run of Object.values(runs)) {
+      if (run.purpose === "pr review" && isTerminal(run)) {
+        out.add(`${run.repo_slug}#${String(run.pr_number)}`);
+      }
+    }
+    return out;
+  }, [runs]);
+}
+
 export function unprocessedCount(runs: Record<string, AgentRun>, viewed: Set<string>): number {
   return Object.values(runs).filter((r) => isTerminal(r) && !viewed.has(r.run_id)).length;
 }
