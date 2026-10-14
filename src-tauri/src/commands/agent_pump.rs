@@ -3,7 +3,7 @@
 //! agents.rs to stay under the 400-line file cap.
 
 use tandem_agents::events::{extract_embedded_summary, parse_comment, parse_summary};
-use tandem_cache::ReviewStore;
+use tandem_cache::{ReviewStore, SummaryStore};
 use tandem_core::agent::{AgentRun, AgentSpec, RunEvent, RunEventKind, RunStatus};
 use tandem_core::github::RepoRef;
 use tandem_core::review::{

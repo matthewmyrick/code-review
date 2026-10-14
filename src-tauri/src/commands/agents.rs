@@ -5,7 +5,7 @@ use chrono::Utc;
 use tandem_agents::context::{build_prompt, ReviewContext};
 use tandem_agents::conventions;
 use tandem_agents::runner::{LocalProcessRunner, RunRequest};
-use tandem_cache::ReviewStore;
+use tandem_cache::{ReviewStore, SummaryStore};
 use tandem_core::agent::{AgentRun, AgentSpec, RunEvent, RunStatus};
 use tandem_core::github::RepoRef;
 use tandem_core::TandemError;

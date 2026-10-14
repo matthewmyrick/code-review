@@ -137,6 +137,8 @@ export interface LocalComment {
   author_kind: CommentAuthorKind;
   author_name: string;
   severity: CommentSeverity;
+  /** How many times the body has been rewritten. */
+  edit_count: number;
   /** What kind of remark it is, e.g. "coding-standards" — free-form,
    * set by the agent; null when it didn't say. */
   tag: string | null;
@@ -166,6 +168,15 @@ export interface NewLocalComment {
   run_id: string | null;
   parent_id: string | null;
   github_comment_id: number | null;
+}
+
+/** A superseded version of a comment body. */
+export interface CommentRevision {
+  id: string;
+  comment_id: string;
+  edited_at: string;
+  editor: string;
+  body: string;
 }
 
 // ---- agents ---------------------------------------------------------------

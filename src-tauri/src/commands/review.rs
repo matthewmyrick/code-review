@@ -1,8 +1,8 @@
 //! Local review-comment commands. These comments live only in Tandem's
 //! cache — nothing here talks to GitHub.
 
-use tandem_cache::ReviewStore;
-use tandem_core::review::{CommentStatus, LocalComment, NewLocalComment};
+use tandem_cache::{CommentRevisions, ReviewStore, SummaryStore};
+use tandem_core::review::{CommentRevision, CommentStatus, LocalComment, NewLocalComment};
 use tandem_core::TandemError;
 use tauri::{AppHandle, Emitter, State};
 
@@ -62,9 +62,36 @@ pub async fn update_comment_body(
     repo: String,
     number: u64,
 ) -> Result<(), TandemError> {
-    state.cache.lock().await.update_comment_body(&id, &body)?;
+    {
+        let cache = state.cache.lock().await;
+        let current = cache
+            .get_comment(&id)?
+            .ok_or_else(|| TandemError::Cache(format!("comment not found: {id}")))?;
+        // A no-op save shouldn't manufacture a version.
+        if current.body != body {
+            // Whose words are being replaced: the author's the first
+            // time, yours on every edit after that, since only you can
+            // edit a comment.
+            let editor = if cache.revision_count(&id)? == 0 {
+                current.author_name.clone()
+            } else {
+                "you".to_owned()
+            };
+            cache.record_revision(&id, &editor, &current.body)?;
+            cache.update_comment_body(&id, &body)?;
+        }
+    }
     notify_comments_changed(&app, &repo, number);
     Ok(())
+}
+
+/// Previous versions of a comment, oldest first.
+#[tauri::command]
+pub async fn list_comment_revisions(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Vec<CommentRevision>, TandemError> {
+    state.cache.lock().await.list_revisions(&id)
 }
 
 #[tauri::command]

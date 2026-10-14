@@ -6,7 +6,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use tandem_cache::{ArchiveStore, Cache, ReviewStore, ReviewedPrs};
+use tandem_cache::{ArchiveStore, Cache, ReviewStore, ReviewedPrs, SummaryStore};
 use tandem_core::diff::FileDiff;
 use tandem_core::github::{ArchivedPr, PrDetail, PrState, PullRequest};
 use tandem_core::review::{LocalComment, PrSummary};

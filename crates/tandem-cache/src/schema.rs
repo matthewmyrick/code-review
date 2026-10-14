@@ -76,6 +76,17 @@ pub const MIGRATIONS: &[&str] = &[
         PRIMARY KEY (repo, number)
     );
     ",
+    // 004: edit history for local comments (yours and agents')
+    "
+    CREATE TABLE comment_revisions (
+        id         TEXT PRIMARY KEY,
+        comment_id TEXT NOT NULL,
+        edited_at  TEXT NOT NULL,
+        editor     TEXT NOT NULL,
+        body       TEXT NOT NULL
+    );
+    CREATE INDEX idx_comment_revisions ON comment_revisions (comment_id, edited_at);
+    ",
 ];
 
 /// Run any migrations newer than the connection's `user_version`.
