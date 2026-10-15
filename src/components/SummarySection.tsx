@@ -5,17 +5,18 @@
 // agent answers in — the same threading the inline comments use, rooted
 // on a PR-level comment seeded with the summary.
 
-import { Bot, CornerDownLeft, Loader2, Trash2, User } from "lucide-react";
+import { Bot, CornerDownLeft, Loader2, Maximize2, Trash2, User } from "lucide-react";
 import { useState } from "react";
+import { create } from "zustand";
 
 import { relativeTime } from "../lib/format";
 import { ipc } from "../lib/ipc";
-import type { LocalComment, RepoRef } from "../lib/types";
+import type { LocalComment, PrSummary, RepoRef } from "../lib/types";
 import { loadAgent, saveAgent } from "../state/persist";
 import { useAppStore } from "../state/store";
 import { pushInfo } from "../state/toasts";
 import { MarkdownBody } from "./Markdown";
-import { Pill } from "./ui";
+import { Modal, Pill } from "./ui";
 
 export function SummarySection() {
   const summary = useAppStore((s) => s.bundle?.summary ?? null);
@@ -47,24 +48,92 @@ export function SummarySection() {
         {stale ? <Pill tone="amber">new commits since</Pill> : null}
         <button
           type="button"
+          title="open the summary in a floating pane"
+          onClick={(e) => {
+            e.preventDefault();
+            useSummaryPane.getState().setOpen(true);
+          }}
+          className="ml-auto inline-flex size-5 items-center justify-center rounded text-muted transition-colors hover:bg-panel-2 hover:text-cream"
+        >
+          <Maximize2 size={11} />
+        </button>
+        <button
+          type="button"
           title="delete this summary — the next review writes a fresh one"
           onClick={(e) => {
             e.preventDefault();
             void deleteSummary();
           }}
-          className="ml-auto inline-flex size-5 items-center justify-center rounded text-muted transition-colors hover:bg-ember/15 hover:text-ember"
+          className="inline-flex size-5 items-center justify-center rounded text-muted transition-colors hover:bg-ember/15 hover:text-ember"
         >
           <Trash2 size={11} />
         </button>
       </summary>
       <div className="mt-2 max-h-96 overflow-y-auto rounded-lg border border-moss/30 bg-moss/5 p-3">
-        <MarkdownBody text={summary.body} />
-        {replies.length > 0 ? <Thread replies={replies} /> : null}
-        <ReplyBox repo={summary.repo} number={summary.pr_number} agent={summary.agent_name} />
+        <SummaryBody summary={summary} replies={replies} />
       </div>
     </details>
   );
 }
+
+/** The summary and its discussion, shared by the inline section and the
+ * floating pane so they can't drift apart. */
+function SummaryBody({ summary, replies }: { summary: PrSummary; replies: LocalComment[] }) {
+  return (
+    <>
+      <MarkdownBody text={summary.body} />
+      {replies.length > 0 ? <Thread replies={replies} /> : null}
+      <ReplyBox repo={summary.repo} number={summary.pr_number} agent={summary.agent_name} />
+    </>
+  );
+}
+
+/** The same summary, floated over the diff — room to read a long one
+ * without the diff squeezing it into a scroll box. */
+export function SummaryPane() {
+  const summary = useAppStore((s) => s.bundle?.summary ?? null);
+  const comments = useAppStore((s) => s.bundle?.comments);
+  const open = useSummaryPane((s) => s.open);
+  const setOpen = useSummaryPane((s) => s.setOpen);
+  if (!open || summary === null) return null;
+  const root = summary.thread_root_id;
+  const replies =
+    root === null
+      ? []
+      : (comments ?? [])
+          .filter((c) => c.parent_id === root)
+          .slice()
+          .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return (
+    <Modal
+      title={
+        <span className="flex items-center gap-2">
+          <Bot size={12} /> agent summary
+          <span className="text-muted">
+            {summary.agent_name} · {relativeTime(summary.updated_at)}
+          </span>
+        </span>
+      }
+      onClose={() => {
+        setOpen(false);
+      }}
+    >
+      <SummaryBody summary={summary} replies={replies} />
+    </Modal>
+  );
+}
+
+interface SummaryPaneStore {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}
+
+export const useSummaryPane = create<SummaryPaneStore>((set) => ({
+  open: false,
+  setOpen: (open) => {
+    set({ open });
+  },
+}));
 
 function Thread({ replies }: { replies: LocalComment[] }) {
   return (

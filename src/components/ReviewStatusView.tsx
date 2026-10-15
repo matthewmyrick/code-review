@@ -5,9 +5,10 @@
 // browses any repo's open PRs. Clicking a row opens it in the review
 // view, switching the repo to match.
 
-import { AtSign, Inbox, RefreshCw, Search, User, X } from "lucide-react";
+import { AtSign, Bot, Inbox, RefreshCw, Search, User, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { isBotLogin } from "../lib/bots";
 import { fuzzyScore } from "../lib/fuzzy";
 import { sortPrs } from "../lib/sort";
 import type { InboxScope, PullRequest } from "../lib/types";
@@ -83,7 +84,12 @@ export function ReviewStatusView() {
   const [refreshing, setRefreshing] = useState(false);
   const counts = useAppStore((s) => s.inbox);
   const tabCount = (id: ReviewTab): number | undefined => {
-    if (id === "requested") return reviewRequests.length + reviewing.length;
+    if (id === "requested") {
+      // Bots are excluded on purpose: the badge is "things waiting on
+      // you", and a dependency bump isn't that.
+      const human = reviewRequests.filter((pr) => !isBotLogin(pr.author.login)).length;
+      return human + reviewing.length;
+    }
     if (id === "authored" || id === "mentions") return counts[id]?.length;
     return undefined;
   };
@@ -106,13 +112,17 @@ export function ReviewStatusView() {
 
   // "mine" reorders into ready/open/draft groups and publishes its own
   // keyNav list; "find" publishes its own too.
+  // Bots open a steady stream that would drown the human queue, so
+  // they get their own collapsed section near the bottom.
+  const bots = useMemo(() => prs.filter((pr) => isBotLogin(pr.author.login)), [prs]);
+  const mine = useMemo(() => prs.filter((pr) => !isBotLogin(pr.author.login)), [prs]);
   // Requested splits into "reviewed, nothing done" then the rest; mine
   // lets ReadyGroupedRows do the same at the top of its own grouping.
-  const waiting = useMemo(() => prs.filter(unacted), [prs, unacted]);
-  const rest = useMemo(() => prs.filter((pr) => !unacted(pr)), [prs, unacted]);
+  const waiting = useMemo(() => mine.filter(unacted), [mine, unacted]);
+  const rest = useMemo(() => mine.filter((pr) => !unacted(pr)), [mine, unacted]);
   const navPrs = useMemo(
-    () => (tab === "requested" ? [...waiting, ...rest, ...shownReviewing] : prs),
-    [tab, waiting, rest, prs, shownReviewing],
+    () => (tab === "requested" ? [...waiting, ...rest, ...shownReviewing, ...bots] : prs),
+    [tab, waiting, rest, prs, shownReviewing, bots],
   );
   useEffect(() => {
     if (tab !== "requested" && tab !== "mentions") return;
@@ -182,7 +192,8 @@ export function ReviewStatusView() {
         <div className="px-3 py-8">
           <Spinner label="searching github…" />
         </div>
-      ) : prs.length === 0 && !(tab === "requested" && shownReviewing.length > 0) ? (
+      ) : mine.length === 0 &&
+        !(tab === "requested" && (shownReviewing.length > 0 || bots.length > 0)) ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted">
           <Inbox size={28} strokeWidth={1.5} />
           {filter.trim()
@@ -219,6 +230,8 @@ export function ReviewStatusView() {
       {tab === "requested" && shownReviewing.length > 0 ? (
         <ReviewingRows prs={shownReviewing} />
       ) : null}
+
+      {tab === "requested" && bots.length > 0 ? <BotRows prs={bots} /> : null}
 
       {tab === "requested" && !loading ? <ApprovedFooter /> : null}
     </div>
@@ -329,5 +342,22 @@ function ReviewingRows({ prs }: { prs: PullRequest[] }) {
         />
       ))}
     </div>
+  );
+}
+
+/** Bot-authored PRs, folded away by default. They are real work, just
+ * never the thing you opened the app for. */
+function BotRows({ prs }: { prs: PullRequest[] }) {
+  return (
+    <details className="border-t border-edge/60 pt-2">
+      <summary className="flex cursor-pointer items-center gap-1.5 px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-muted hover:text-cream">
+        <Bot size={11} /> from bots ({prs.length})
+      </summary>
+      <div className="mt-1 space-y-1.5">
+        {prs.map((pr) => (
+          <InboxRow key={rowKey(pr)} pr={pr} aside={<QuickReviewControl pr={pr} />} />
+        ))}
+      </div>
+    </details>
   );
 }
