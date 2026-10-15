@@ -13,10 +13,11 @@ import { relativeTime } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import type { LocalComment, PrSummary, RepoRef } from "../lib/types";
 import { loadAgent, saveAgent } from "../state/persist";
+import { isWorking } from "../state/runBoard";
 import { useAppStore } from "../state/store";
 import { pushInfo } from "../state/toasts";
 import { MarkdownBody } from "./Markdown";
-import { Modal, Pill } from "./ui";
+import { Modal, Pill, Spinner } from "./ui";
 
 export function SummarySection() {
   const summary = useAppStore((s) => s.bundle?.summary ?? null);
@@ -79,10 +80,26 @@ export function SummarySection() {
 /** The summary and its discussion, shared by the inline section and the
  * floating pane so they can't drift apart. */
 function SummaryBody({ summary, replies }: { summary: PrSummary; replies: LocalComment[] }) {
+  // Same signal the inline threads give: the run is spawned, the reply
+  // lands minutes later, and silence in between reads as failure.
+  const answering = useAppStore((s) =>
+    s.runs.find(
+      (r) =>
+        r.purpose === "thread reply" &&
+        r.target_comment_id === summary.thread_root_id &&
+        isWorking(r),
+    ),
+  )?.agent_name;
+
   return (
     <>
       <MarkdownBody text={summary.body} />
       {replies.length > 0 ? <Thread replies={replies} /> : null}
+      {answering === undefined ? null : (
+        <div className="mt-3 border-t border-moss/20 pt-3">
+          <Spinner label={`${answering} is answering…`} />
+        </div>
+      )}
       <ReplyBox repo={summary.repo} number={summary.pr_number} agent={summary.agent_name} />
     </>
   );
