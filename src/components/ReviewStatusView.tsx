@@ -66,6 +66,9 @@ export function ReviewStatusView() {
   const prSort = useAppStore((s) => s.prSort);
   const refreshReviewRequests = useAppStore((s) => s.refreshReviewRequests);
   const reviewing = useAppStore((s) => s.reviewing);
+  // What you've already approved (the footer's list, loaded on this
+  // same tab) — an approved PR has moved on from "I reviewed this".
+  const approved = useAppStore((s) => s.inbox.approved);
   const loadReviewing = useAppStore((s) => s.loadReviewing);
   const loadInbox = useAppStore((s) => s.loadInbox);
   // "mine"/"mentions" live in the store's account-wide inbox map so the
@@ -88,7 +91,7 @@ export function ReviewStatusView() {
       // Bots are excluded on purpose: the badge is "things waiting on
       // you", and a dependency bump isn't that.
       const human = reviewRequests.filter((pr) => !isBotLogin(pr.author.login)).length;
-      return human + reviewing.length;
+      return human + unapproved.length;
     }
     if (id === "authored" || id === "mentions") return counts[id]?.length;
     return undefined;
@@ -106,7 +109,15 @@ export function ReviewStatusView() {
   );
   const all = sortPrs(tab === "requested" ? reviewRequests : (lazyList ?? []), prSort);
   const prs = useMemo(() => matching(all, filter), [all, filter]);
-  const shownReviewing = useMemo(() => matching(reviewing, filter), [reviewing, filter]);
+  const unapproved = useMemo(() => {
+    const done = new Set(
+      (approved ?? []).map((pr) => `${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`),
+    );
+    return reviewing.filter(
+      (pr) => !done.has(`${pr.repo.owner}/${pr.repo.name}#${String(pr.number)}`),
+    );
+  }, [reviewing, approved]);
+  const shownReviewing = useMemo(() => matching(unapproved, filter), [unapproved, filter]);
   const loading =
     tab === "requested" ? !reviewRequestsSeeded : lazyScope !== null && lazyList === undefined;
 
@@ -182,7 +193,7 @@ export function ReviewStatusView() {
           value={filter}
           onChange={setFilter}
           shown={prs.length + (tab === "requested" ? shownReviewing.length : 0)}
-          total={all.length + (tab === "requested" ? reviewing.length : 0)}
+          total={all.length + (tab === "requested" ? unapproved.length : 0)}
         />
       )}
 
