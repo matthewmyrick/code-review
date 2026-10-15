@@ -3,13 +3,16 @@
 // and answer, not a reason to lose your place in another PR.
 
 import { create } from "zustand";
-import { useEffect, useState } from "react";
+import { ExternalLink, GitPullRequest } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
 import { openExternal, prUrl } from "../lib/open";
 import type { FileDiff, LocalComment } from "../lib/types";
 import { CodeExcerpt } from "./CodeExcerpt";
 import { CommentThread, groupThreads } from "./comments";
+import { useHighlight } from "../state/notifications";
+import { useAppStore } from "../state/store";
 import { Button, Modal, Spinner } from "./ui";
 
 interface Target {
@@ -37,8 +40,11 @@ export const useThreadPane = create<ThreadPaneStore>((set) => ({
 export function ThreadPane() {
   const target = useThreadPane((s) => s.target);
   const close = useThreadPane((s) => s.close);
+  const openPr = useAppStore((s) => s.openPr);
+  const setHighlight = useHighlight((s) => s.set);
   const [comments, setComments] = useState<LocalComment[] | null>(null);
   const [diff, setDiff] = useState<FileDiff[]>([]);
+  const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (target === null) return;
@@ -61,6 +67,18 @@ export function ThreadPane() {
       live = false;
     };
   }, [target]);
+
+  // The latest reply is what you opened this for; a long thread would
+  // otherwise make you scroll past everything you've already read.
+  useEffect(() => {
+    if (comments === null) return;
+    const id = requestAnimationFrame(() => {
+      endRef.current?.scrollIntoView({ block: "end" });
+    });
+    return () => {
+      cancelAnimationFrame(id);
+    };
+  }, [comments]);
 
   if (target === null) return null;
 
@@ -99,14 +117,28 @@ export function ThreadPane() {
             side={thread.root.side}
           />
           <CommentThread root={thread.root} replies={thread.replies} />
-          <div className="flex justify-end border-t border-edge/60 pt-2">
+          <div ref={endRef} />
+          <div className="flex justify-end gap-2 border-t border-edge/60 pt-2">
+            <Button
+              kind="primary"
+              onClick={() => {
+                // Same landing as a click from the runs dashboard: the
+                // PR, scrolled to this thread.
+                close();
+                void openPr(target.repo, target.number);
+                setHighlight({ commentId: thread.root.id });
+              }}
+              title="open this PR in Tandem, scrolled to the thread"
+            >
+              <GitPullRequest size={12} /> open PR in Tandem
+            </Button>
             <Button
               onClick={() => {
                 openExternal(prUrl(thread.root.repo, thread.root.pr_number));
               }}
               title="open the pull request on github.com"
             >
-              view PR on github
+              <ExternalLink size={12} /> github
             </Button>
           </div>
         </div>
