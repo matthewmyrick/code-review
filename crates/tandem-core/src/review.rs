@@ -73,6 +73,10 @@ pub struct LocalComment {
     pub status: CommentStatus,
     /// Agent run that produced this comment, if any.
     pub run_id: Option<String>,
+    /// Commit this suggestion became, once you committed it. Proof it
+    /// landed, and a link to what landed.
+    #[serde(default)]
+    pub committed_sha: Option<String>,
     /// How many times the body has been rewritten. The versions
     /// themselves live in `comment_revisions`; this is here so a list
     /// can show "edited" without a query per comment.

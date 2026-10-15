@@ -177,7 +177,7 @@ pub async fn commit_suggestion(
     app: AppHandle,
     state: State<'_, AppState>,
     comment_id: String,
-) -> Result<(), TandemError> {
+) -> Result<String, TandemError> {
     let comment = {
         let cache = state.cache.lock().await;
         cache
@@ -231,11 +231,11 @@ pub async fn commit_suggestion(
         new_content.push('\n');
     }
 
-    let message = format!(
-        "Apply suggestion from {} to {}:{}\n\nCommitted via Tandem review of PR #{}",
-        comment.author_name, comment.path, comment.line, comment.pr_number
-    );
-    client
+    // Reads like any other commit on the branch: no agent name, no
+    // tooling credit. Who suggested it is review history, not something
+    // the repo's log needs to carry forever.
+    let message = format!("Apply suggestion to {}:{}", comment.path, comment.line);
+    let commit_sha = client
         .commit_file(
             &comment.repo,
             &comment.path,
@@ -248,13 +248,14 @@ pub async fn commit_suggestion(
 
     {
         let cache = state.cache.lock().await;
+        cache.set_comment_committed(&comment.id, &commit_sha)?;
         cache.set_comment_status(&comment.id, CommentStatus::Resolved)?;
     }
     let payload = serde_json::json!({ "repo": comment.repo.slug(), "number": comment.pr_number });
     if let Err(e) = app.emit("tandem://comments-updated", payload) {
         tracing::warn!(error = %e, "failed to emit comments-updated");
     }
-    Ok(())
+    Ok(commit_sha)
 }
 
 /// Resolve a GitHub review thread (explicit user action).

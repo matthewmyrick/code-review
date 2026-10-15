@@ -64,7 +64,9 @@ export interface AppStore {
   toggleRightPane: () => void;
   replyToComment: (commentId: string, body: string, agentName: string) => Promise<void>;
   mentionAgent: (agentName: string, commentId: string) => Promise<void>;
-  commitSuggestion: (commentId: string) => Promise<void>;
+  /** Resolves to the commit sha; rejects with the GitHub error so the
+   * caller can show it where the button is. */
+  commitSuggestion: (commentId: string) => Promise<string>;
   postToGithub: (commentId: string) => Promise<void>;
   approvePr: (body: string | null) => Promise<void>;
   loadMorePrs: () => Promise<void>;

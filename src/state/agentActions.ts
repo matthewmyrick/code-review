@@ -78,14 +78,13 @@ export function agentActions(
     },
 
     commitSuggestion: async (commentId: string) => {
-      try {
-        await ipc.commitSuggestion(commentId);
-        await reloadComments();
-        // The branch advanced; pull the new head + diff.
-        await get().refreshBundle();
-      } catch (e) {
-        fail(e);
-      }
+      // Deliberately rethrows: a failed commit has to be visible next
+      // to the button that failed, not just as a toast that fades.
+      const sha = await ipc.commitSuggestion(commentId);
+      await reloadComments();
+      // The branch advanced; pull the new head + diff.
+      await get().refreshBundle();
+      return sha;
     },
 
     mentionAgent: async (agentName: string, commentId: string) => {
