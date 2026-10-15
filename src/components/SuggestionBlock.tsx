@@ -1,9 +1,10 @@
 // The agent's concrete proposed fix, committable to the PR branch with
 // one (confirmed) click — GitHub-suggestion style.
 
-import { GitCommitHorizontal } from "lucide-react";
+import { Check, ExternalLink, GitCommitHorizontal } from "lucide-react";
 import { useState } from "react";
 
+import { openExternal } from "../lib/open";
 import type { LocalComment } from "../lib/types";
 import { useAppStore } from "../state/store";
 import { Button, Spinner } from "./ui";
@@ -12,6 +13,10 @@ export function SuggestionBlock({ comment }: { comment: LocalComment }) {
   const commitSuggestion = useAppStore((s) => s.commitSuggestion);
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);
+  // Shown right here rather than left to a toast: the whole question is
+  // "did my click do anything", and a message that fades doesn't answer
+  // it. Cleared on the next attempt.
+  const [error, setError] = useState<string | null>(null);
   const lineLabel =
     comment.end_line !== null && comment.end_line > comment.line
       ? `${String(comment.line)}–${String(comment.end_line)}`
@@ -34,7 +39,7 @@ export function SuggestionBlock({ comment }: { comment: LocalComment }) {
           {comment.suggestion}
         </pre>
       )}
-      {comment.status !== "resolved" ? (
+      {comment.committed_sha === null && comment.status !== "resolved" ? (
         <div className="flex items-center gap-1.5 border-t border-moss/30 bg-moss/5 px-2.5 py-1.5">
           {working ? (
             <Spinner label="committing to the PR branch…" />
@@ -45,10 +50,17 @@ export function SuggestionBlock({ comment }: { comment: LocalComment }) {
                 title="this WILL push a commit to the PR branch"
                 onClick={() => {
                   setWorking(true);
-                  void commitSuggestion(comment.id).then(() => {
-                    setWorking(false);
-                    setConfirming(false);
-                  });
+                  setError(null);
+                  commitSuggestion(comment.id)
+                    .then(() => {
+                      setConfirming(false);
+                    })
+                    .catch((e: unknown) => {
+                      setError(e instanceof Error ? e.message : String(e));
+                    })
+                    .finally(() => {
+                      setWorking(false);
+                    });
                 }}
               >
                 <GitCommitHorizontal size={11} /> confirm commit
@@ -74,8 +86,27 @@ export function SuggestionBlock({ comment }: { comment: LocalComment }) {
           )}
         </div>
       ) : (
-        <div className="border-t border-moss/30 bg-moss/10 px-2.5 py-1.5 text-[10px] font-medium text-moss">
-          committed to the PR branch
+        <div className="flex items-center gap-1.5 border-t border-moss/30 bg-moss/10 px-2.5 py-1.5 text-[10px] font-medium text-moss">
+          <Check size={11} /> committed to the PR branch
+          {comment.committed_sha === null ? null : (
+            <button
+              type="button"
+              title="see this commit on github.com"
+              onClick={() => {
+                openExternal(
+                  `https://github.com/${comment.repo.owner}/${comment.repo.name}/commit/${comment.committed_sha ?? ""}`,
+                );
+              }}
+              className="inline-flex items-center gap-1 font-mono underline underline-offset-2 hover:text-cream"
+            >
+              {comment.committed_sha.slice(0, 7)} <ExternalLink size={9} />
+            </button>
+          )}
+        </div>
+      )}
+      {error === null ? null : (
+        <div className="border-t border-ember/40 bg-ember/10 px-2.5 py-1.5 text-[10px] leading-relaxed text-ember">
+          <span className="font-medium">commit failed</span> — {error}
         </div>
       )}
     </div>

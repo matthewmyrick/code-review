@@ -21,6 +21,8 @@ pub trait ReviewStore {
     fn set_comment_status(&self, id: &str, status: CommentStatus) -> Result<()>;
     fn set_comment_posted(&self, id: &str, github_id: u64) -> Result<()>;
     fn update_comment_body(&self, id: &str, body: &str) -> Result<()>;
+    /// Record the commit a suggestion became.
+    fn set_comment_committed(&self, id: &str, sha: &str) -> Result<()>;
     fn delete_comment(&self, id: &str) -> Result<()>;
 
     fn put_agent_spec(&self, spec: &AgentSpec) -> Result<()>;
@@ -54,6 +56,7 @@ impl ReviewStore for Cache {
             severity: new.severity,
             status: CommentStatus::Open,
             run_id: new.run_id,
+            committed_sha: None,
             edit_count: 0,
             tag: new.tag,
             parent_id: new.parent_id,
@@ -127,6 +130,10 @@ impl ReviewStore for Cache {
             c.body = body.to_owned();
             c.edit_count += 1;
         })
+    }
+
+    fn set_comment_committed(&self, id: &str, sha: &str) -> Result<()> {
+        self.mutate_comment(id, |c| c.committed_sha = Some(sha.to_owned()))
     }
 
     fn delete_comment(&self, id: &str) -> Result<()> {

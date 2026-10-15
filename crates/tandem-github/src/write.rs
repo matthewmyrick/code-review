@@ -199,7 +199,7 @@ impl GithubClient {
         message: &str,
         content: &str,
         blob_sha: &str,
-    ) -> Result<()> {
+    ) -> Result<String> {
         let api = format!("/repos/{}/{}/contents/{}", repo.owner, repo.name, path);
         let url = format!("{}{api}", self.api_base);
         tracing::info!(%url, "github PUT (explicit user action)");
@@ -228,7 +228,18 @@ impl GithubClient {
                 message,
             });
         }
-        Ok(())
+        // The commit sha is what makes "committed" checkable after the
+        // fact, so it travels back with the result.
+        let body: serde_json::Value = resp.json().await.map_err(|e| TandemError::GithubApi {
+            status: 0,
+            message: e.to_string(),
+        })?;
+        Ok(body
+            .get("commit")
+            .and_then(|c| c.get("sha"))
+            .and_then(|s| s.as_str())
+            .unwrap_or_default()
+            .to_owned())
     }
 }
 

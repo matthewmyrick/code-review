@@ -137,6 +137,8 @@ export interface LocalComment {
   author_kind: CommentAuthorKind;
   author_name: string;
   severity: CommentSeverity;
+  /** Commit this suggestion became, once committed. */
+  committed_sha: string | null;
   /** How many times the body has been rewritten. */
   edit_count: number;
   /** What kind of remark it is, e.g. "coding-standards" — free-form,
