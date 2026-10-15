@@ -6,10 +6,11 @@
 // on a PR-level comment seeded with the summary.
 
 import { Bot, CornerDownLeft, Loader2, Maximize2, Trash2, User } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { create } from "zustand";
 
 import { relativeTime } from "../lib/format";
+import { useStickToBottom } from "../lib/stickToBottom";
 import { ipc } from "../lib/ipc";
 import type { LocalComment, PrSummary, RepoRef } from "../lib/types";
 import { loadAgent, saveAgent } from "../state/persist";
@@ -91,6 +92,11 @@ function SummaryBody({ summary, replies }: { summary: PrSummary; replies: LocalC
     ),
   )?.agent_name;
 
+  // Follow the conversation down as it grows — unless you've scrolled
+  // up to re-read something, in which case stay put.
+  const endRef = useRef<HTMLDivElement | null>(null);
+  useStickToBottom(endRef, `${String(replies.length)}:${answering ?? ""}`);
+
   return (
     <>
       <MarkdownBody text={summary.body} />
@@ -101,6 +107,7 @@ function SummaryBody({ summary, replies }: { summary: PrSummary; replies: LocalC
         </div>
       )}
       <ReplyBox repo={summary.repo} number={summary.pr_number} agent={summary.agent_name} />
+      <div ref={endRef} />
     </>
   );
 }
