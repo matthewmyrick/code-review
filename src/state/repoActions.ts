@@ -169,7 +169,14 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
         // Anything GitHub is already asking for belongs in the main
         // list, not the tail — it's one or the other, never both.
         const requested = new Set(get().reviewRequests.map(reviewRequestKey));
-        set({ reviewing: reviewed.filter((pr) => !requested.has(reviewRequestKey(pr))) });
+        // Your own PRs are not "PRs you reviewed without being asked";
+        // they live in mine, where they already lead if a review ran.
+        const viewer = get().viewer;
+        set({
+          reviewing: reviewed.filter(
+            (pr) => !requested.has(reviewRequestKey(pr)) && pr.author.login !== viewer,
+          ),
+        });
       } catch (e) {
         fail(e);
       }
