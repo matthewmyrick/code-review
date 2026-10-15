@@ -25,6 +25,7 @@ import { relativeTime } from "../lib/format";
 import type { AgentRun } from "../lib/types";
 import { useHighlight } from "../state/notifications";
 import { isError, isTerminal, isWorking, unprocessedCount, useRunBoard } from "../state/runBoard";
+import { useThreadPane } from "./ThreadPane";
 import { useAppStore } from "../state/store";
 import { pushGithubError, pushInfo } from "../state/toasts";
 import { Button, EmptyState, IconButton } from "./ui";
@@ -108,6 +109,7 @@ export function AgentsDashboard() {
   const openPr = useAppStore((s) => s.openPr);
   const setView = useAppStore((s) => s.setView);
   const setHighlight = useHighlight((s) => s.set);
+  const openThread = useThreadPane((s) => s.open);
   const [showProcessed, setShowProcessed] = useState(false);
 
   useEffect(() => {
@@ -126,6 +128,16 @@ export function AgentsDashboard() {
 
   const jump = (run: AgentRun) => {
     if (isTerminal(run)) markViewed(run.run_id);
+    // A finished thread reply is something you read and answer — show
+    // it where you are rather than navigating away from your place.
+    if (run.purpose === "thread reply" && run.target_comment_id !== null && isTerminal(run)) {
+      openThread({
+        repo: run.repo_slug,
+        number: run.pr_number,
+        commentId: run.target_comment_id,
+      });
+      return;
+    }
     setView("review");
     void openPr(run.repo_slug, run.pr_number);
     setHighlight(

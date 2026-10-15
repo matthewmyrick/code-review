@@ -24,11 +24,12 @@ import { CommentsPanel } from "./components/CommentsPanel";
 import { DiffViewer } from "./components/DiffViewer";
 import { FileTreePanel } from "./components/FileTree";
 import { PrSearchPane, usePrSearch } from "./components/PrSearchPane";
+import { ThreadPane } from "./components/ThreadPane";
 import { NotificationsBell } from "./components/NotificationsBell";
 import { PrHeader } from "./components/PrHeader";
 import { ReviewStatusMenuButton, ReviewStatusView } from "./components/ReviewStatusView";
 import { ShortcutManager } from "./components/ShortcutManager";
-import { SummarySection } from "./components/SummarySection";
+import { SummaryPane, SummarySection } from "./components/SummarySection";
 import { SettingsView } from "./components/SettingsView";
 import { SidePane } from "./components/SidePane";
 import { ToastHost } from "./components/ToastHost";
@@ -167,6 +168,8 @@ export default function App() {
       <ToastHost />
       <ShortcutManager />
       <PrSearchPane />
+      <ThreadPane />
+      <SummaryPane />
       <div className="flex min-h-0 flex-1">
         {view === "settings" ? (
           <main className="animate-fade-up flex-1 overflow-y-scroll [scrollbar-gutter:stable]">
