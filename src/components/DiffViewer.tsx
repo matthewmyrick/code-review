@@ -3,7 +3,7 @@
 // to attach a local comment — never posted to GitHub.
 
 import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fileAnchorId } from "../lib/format";
 import { highlightLine, languageForPath } from "../lib/highlight";
@@ -154,6 +154,15 @@ function HunkView({ path, language, hunk, comments, githubComments, reviewThread
     };
   }, [dragging]);
 
+  // Thread first, place second. A reply can be anchored somewhere other
+  // than its root — an agent re-anchors a suggestion to the exact range
+  // it replaces — and bucketing by line before grouping tore those
+  // replies out of their thread and showed them as separate comments.
+  const fileThreads = useMemo(
+    () => groupThreads(comments.filter((c) => c.status !== "archived")),
+    [comments],
+  );
+
   return (
     <div className="border-b border-edge/40 last:border-b-0">
       <div className="bg-sky/5 px-3 py-1 font-mono text-[11px] text-sky-deep">
@@ -162,10 +171,9 @@ function HunkView({ path, language, hunk, comments, githubComments, reviewThread
       {hunk.lines.map((line, i) => {
         const anchorSide = line.kind === "removed" ? "old" : "new";
         const anchorLine = line.kind === "removed" ? line.old_line : line.new_line;
-        const threads = groupThreads(
-          comments.filter(
-            (c) => c.side === anchorSide && c.line === anchorLine && c.status !== "archived",
-          ),
+        // A thread sits where its root sits.
+        const threads = fileThreads.filter(
+          (t) => t.root.side === anchorSide && t.root.line === anchorLine,
         );
         // Outdated/resolved threads have line=null but keep original_line.
         const ghThreads = githubComments
