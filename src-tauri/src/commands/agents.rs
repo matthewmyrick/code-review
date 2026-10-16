@@ -189,6 +189,7 @@ pub async fn start_agent_review(
         pr,
         "pr review",
         None,
+        None,
         move |run_id, comments_file, workdir| {
             // The checkout is where the repo states its own rules; with
             // no checkout the agent reviews on general principles.
@@ -221,6 +222,12 @@ pub(crate) async fn launch_run(
     pr: tandem_core::github::PullRequest,
     purpose: &str,
     target_comment_id: Option<String>,
+    // A checkout the caller prepared and this must not disturb: a
+    // conflict resolution leaves a merge in progress, and re-running
+    // `gh pr checkout` over it fails — which dropped the run back to no
+    // workdir at all, so the agent could read the conflicted file but
+    // not write it.
+    prepared: Option<std::path::PathBuf>,
     build_prompt_fn: impl FnOnce(&str, &str, Option<&std::path::Path>) -> String,
 ) -> Result<String, TandemError> {
     let run_id = uuid::Uuid::new_v4().to_string();
@@ -235,14 +242,16 @@ pub(crate) async fn launch_run(
     // etc. all just fall back to today's diff-only behavior. Done
     // before the prompt because the prompt reads the repo's own
     // convention files out of it.
-    let workdir = match crate::commands::workspace::ensure_pr_checkout(state, &repo, pr.number)
-        .await
-    {
-        Ok(path) => Some(path),
-        Err(e) => {
-            tracing::warn!(error = %e, repo = %repo.slug(), number = pr.number, "no local checkout for this run — continuing with diff-only context");
-            None
-        }
+    let workdir = match prepared {
+        Some(path) => Some(path),
+        None => match crate::commands::workspace::ensure_pr_checkout(state, &repo, pr.number).await
+        {
+            Ok(path) => Some(path),
+            Err(e) => {
+                tracing::warn!(error = %e, repo = %repo.slug(), number = pr.number, "no local checkout for this run — continuing with diff-only context");
+                None
+            }
+        },
     };
 
     let prompt = build_prompt_fn(&run_id, &comments_file, workdir.as_deref());

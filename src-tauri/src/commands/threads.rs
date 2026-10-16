@@ -260,6 +260,7 @@ async fn launch_thread_run(
         pr,
         "thread reply",
         target,
+        None,
         move |run_id, comments_file, _workdir| {
             let ctx = ReplyContext {
                 run_id: run_id.to_owned(),

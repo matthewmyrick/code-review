@@ -263,7 +263,9 @@ export function CommentCard(props: {
             <Archive size={11} /> archive
           </Button>
         ) : null}
-        <PostToGithub comment={comment} />
+        {/* A conflict briefing is working notes about your own merge —
+            there's nothing on GitHub for it to belong to. */}
+        {comment.tag === "conflict" ? null : <PostToGithub comment={comment} />}
         <button
           type="button"
           title="delete permanently"

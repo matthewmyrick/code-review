@@ -87,6 +87,7 @@ pub async fn start_conflict_resolution(
         pr,
         "conflict analysis",
         None,
+        None,
         move |run_id, comments_file, _workdir| {
             let ctx = ConflictContext {
                 run_id: run_id.to_owned(),
@@ -164,6 +165,7 @@ pub async fn start_conflict_fix(
         pr,
         "conflict resolution",
         None,
+        Some(dir),
         move |run_id, comments_file, _workdir| {
             let ctx = ResolveContext {
                 run_id: run_id.to_owned(),
