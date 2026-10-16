@@ -9,9 +9,10 @@ import { useEffect, useState } from "react";
 import { ipc } from "../lib/ipc";
 import type { DiffLine, FileDiff, FileExcerpt, RepoRef } from "../lib/types";
 
-/** Lines either side of the anchor. Enough to read the change in
- * context, not so much that the comment scrolls off. */
-const PADDING = 4;
+/** Lines either side of the anchor — and either side of a range, so a
+ * comment on 5–10 shows 1–15. Enough context to judge the code without
+ * the comment scrolling off. */
+const PADDING = 5;
 
 function lineNumber(line: DiffLine, side: "old" | "new"): number | null {
   return side === "old" ? line.old_line : line.new_line;
@@ -23,14 +24,16 @@ function excerpt(
   diff: FileDiff[],
   path: string,
   line: number,
+  end: number,
   side: "old" | "new",
 ): DiffLine[] | null {
   const file = diff.find((f) => f.new_path === path || f.old_path === path);
   if (!file) return null;
   for (const hunk of file.hunks) {
-    const at = hunk.lines.findIndex((l) => lineNumber(l, side) === line);
-    if (at === -1) continue;
-    return hunk.lines.slice(Math.max(0, at - PADDING), at + PADDING + 1);
+    const from = hunk.lines.findIndex((l) => lineNumber(l, side) === line);
+    if (from === -1) continue;
+    const to = hunk.lines.findIndex((l) => lineNumber(l, side) === end);
+    return hunk.lines.slice(Math.max(0, from - PADDING), (to === -1 ? from : to) + PADDING + 1);
   }
   return null;
 }
@@ -45,6 +48,7 @@ export function CodeExcerpt({
   diff,
   path,
   line,
+  endLine,
   side,
   repo,
   gitRef,
@@ -52,6 +56,8 @@ export function CodeExcerpt({
   diff: FileDiff[];
   path: string;
   line: number;
+  /** Inclusive end of a multi-line anchor; padded the same either side. */
+  endLine?: number | null;
   side: "old" | "new";
   /** Where to read the file when the line isn't in the diff — an agent
    * with a checkout cites lines this PR never touched. */
@@ -61,20 +67,28 @@ export function CodeExcerpt({
   const [open, setOpen] = useState(false);
   const [fetched, setFetched] = useState<FileExcerpt | "loading" | "failed" | null>(null);
 
-  const lines = open && path && line > 0 ? excerpt(diff, path, line, side) : null;
+  const last = endLine !== null && endLine !== undefined && endLine > line ? endLine : line;
+  const lines = open && path && line > 0 ? excerpt(diff, path, line, last, side) : null;
   const needsFile = open && lines === null && repo !== undefined && gitRef !== undefined;
 
   useEffect(() => {
     if (!needsFile || fetched !== null) return;
     setFetched("loading");
     ipc
-      .getFileExcerpt(`${repo.owner}/${repo.name}`, path, gitRef, line, PADDING)
+      // Centre on the range and widen the radius to reach both ends.
+      .getFileExcerpt(
+        `${repo.owner}/${repo.name}`,
+        path,
+        gitRef,
+        Math.floor((line + last) / 2),
+        Math.ceil((last - line) / 2) + PADDING,
+      )
       .then(setFetched)
       .catch((e: unknown) => {
         console.warn("couldn't read the file", e);
         setFetched("failed");
       });
-  }, [needsFile, fetched, repo, gitRef, path, line]);
+  }, [needsFile, fetched, repo, gitRef, path, line, last]);
 
   if (!path || line === 0) return null;
 
@@ -91,17 +105,18 @@ export function CodeExcerpt({
         <Code2 size={11} />
         <span className="truncate font-mono">
           {path}:{line}
+          {last > line ? `-${String(last)}` : ""}
         </span>
         <span className="ml-auto shrink-0">{open ? "hide code" : "show code"}</span>
       </button>
       {open ? (
         lines === null ? (
-          <FromFile excerpt={fetched} anchor={line} />
+          <FromFile excerpt={fetched} anchor={line} anchorEnd={last} />
         ) : (
           <div className="overflow-x-auto border-t border-edge/60 py-1">
             {lines.map((l, i) => {
               const n = lineNumber(l, side);
-              const anchor = n === line;
+              const anchor = n !== null && n >= line && n <= last;
               return (
                 <div
                   key={`${String(n ?? 0)}-${String(i)}`}
@@ -131,9 +146,11 @@ export function CodeExcerpt({
 function FromFile({
   excerpt,
   anchor,
+  anchorEnd,
 }: {
   excerpt: FileExcerpt | "loading" | "failed" | null;
   anchor: number;
+  anchorEnd: number;
 }) {
   if (excerpt === null || excerpt === "loading") {
     return <div className="px-2 py-1.5 text-[10px] text-muted">reading the file…</div>;
@@ -156,7 +173,7 @@ function FromFile({
           <div
             key={n}
             className={`flex gap-2 whitespace-pre px-2 font-mono text-[10px] leading-[1.6] ${
-              n === anchor ? "bg-sky/15 text-cream" : "text-muted"
+              n >= anchor && n <= anchorEnd ? "bg-sky/15 text-cream" : "text-muted"
             }`}
           >
             <span className="w-8 shrink-0 select-none text-right text-muted/70">{n}</span>
