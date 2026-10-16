@@ -100,6 +100,76 @@ pub struct ThreadMessage {
     pub body: String,
 }
 
+/// Everything a resolution run needs: the merge is already started in
+/// the agent's working directory, so this is mostly instructions.
+#[derive(Debug, Clone)]
+pub struct ResolveContext {
+    pub run_id: String,
+    pub comments_file: String,
+    pub base_ref: String,
+    /// Paths git left conflict markers in.
+    pub conflicted: Vec<String>,
+    /// The briefing a previous analysis run wrote, if there was one.
+    pub briefing: Option<String>,
+}
+
+/// Prompt for actually resolving the conflicts, as opposed to writing
+/// about them. The decisive instruction is the last one: resolve what
+/// you can judge, and only ask about what you genuinely can't.
+pub fn build_resolve_prompt(ctx: &ResolveContext, pr: &PullRequest, instructions: &str) -> String {
+    let files = ctx
+        .conflicted
+        .iter()
+        .map(|p| format!("- {p}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let briefing = match &ctx.briefing {
+        Some(text) => format!("## The analysis already written for this conflict\n{text}\n\n"),
+        None => String::new(),
+    };
+    format!(
+        "# Tandem conflict resolution\n\
+         PR #{number} ({title}) is being merged with `{base}`. The merge is \
+         ALREADY STARTED in your working directory: the base commits are \
+         fetched and git has left conflict markers in the files below. Your \
+         job is to edit those files until they are right.\n\n\
+         - run id: {run_id}\n\
+         - conflicted files:\n{files}\n\n\
+         {briefing}\
+         ## How to work\n\
+         Edit the files in place. Remove every conflict marker you resolve \
+         (`<<<<<<<`, `=======`, `>>>>>>>`). Do NOT run `git commit`, `git \
+         push`, `git merge --abort`, or `gh` — Tandem commits and pushes \
+         after a human has looked at what you did. Do not touch files that \
+         are not conflicted.\n\n\
+         Resolve what you can judge. Most conflicts are two additions at \
+         the same anchor and the answer is to keep both, in whichever \
+         order the surrounding code implies — do that without asking. \
+         Preserve both sides' comments. If the two sides genuinely \
+         disagree about behavior and picking wrong would break something, \
+         leave THAT hunk's markers in place and ask about it.\n\n\
+         ## What to report\n\
+         Emit EXACTLY ONE JSON object on its own line in your final \
+         response (no code fences):\n\n\
+         {{\"type\":\"tandem_comment\",\"path\":\"\",\"side\":\"new\",\"line\":0,\
+         \"severity\":\"info\",\"tag\":\"conflict\",\"body\":\"<markdown>\"}}\n\n\
+         Keep `path` empty and `line` 0. The body is SHORT: a line per file \
+         saying what you did and why, then — only if you left something \
+         unresolved — a numbered question per undecided hunk, each with the \
+         options and your recommendation. No preamble, no restating the \
+         diff. If you resolved everything, say so in one line and stop.\n\n\
+         ## The reviewer's standing instructions\n\
+         {instructions}\n",
+        number = pr.number,
+        title = pr.title,
+        base = ctx.base_ref,
+        run_id = ctx.run_id,
+        files = files,
+        briefing = briefing,
+        instructions = instructions,
+    )
+}
+
 /// One likely-conflicting file: the PR touches it AND the base branch
 /// changed it since the merge-base.
 #[derive(Debug, Clone)]

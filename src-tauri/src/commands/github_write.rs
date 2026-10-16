@@ -287,3 +287,65 @@ pub async fn mark_ready_for_review(
     })?;
     client.mark_pr_ready_for_review(&node_id).await
 }
+
+/// Commit the resolved merge and push it to the PR branch. The agent
+/// resolves; this is the click that makes it real, so it refuses
+/// anything half-done rather than pushing markers to a branch.
+#[tauri::command]
+pub async fn push_conflict_resolution(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    repo: String,
+    number: u64,
+) -> Result<String, TandemError> {
+    let repo = parse_repo(&repo)?;
+    let dir = state
+        .dirs
+        .worktrees_dir
+        .join("agent-runs")
+        .join(repo.slug())
+        .join(number.to_string());
+    if !dir.join(".git").join("MERGE_HEAD").exists() {
+        return Err(TandemError::Config(
+            "no merge in progress for this PR — start a conflict resolution first".into(),
+        ));
+    }
+    let left = crate::commands::merge_tree::unresolved(&dir).await?;
+    if !left.is_empty() {
+        return Err(TandemError::Config(format!(
+            "still unresolved: {} — answer the agent's questions first",
+            left.join(", ")
+        )));
+    }
+
+    let head = {
+        let cache = state.cache.lock().await;
+        cache
+            .get_pr_detail(&repo, number)?
+            .ok_or_else(|| TandemError::Agent("PR not synced yet".into()))?
+            .pull_request
+            .head_ref
+    };
+
+    let refspec = format!("HEAD:{head}");
+    for args in [
+        ["add", "-A"].as_slice(),
+        ["commit", "--no-edit"].as_slice(),
+        ["push", "origin", &refspec].as_slice(),
+    ] {
+        let (ok, out, err) = crate::commands::merge_tree::git(args, &dir).await?;
+        if !ok {
+            return Err(TandemError::Config(format!(
+                "`git {}` failed: {}",
+                args.join(" "),
+                if err.is_empty() { out } else { err }
+            )));
+        }
+    }
+    let (_, sha, _) = crate::commands::merge_tree::git(&["rev-parse", "HEAD"], &dir).await?;
+    let payload = serde_json::json!({ "repo": repo.slug(), "number": number });
+    if let Err(e) = app.emit("tandem://comments-updated", payload) {
+        tracing::warn!(error = %e, "failed to emit comments-updated");
+    }
+    Ok(sha)
+}

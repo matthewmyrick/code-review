@@ -9,6 +9,7 @@ import type {
   AppRelease,
   FileConfigInfo,
   FileExcerpt,
+  ResolutionState,
   MergeOptions,
   OwnerList,
   RepoSummary,
@@ -83,6 +84,12 @@ export const ipc = {
     invoke<string>("reply_to_comment", { agentName, commentId, body }),
   mentionAgent: (agentName: string, commentId: string) =>
     invoke<string>("mention_agent", { agentName, commentId }),
+  startConflictFix: (agentName: string, repo: string, number: number) =>
+    invoke<string>("start_conflict_fix", { agentName, repo, number }),
+  conflictResolutionState: (repo: string, number: number) =>
+    invoke<ResolutionState>("conflict_resolution_state", { repo, number }),
+  pushConflictResolution: (repo: string, number: number) =>
+    invoke<string>("push_conflict_resolution", { repo, number }),
   startConflictResolution: (agentName: string, repo: string, number: number) =>
     invoke<string>("start_conflict_resolution", { agentName, repo, number }),
 

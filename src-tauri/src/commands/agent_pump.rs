@@ -149,7 +149,14 @@ async fn handle_comment(
         author_name: spec.name.clone(),
         severity: parse_severity(&parsed.severity),
         run_id: Some(run.run_id.clone()),
-        tag: parsed.tag.clone(),
+        // Conflict runs own their own section in the UI; tagging here
+        // means a model that forgets the tag field can't hide them in
+        // the general comment list.
+        tag: parsed.tag.clone().or_else(|| {
+            run.purpose
+                .starts_with("conflict")
+                .then(|| "conflict".to_owned())
+        }),
         parent_id: parsed.parent_id.clone(),
         github_comment_id: None,
     };
