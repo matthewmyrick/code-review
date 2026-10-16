@@ -4,6 +4,7 @@
 // move is "someone raised this, let me think it through with an agent
 // before I answer".
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 import type { GithubComment, GithubReview, LocalComment } from "../lib/types";
@@ -59,32 +60,32 @@ export function LocalThreadModal({ thread, onClose }: { thread: Thread; onClose:
   );
 }
 
-/** Shared shell for anything that came from GitHub: the original on one
- * tab, your local discussion of it on the other. */
+/** Shared shell for anything that came from GitHub. The original stays
+ * on screen whatever you do — you can't discuss a comment that the UI
+ * has swapped out — and the composer stays with it, defaulting to a
+ * local reply. The tabs only choose which conversation you're reading:
+ * yours in Tandem, or the one on GitHub. */
 function GithubShell(props: {
-  title: React.ReactNode;
-  original: React.ReactNode;
+  title: ReactNode;
+  original: ReactNode;
   threads: Thread[];
+  githubReplies: GithubComment[];
   path: string;
   line: number;
   githubCommentId: number;
   reviewCommentId?: number;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"github" | "local">("github");
+  // Local first: discussing it here before answering is the point.
+  const [tab, setTab] = useState<"local" | "github">("local");
   const local = props.threads;
 
   return (
     <Modal title={props.title} onClose={props.onClose}>
-      <div className="mb-3 flex items-center gap-1.5 border-b border-edge pb-2">
-        <Tab
-          active={tab === "github"}
-          onClick={() => {
-            setTab("github");
-          }}
-        >
-          <GithubMark size={10} /> on github
-        </Tab>
+      <Excerpt path={props.path} line={props.line} />
+      <div className="mt-3">{props.original}</div>
+
+      <div className="mt-4 flex items-center gap-1.5 border-b border-edge pb-2">
         <Tab
           active={tab === "local"}
           onClick={() => {
@@ -93,19 +94,23 @@ function GithubShell(props: {
         >
           in tandem{local.length > 0 ? ` (${String(local.length)})` : ""}
         </Tab>
+        <Tab
+          active={tab === "github"}
+          onClick={() => {
+            setTab("github");
+          }}
+        >
+          <GithubMark size={10} /> on github
+          {props.githubReplies.length > 0 ? ` (${String(props.githubReplies.length)})` : ""}
+        </Tab>
       </div>
 
-      {tab === "github" ? (
-        <>
-          <Excerpt path={props.path} line={props.line} />
-          <div className="mt-3">{props.original}</div>
-        </>
-      ) : (
-        <>
-          {local.length === 0 ? (
-            <div className="rounded-lg border border-edge/60 bg-panel-2/40 px-3 py-4 text-center text-xs text-muted">
-              nothing local yet — write a reply below and it stays in Tandem, where you can @mention
-              an agent to think it through before you answer on GitHub
+      <div className="mt-3">
+        {tab === "local" ? (
+          local.length === 0 ? (
+            <div className="rounded-lg border border-edge/60 bg-panel-2/40 px-3 py-4 text-center text-xs leading-relaxed text-muted">
+              nothing local yet — reply below and it stays in Tandem, where you can @mention an
+              agent to think it through before you answer on GitHub
             </div>
           ) : (
             local.map((t) => (
@@ -113,15 +118,26 @@ function GithubShell(props: {
                 <CommentThread root={t.root} replies={t.replies} />
               </div>
             ))
-          )}
-          <ReplySection
-            path={props.path}
-            line={props.line}
-            githubCommentId={props.githubCommentId}
-            reviewCommentId={props.reviewCommentId}
-          />
-        </>
-      )}
+          )
+        ) : props.githubReplies.length === 0 ? (
+          <div className="rounded-lg border border-edge/60 bg-panel-2/40 px-3 py-4 text-center text-xs text-muted">
+            no replies on GitHub yet
+          </div>
+        ) : (
+          props.githubReplies.map((reply) => (
+            <div key={reply.id} className="mb-3">
+              <GithubCommentCard comment={reply} />
+            </div>
+          ))
+        )}
+      </div>
+
+      <ReplySection
+        path={props.path}
+        line={props.line}
+        githubCommentId={props.githubCommentId}
+        reviewCommentId={props.reviewCommentId}
+      />
     </Modal>
   );
 }
@@ -129,6 +145,7 @@ function GithubShell(props: {
 export function GithubCommentModal(props: {
   comment: GithubComment;
   threads: Thread[];
+  githubReplies: GithubComment[];
   onClose: () => void;
 }) {
   const { comment } = props;
@@ -149,6 +166,7 @@ export function GithubCommentModal(props: {
       }
       original={<GithubCommentCard comment={comment} />}
       threads={props.threads}
+      githubReplies={props.githubReplies}
       path={comment.path ?? ""}
       line={comment.line ?? comment.original_line ?? 0}
       githubCommentId={comment.id}
@@ -180,6 +198,7 @@ export function ReviewModal(props: {
         </>
       }
       threads={props.threads}
+      githubReplies={[]}
       path=""
       line={0}
       githubCommentId={review.id}
@@ -195,7 +214,7 @@ function Tab({
 }: {
   active: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
