@@ -179,6 +179,12 @@ export interface FileExcerpt {
   lines: string[];
 }
 
+/** Where a conflict resolution stands in the agent's checkout. */
+export interface ResolutionState {
+  unresolved: string[];
+  ready: boolean;
+}
+
 /** A superseded version of a comment body. */
 export interface CommentRevision {
   id: string;

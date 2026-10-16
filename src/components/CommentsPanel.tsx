@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { useAppStore } from "../state/store";
 import { groupThreads } from "./comments";
+import { ConflictSection } from "./ConflictSection";
 import type { Selected } from "./PanelCards";
 import { GithubSummary, ReviewSummary, ThreadSummary } from "./PanelCards";
 import { GithubCommentModal, LocalThreadModal, ReviewModal } from "./PanelModals";
@@ -29,15 +30,17 @@ export function CommentsPanel() {
   };
   // Threads match on anything you'd remember them by: what was said
   // anywhere in the thread, who said it, and where it sits.
-  const threads = groupThreads(comments).filter((t) =>
-    hit(
-      t.root.body,
-      t.root.author_name,
-      t.root.path,
-      t.root.tag,
-      ...t.replies.flatMap((r) => [r.body, r.author_name]),
-    ),
-  );
+  const threads = groupThreads(comments)
+    .filter((t) => t.root.tag !== "conflict")
+    .filter((t) =>
+      hit(
+        t.root.body,
+        t.root.author_name,
+        t.root.path,
+        t.root.tag,
+        ...t.replies.flatMap((r) => [r.body, r.author_name]),
+      ),
+    );
   const open = threads.filter((t) => t.root.status === "open");
   const triaged = threads.filter((t) => t.root.status !== "open" && t.root.status !== "archived");
   const archived = threads.filter((t) => t.root.status === "archived");
@@ -58,6 +61,7 @@ export function CommentsPanel() {
 
   return (
     <div className="flex flex-col gap-1.5 p-3">
+      <ConflictSection />
       <Button
         onClick={() => {
           setSelected({ kind: "new-general" });

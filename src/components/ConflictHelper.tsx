@@ -1,6 +1,7 @@
 // Shown when a PR has merge conflicts: kick off an agent run that
-// analyzes both sides of the conflict and opens a local general-comment
-// discussion (reply there to keep talking to the agent).
+// analyzes both sides and writes a briefing. The resolution itself —
+// and the briefing once it exists — lives in the conflict section at
+// the top of the comments pane.
 
 import { GitPullRequestArrow } from "lucide-react";
 import { useState } from "react";
@@ -31,7 +32,7 @@ export function ConflictHelper({ pr }: { pr: PullRequest }) {
     void ipc
       .startConflictResolution(agentName, repo, pr.number)
       .then(() => {
-        pushInfo(`${agentName} is analyzing the conflicts — a discussion will open in comments`);
+        pushInfo(`${agentName} is analyzing the conflicts — findings appear above the comments`);
       })
       .catch((e: unknown) => {
         pushGithubError(e instanceof Error ? e.message : String(e));

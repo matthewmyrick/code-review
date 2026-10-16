@@ -7,6 +7,7 @@ pub mod files;
 pub mod github_write;
 pub mod mcp;
 pub mod merge;
+pub mod merge_tree;
 pub mod prs;
 pub mod review;
 pub mod settings_cmd;
