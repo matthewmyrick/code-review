@@ -194,6 +194,8 @@ export function ThreadPane() {
             path={thread.root.path}
             line={thread.root.line}
             side={thread.root.side}
+            repo={thread.root.repo}
+            gitRef={thread.root.head_sha}
           />
           <CommentThread root={thread.root} replies={thread.replies} />
           <div ref={endRef} />

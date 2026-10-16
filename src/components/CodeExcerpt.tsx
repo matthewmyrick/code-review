@@ -4,9 +4,10 @@
 // you ask for it.
 
 import { ChevronRight, Code2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import type { DiffLine, FileDiff } from "../lib/types";
+import { ipc } from "../lib/ipc";
+import type { DiffLine, FileDiff, FileExcerpt, RepoRef } from "../lib/types";
 
 /** Lines either side of the anchor. Enough to read the change in
  * context, not so much that the comment scrolls off. */
@@ -45,16 +46,37 @@ export function CodeExcerpt({
   path,
   line,
   side,
+  repo,
+  gitRef,
 }: {
   diff: FileDiff[];
   path: string;
   line: number;
   side: "old" | "new";
+  /** Where to read the file when the line isn't in the diff — an agent
+   * with a checkout cites lines this PR never touched. */
+  repo?: RepoRef;
+  gitRef?: string;
 }) {
   const [open, setOpen] = useState(false);
-  if (!path || line === 0) return null;
+  const [fetched, setFetched] = useState<FileExcerpt | "loading" | "failed" | null>(null);
 
-  const lines = open ? excerpt(diff, path, line, side) : null;
+  const lines = open && path && line > 0 ? excerpt(diff, path, line, side) : null;
+  const needsFile = open && lines === null && repo !== undefined && gitRef !== undefined;
+
+  useEffect(() => {
+    if (!needsFile || fetched !== null) return;
+    setFetched("loading");
+    ipc
+      .getFileExcerpt(`${repo.owner}/${repo.name}`, path, gitRef, line, PADDING)
+      .then(setFetched)
+      .catch((e: unknown) => {
+        console.warn("couldn't read the file", e);
+        setFetched("failed");
+      });
+  }, [needsFile, fetched, repo, gitRef, path, line]);
+
+  if (!path || line === 0) return null;
 
   return (
     <div className="mt-1.5 overflow-hidden rounded-md border border-edge/60 bg-panel-2/40">
@@ -74,9 +96,7 @@ export function CodeExcerpt({
       </button>
       {open ? (
         lines === null ? (
-          <div className="px-2 py-1.5 text-[10px] text-muted">
-            those lines aren&apos;t in the current diff — the file has moved on since this comment
-          </div>
+          <FromFile excerpt={fetched} anchor={line} />
         ) : (
           <div className="overflow-x-auto border-t border-edge/60 py-1">
             {lines.map((l, i) => {
@@ -102,6 +122,48 @@ export function CodeExcerpt({
           </div>
         )
       ) : null}
+    </div>
+  );
+}
+
+/** The file's own lines, for an anchor the diff doesn't contain. No
+ * +/- gutter — nothing here changed in this PR. */
+function FromFile({
+  excerpt,
+  anchor,
+}: {
+  excerpt: FileExcerpt | "loading" | "failed" | null;
+  anchor: number;
+}) {
+  if (excerpt === null || excerpt === "loading") {
+    return <div className="px-2 py-1.5 text-[10px] text-muted">reading the file…</div>;
+  }
+  if (excerpt === "failed") {
+    return (
+      <div className="px-2 py-1.5 text-[10px] text-muted">
+        couldn&apos;t read that file from GitHub — it may have been renamed or removed since
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto border-t border-edge/60 py-1">
+      <div className="px-2 pb-1 text-[9px] uppercase tracking-wide text-muted/70">
+        not part of this diff — shown from the file
+      </div>
+      {excerpt.lines.map((content, i) => {
+        const n = excerpt.start_line + i;
+        return (
+          <div
+            key={n}
+            className={`flex gap-2 whitespace-pre px-2 font-mono text-[10px] leading-[1.6] ${
+              n === anchor ? "bg-sky/15 text-cream" : "text-muted"
+            }`}
+          >
+            <span className="w-8 shrink-0 select-none text-right text-muted/70">{n}</span>
+            <span>{content}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
