@@ -15,6 +15,7 @@ import type { InboxScope, PullRequest } from "../lib/types";
 import type { ReviewTab } from "../state/keyNav";
 import { useKeyNav } from "../state/keyNav";
 import { useReviewedKeys } from "../state/runBoard";
+import { useQueueCounts } from "../state/counts";
 import { useAppStore } from "../state/store";
 import { FindPrTab } from "./FindPrTab";
 import { ApprovedFooter, InboxRow, ReadyGroupedRows, rowKey } from "./PrRows";
@@ -24,7 +25,7 @@ import { Button, CountBadge, IconButton, Spinner } from "./ui";
 /** Header nav button: jumps to the review-status page, badged with how
  * many reviews are pending across every tracked org. */
 export function ReviewStatusMenuButton() {
-  const count = useAppStore((s) => s.reviewRequests.length);
+  const count = useQueueCounts().total;
   const view = useAppStore((s) => s.view);
   const selectedPr = useAppStore((s) => s.selectedPr);
   const setView = useAppStore((s) => s.setView);
@@ -85,15 +86,13 @@ export function ReviewStatusView() {
   }, [lazyScope, loadInbox]);
 
   const [refreshing, setRefreshing] = useState(false);
-  const counts = useAppStore((s) => s.inbox);
+  const queue = useQueueCounts();
   const tabCount = (id: ReviewTab): number | undefined => {
-    if (id === "requested") {
-      // Bots are excluded on purpose: the badge is "things waiting on
-      // you", and a dependency bump isn't that.
-      const human = reviewRequests.filter((pr) => !isBotLogin(pr.author.login)).length;
-      return human + unapproved.length;
-    }
-    if (id === "authored" || id === "mentions") return counts[id]?.length;
+    // Bots are excluded on purpose: a count is "things waiting on you",
+    // and a dependency bump isn't that.
+    if (id === "requested") return queue.requested + queue.reviewing;
+    if (id === "authored") return queue.authored;
+    if (id === "mentions") return queue.mentions;
     return undefined;
   };
   const [filter, setFilter] = useState("");
