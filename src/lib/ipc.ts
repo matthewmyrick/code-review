@@ -8,6 +8,7 @@ import type {
   AgentSpec,
   AppRelease,
   FileConfigInfo,
+  FileExcerpt,
   MergeOptions,
   OwnerList,
   RepoSummary,
@@ -55,6 +56,8 @@ export const ipc = {
     invoke<LocalComment>("add_local_comment", { comment }),
   setCommentStatus: (id: string, status: CommentStatus, repo: string, number: number) =>
     invoke<null>("set_comment_status", { id, status, repo, number }),
+  getFileExcerpt: (repo: string, path: string, gitRef: string, line: number, radius: number) =>
+    invoke<FileExcerpt>("get_file_excerpt", { repo, path, gitRef, line, radius }),
   listCommentRevisions: (id: string) => invoke<CommentRevision[]>("list_comment_revisions", { id }),
   updateCommentBody: (id: string, body: string, repo: string, number: number) =>
     invoke<null>("update_comment_body", { id, body, repo, number }),

@@ -172,6 +172,13 @@ export interface NewLocalComment {
   github_comment_id: number | null;
 }
 
+/** Lines read straight from a file at a commit, for comments anchored
+ * outside the diff. */
+export interface FileExcerpt {
+  start_line: number;
+  lines: string[];
+}
+
 /** A superseded version of a comment body. */
 export interface CommentRevision {
   id: string;
