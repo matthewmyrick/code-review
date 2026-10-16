@@ -18,7 +18,6 @@ import { useRef, useState } from "react";
 
 import { shortSha } from "../lib/format";
 import { ipc } from "../lib/ipc";
-import { ConflictHelper } from "./ConflictHelper";
 import { MergeControls } from "./MergeControls";
 import { CommitsSection } from "./CommitsSection";
 import { MergeStatus } from "./MergeStatus";
@@ -151,8 +150,6 @@ export function PrHeader({ detail }: { detail: PrDetail }) {
       </div>
 
       <MergedBanner pr={pr} />
-
-      <ConflictHelper pr={pr} />
 
       <MergeStatus
         state={pr.mergeable_state}

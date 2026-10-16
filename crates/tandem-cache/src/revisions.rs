@@ -15,7 +15,8 @@ use crate::Cache;
 pub trait CommentRevisions {
     /// Snapshot the body a comment is about to stop having.
     fn record_revision(&self, comment_id: &str, editor: &str, body: &str) -> Result<()>;
-    /// Superseded versions, oldest first.
+    /// Superseded versions, oldest first. Two edits can land in the
+    /// same instant, so insertion order breaks the tie.
     fn list_revisions(&self, comment_id: &str) -> Result<Vec<CommentRevision>>;
     /// How many times this comment has been rewritten.
     fn revision_count(&self, comment_id: &str) -> Result<u32>;
@@ -44,7 +45,7 @@ impl CommentRevisions for Cache {
             .conn
             .prepare(
                 "SELECT id, comment_id, edited_at, editor, body FROM comment_revisions
-                 WHERE comment_id = ?1 ORDER BY edited_at ASC",
+                 WHERE comment_id = ?1 ORDER BY edited_at ASC, rowid ASC",
             )
             .map_err(cache_err)?;
         let rows = stmt

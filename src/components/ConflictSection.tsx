@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { relativeTime } from "../lib/format";
 import { ipc } from "../lib/ipc";
 import type { LocalComment, ResolutionState } from "../lib/types";
+import { loadAgent, saveAgent } from "../state/persist";
 import { isWorking } from "../state/runBoard";
 import { useAppStore } from "../state/store";
 import { pushGithubError, pushInfo } from "../state/toasts";
@@ -27,6 +28,7 @@ export function ConflictSection() {
   const runs = useAppStore((s) => s.runs);
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [agentName, setAgentName] = useState(loadAgent);
   const [pushing, setPushing] = useState(false);
   const [state, setState] = useState<ResolutionState | null>(null);
 
@@ -54,7 +56,7 @@ export function ConflictSection() {
 
   if (pr === undefined || (!conflicted && latest === null)) return null;
   const repo = `${pr.repo.owner}/${pr.repo.name}`;
-  const agent = specs[0]?.name ?? "";
+  const agent = specs.some((s) => s.name === agentName) ? agentName : (specs[0]?.name ?? "");
 
   const resolve = () => {
     if (!agent) {
@@ -66,6 +68,25 @@ export function ConflictSection() {
       .startConflictFix(agent, repo, pr.number)
       .then(() => {
         pushInfo(`${agent} is resolving the conflicts`);
+      })
+      .catch((e: unknown) => {
+        pushGithubError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setStarting(false);
+      });
+  };
+
+  const analyze = () => {
+    if (!agent) {
+      pushGithubError("no agents configured — add one in settings");
+      return;
+    }
+    setStarting(true);
+    ipc
+      .startConflictResolution(agent, repo, pr.number)
+      .then(() => {
+        pushInfo(`${agent} is analyzing the conflicts`);
       })
       .catch((e: unknown) => {
         pushGithubError(e instanceof Error ? e.message : String(e));
@@ -129,16 +150,45 @@ export function ConflictSection() {
 
       <div className="flex items-center gap-1.5 border-t border-ember/30 bg-ember/5 px-2.5 py-1.5">
         {running !== undefined || starting ? (
-          <Spinner label={`${running?.agent_name ?? agent} is resolving…`} />
+          <Spinner
+            label={`${running?.agent_name ?? agent} is ${
+              running?.purpose === "conflict analysis" ? "analyzing" : "resolving"
+            }…`}
+          />
         ) : (
-          <button
-            type="button"
-            onClick={resolve}
-            title="fetch the base, start the merge, and have the agent resolve it"
-            className="inline-flex items-center gap-1 rounded-md bg-ember/20 px-2 py-1 text-[11px] font-medium text-ember transition-colors hover:bg-ember/30"
-          >
-            <GitMerge size={11} /> resolve the conflicts
-          </button>
+          <>
+            <select
+              value={agent}
+              onChange={(e) => {
+                setAgentName(e.target.value);
+                saveAgent(e.target.value);
+              }}
+              title="agent to work the conflict"
+              className="h-6 max-w-28 cursor-pointer rounded-md border border-edge bg-panel-2 px-1 text-[10px] text-muted"
+            >
+              {specs.map((spec) => (
+                <option key={spec.name} value={spec.name}>
+                  {spec.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={resolve}
+              title="fetch the base, start the merge, and have the agent resolve it"
+              className="inline-flex items-center gap-1 rounded-md bg-ember/20 px-2 py-1 text-[11px] font-medium text-ember transition-colors hover:bg-ember/30"
+            >
+              <GitMerge size={11} /> resolve the conflicts
+            </button>
+            <button
+              type="button"
+              onClick={analyze}
+              title="just explain the conflict — nothing touches the branch"
+              className="text-[10px] text-muted underline underline-offset-2 transition-colors hover:text-cream"
+            >
+              analyze only
+            </button>
+          </>
         )}
         {state?.ready === true ? (
           <button
