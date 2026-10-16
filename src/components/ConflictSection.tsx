@@ -77,25 +77,6 @@ export function ConflictSection() {
       });
   };
 
-  const analyze = () => {
-    if (!agent) {
-      pushGithubError("no agents configured — add one in settings");
-      return;
-    }
-    setStarting(true);
-    ipc
-      .startConflictResolution(agent, repo, pr.number)
-      .then(() => {
-        pushInfo(`${agent} is analyzing the conflicts`);
-      })
-      .catch((e: unknown) => {
-        pushGithubError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => {
-        setStarting(false);
-      });
-  };
-
   const push = () => {
     setPushing(true);
     ipc
@@ -179,14 +160,6 @@ export function ConflictSection() {
               className="inline-flex items-center gap-1 rounded-md bg-ember/20 px-2 py-1 text-[11px] font-medium text-ember transition-colors hover:bg-ember/30"
             >
               <GitMerge size={11} /> resolve the conflicts
-            </button>
-            <button
-              type="button"
-              onClick={analyze}
-              title="just explain the conflict — nothing touches the branch"
-              className="text-[10px] text-muted underline underline-offset-2 transition-colors hover:text-cream"
-            >
-              analyze only
             </button>
           </>
         )}
