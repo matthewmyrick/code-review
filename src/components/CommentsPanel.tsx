@@ -160,7 +160,10 @@ export function CommentsPanel() {
       {selectedGithub ? (
         <GithubCommentModal
           comment={selectedGithub}
-          threads={threads.filter((t) => t.root.github_comment_id === selectedGithub.id)}
+          threads={groupThreads(comments).filter(
+            (t) => t.root.github_comment_id === selectedGithub.id,
+          )}
+          githubReplies={allGithub.filter((c) => c.in_reply_to_id === selectedGithub.id)}
           onClose={() => {
             setSelected(null);
           }}
@@ -170,7 +173,9 @@ export function CommentsPanel() {
       {selectedReview ? (
         <ReviewModal
           review={selectedReview}
-          threads={threads.filter((t) => t.root.github_comment_id === selectedReview.id)}
+          threads={groupThreads(comments).filter(
+            (t) => t.root.github_comment_id === selectedReview.id,
+          )}
           onClose={() => {
             setSelected(null);
           }}
