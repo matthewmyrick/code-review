@@ -10,6 +10,7 @@ import type { InboxScope, RunEvent, SyncEvent } from "../lib/types";
 import { sanitizePrSort } from "../lib/sort";
 import { recordRunUpdate } from "./notifications";
 import { useRunBoard } from "./runBoard";
+import { withRateLimitRetry } from "./rateLimitRetry";
 import { pushGithubError, pushInfo } from "./toasts";
 import { agentActions } from "./agentActions";
 import { githubActions } from "./githubActions";
@@ -201,17 +202,30 @@ export const useAppStore = create<AppStore>((set, get) => {
         // Deliberately does NOT clear the current list first: the
         // background refresh would otherwise flash a spinner over a
         // perfectly good list every few minutes.
-        const prs = await ipc.listMyPrs(scope, null);
+        const prs = await withRateLimitRetry(() => ipc.listMyPrs(scope, null));
         set((s) => ({ inbox: { ...s.inbox, [scope]: prs } }));
       } catch (e) {
         fail(e);
       }
     },
 
+    // Everything the review-status page shows, loaded together so no
+    // tab is empty when you reach it. Firing these in parallel can trip
+    // the rate limit, which is why each one waits and retries rather
+    // than failing — see state/rateLimitRetry.ts.
+    loadQueues: async (force) => {
+      await Promise.all([
+        get()
+          .refreshReviewRequests()
+          .then(() => get().loadReviewing()),
+        get().loadInbox("authored", force),
+        get().loadInbox("mentions", force),
+        get().loadInbox("approved", force),
+      ]);
+    },
+
     // One pass over everything the review-status page shows: the
     // review-request feed plus whichever inbox lists have been opened.
-    // Sequential on purpose — these are search calls, and firing them
-    // in parallel is exactly how you trip the rate limit.
     refreshInboxes: async () => {
       await get().refreshReviewRequests();
       for (const scope of Object.keys(get().inbox) as InboxScope[]) {

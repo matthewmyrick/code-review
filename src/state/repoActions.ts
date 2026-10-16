@@ -6,6 +6,7 @@ import { ipc } from "../lib/ipc";
 import type { PullRequest } from "../lib/types";
 import { sanitizePrSort } from "../lib/sort";
 import { runPool } from "../lib/pool";
+import { withRateLimitRetry } from "./rateLimitRetry";
 import { pushInfo } from "./toasts";
 import type { AppStore } from "./storeTypes";
 
@@ -146,7 +147,7 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
     // request on every app start.
     refreshReviewRequests: async () => {
       try {
-        const prs = await ipc.listMyPrs("requested", null);
+        const prs = await withRateLimitRetry(() => ipc.listMyPrs("requested", null));
         if (get().reviewRequestsSeeded) {
           const known = new Set(get().reviewRequests.map(reviewRequestKey));
           const fresh = prs.filter((pr) => !known.has(reviewRequestKey(pr)));
@@ -165,7 +166,7 @@ export function repoActions(set: Set, get: Get, fail: (e: unknown) => void) {
 
     loadReviewing: async () => {
       try {
-        const reviewed = await ipc.listReviewedPrs();
+        const reviewed = await withRateLimitRetry(() => ipc.listReviewedPrs());
         // Anything GitHub is already asking for belongs in the main
         // list, not the tail — it's one or the other, never both.
         const requested = new Set(get().reviewRequests.map(reviewRequestKey));
