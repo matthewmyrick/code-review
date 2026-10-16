@@ -71,6 +71,9 @@ export interface AppStore {
   approvePr: (body: string | null) => Promise<void>;
   loadMorePrs: () => Promise<void>;
   loadInbox: (scope: InboxScope, force?: boolean) => Promise<void>;
+  /** Load req, mine, mentions and approved together, whichever tab
+   * you're on; rate limits wait and retry rather than failing. */
+  loadQueues: (force?: boolean) => Promise<void>;
   refreshInboxes: () => Promise<void>;
   setPrSort: (sort: PrSort) => void;
   openPr: (repoSlug: string, number: number) => Promise<void>;

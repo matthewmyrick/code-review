@@ -65,25 +65,23 @@ export function ReviewStatusView() {
   const reviewRequests = useAppStore((s) => s.reviewRequests);
   const reviewRequestsSeeded = useAppStore((s) => s.reviewRequestsSeeded);
   const prSort = useAppStore((s) => s.prSort);
-  const refreshReviewRequests = useAppStore((s) => s.refreshReviewRequests);
+  const loadQueues = useAppStore((s) => s.loadQueues);
   const reviewing = useAppStore((s) => s.reviewing);
   // What you've already approved (the footer's list, loaded on this
   // same tab) — an approved PR has moved on from "I reviewed this".
   const approved = useAppStore((s) => s.inbox.approved);
-  const loadReviewing = useAppStore((s) => s.loadReviewing);
-  const loadInbox = useAppStore((s) => s.loadInbox);
   // "mine"/"mentions" live in the store's account-wide inbox map so the
   // `r` shortcut can refresh whichever one is on screen.
-  const lazyScope: InboxScope | null = tab === "authored" || tab === "mentions" ? tab : null;
-  const lazyList = useAppStore((s) => (lazyScope === null ? undefined : s.inbox[lazyScope]));
+  // These load with everything else now; the tab only chooses which
+  // already-loaded list to show.
+  const scope: InboxScope | null = tab === "authored" || tab === "mentions" ? tab : null;
+  const scopeList = useAppStore((s) => (scope === null ? undefined : s.inbox[scope]));
 
+  // Every list, in parallel, whichever tab is showing — switching tabs
+  // should never be the thing that starts a fetch.
   useEffect(() => {
-    void refreshReviewRequests().then(loadReviewing);
-  }, [refreshReviewRequests, loadReviewing]);
-
-  useEffect(() => {
-    if (lazyScope !== null) void loadInbox(lazyScope);
-  }, [lazyScope, loadInbox]);
+    void loadQueues();
+  }, [loadQueues]);
 
   const [refreshing, setRefreshing] = useState(false);
   const queue = useQueueCounts();
@@ -106,7 +104,7 @@ export function ReviewStatusView() {
       pr.review_decision !== "approved",
     [reviewedKeys],
   );
-  const all = sortPrs(tab === "requested" ? reviewRequests : (lazyList ?? []), prSort);
+  const all = sortPrs(tab === "requested" ? reviewRequests : (scopeList ?? []), prSort);
   const prs = useMemo(() => matching(all, filter), [all, filter]);
   const unapproved = useMemo(() => {
     const done = new Set(
@@ -118,7 +116,7 @@ export function ReviewStatusView() {
   }, [reviewing, approved]);
   const shownReviewing = useMemo(() => matching(unapproved, filter), [unapproved, filter]);
   const loading =
-    tab === "requested" ? !reviewRequestsSeeded : lazyScope !== null && lazyList === undefined;
+    tab === "requested" ? !reviewRequestsSeeded : scope !== null && scopeList === undefined;
 
   // "mine" reorders into ready/open/draft groups and publishes its own
   // keyNav list; "find" publishes its own too.
@@ -158,10 +156,7 @@ export function ReviewStatusView() {
                 setRefreshing(false);
               };
               setRefreshing(true);
-              if (tab === "requested")
-                void refreshReviewRequests().then(loadReviewing).finally(done);
-              else if (lazyScope !== null) void loadInbox(lazyScope, true).finally(done);
-              else done();
+              void loadQueues(true).finally(done);
             }}
           >
             <RefreshCw size={11} className={refreshing ? "animate-spin" : ""} /> refresh
