@@ -2,22 +2,15 @@
 // and the inline composer. Local comments never touch GitHub; GitHub
 // comments render read-only with their own badge.
 
-import {
-  Archive,
-  AtSign,
-  Bot,
-  ExternalLink,
-  Reply,
-  RotateCcw,
-  Send,
-  Trash2,
-  User,
-} from "lucide-react";
+import { Archive, AtSign, Bot, ExternalLink, Reply, RotateCcw, Trash2, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { mentionsUser, relativeTime } from "../lib/format";
-import { githubCommentUrl, openExternal, postedCommentUrl } from "../lib/open";
+import { githubCommentUrl, openExternal } from "../lib/open";
 import { CommentBody } from "./CommentBody";
+import { CopyMarkdown } from "./CopyMarkdown";
+import { PostToGithub } from "./PostToGithub";
+import { localThreadMarkdown } from "../lib/threadMarkdown";
 import { MarkdownBody } from "./Markdown";
 import { SuggestionBlock } from "./SuggestionBlock";
 import { extractMentions, MentionInput } from "./MentionInput";
@@ -78,6 +71,13 @@ export function CommentThread({ root, replies }: { root: LocalComment; replies: 
   }, [highlighted]);
   return (
     <div ref={ref} className={`flex flex-col gap-2 ${highlighted ? "flash-target" : ""}`}>
+      <div className="flex justify-end">
+        <CopyMarkdown
+          label="copy conversation"
+          title="copy this whole thread as markdown"
+          text={() => localThreadMarkdown(root, replies)}
+        />
+      </div>
       <CommentCard
         comment={root}
         onReply={() => {
@@ -266,6 +266,7 @@ export function CommentCard(props: {
         {/* A conflict briefing is working notes about your own merge —
             there's nothing on GitHub for it to belong to. */}
         {comment.tag === "conflict" ? null : <PostToGithub comment={comment} />}
+        <CopyMarkdown title="copy this message as markdown" text={() => comment.body} />
         <button
           type="button"
           title="delete permanently"
@@ -282,67 +283,6 @@ export function CommentCard(props: {
 }
 
 /// Explicit, two-step "post this comment body to GitHub" control.
-function PostToGithub({ comment }: { comment: LocalComment }) {
-  const postToGithub = useAppStore((s) => s.postToGithub);
-  const [confirming, setConfirming] = useState(false);
-  const [posting, setPosting] = useState(false);
-
-  const postedUrl = postedCommentUrl(comment);
-  if (postedUrl !== null) {
-    return (
-      <button
-        type="button"
-        title="posted — open it on github.com"
-        onClick={() => {
-          openExternal(postedUrl);
-        }}
-        className="inline-flex"
-      >
-        <Pill tone="moss">
-          <Send size={10} /> posted <ExternalLink size={9} />
-        </Pill>
-      </button>
-    );
-  }
-  if (posting) return <Spinner label="posting…" />;
-  if (confirming) {
-    return (
-      <>
-        <Button
-          kind="danger"
-          onClick={() => {
-            setPosting(true);
-            void postToGithub(comment.id).then(() => {
-              setPosting(false);
-              setConfirming(false);
-            });
-          }}
-          title="this WILL post to GitHub"
-        >
-          <Send size={11} /> confirm post
-        </Button>
-        <Button
-          onClick={() => {
-            setConfirming(false);
-          }}
-        >
-          cancel
-        </Button>
-      </>
-    );
-  }
-  return (
-    <Button
-      onClick={() => {
-        setConfirming(true);
-      }}
-      title="post this comment to GitHub (asks to confirm)"
-    >
-      <Send size={11} /> post to github
-    </Button>
-  );
-}
-
 export function GithubCommentCard(props: { comment: GithubComment; onDiscuss?: () => void }) {
   const { comment } = props;
   const pr = useAppStore((s) => s.bundle?.detail.pull_request);
