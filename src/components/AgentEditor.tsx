@@ -91,6 +91,10 @@ export function AgentEditor() {
   const saveAgentSpec = useAppStore((s) => s.saveAgentSpec);
   const deleteAgentSpec = useAppStore((s) => s.deleteAgentSpec);
   const [editing, setEditing] = useState<AgentSpec | null>(null);
+  // The name an existing spec was opened under, or null for a new one.
+  // A new spec starts named "claude-reviewer", so treating that as a
+  // previous name would delete a real agent of the same name.
+  const [original, setOriginal] = useState<string | null>(null);
 
   return (
     <section className="rounded-lg border border-edge bg-panel p-4">
@@ -105,6 +109,7 @@ export function AgentEditor() {
           kind="primary"
           onClick={() => {
             setEditing(newSpec());
+            setOriginal(null);
           }}
         >
           <Plus size={12} /> new agent
@@ -126,6 +131,7 @@ export function AgentEditor() {
               <Button
                 onClick={() => {
                   setEditing(spec);
+                  setOriginal(spec.name);
                 }}
               >
                 edit
@@ -147,12 +153,15 @@ export function AgentEditor() {
         <SpecForm
           spec={editing}
           onSave={(spec) => {
-            void saveAgentSpec(spec).then(() => {
+            // Renaming an existing agent must move it, not clone it.
+            void saveAgentSpec(spec, original).then(() => {
               setEditing(null);
+              setOriginal(null);
             });
           }}
           onCancel={() => {
             setEditing(null);
+            setOriginal(null);
           }}
         />
       ) : null}

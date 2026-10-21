@@ -22,9 +22,9 @@ export function agentActions(
   reloadRuns: () => Promise<void>,
 ) {
   return {
-    saveAgentSpec: async (spec: AgentSpec) => {
+    saveAgentSpec: async (spec: AgentSpec, previousName?: string | null) => {
       try {
-        await ipc.saveAgentSpec(spec);
+        await ipc.saveAgentSpec(spec, previousName ?? null);
         set({ agentSpecs: await ipc.listAgentSpecs() });
       } catch (e) {
         fail(e);

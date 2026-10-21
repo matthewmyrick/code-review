@@ -24,11 +24,32 @@ pub async fn list_agent_specs(state: State<'_, AppState>) -> Result<Vec<AgentSpe
 pub async fn save_agent_spec(
     state: State<'_, AppState>,
     spec: AgentSpec,
+    // The name the editor opened with. Specs are keyed by name, so
+    // saving under a new one is an insert — without this the old spec
+    // stays behind and a rename quietly becomes a duplicate.
+    previous_name: Option<String>,
 ) -> Result<(), TandemError> {
     if spec.name.trim().is_empty() {
         return Err(TandemError::Config("agent name cannot be empty".into()));
     }
-    state.cache.lock().await.put_agent_spec(&spec)
+    let cache = state.cache.lock().await;
+    if let Some(previous) = previous_name {
+        if previous != spec.name && !previous.is_empty() {
+            let taken = cache
+                .list_agent_specs()?
+                .into_iter()
+                .any(|s| s.name == spec.name);
+            if taken {
+                return Err(TandemError::Config(format!(
+                    "there's already an agent called {}",
+                    spec.name
+                )));
+            }
+            cache.put_agent_spec(&spec)?;
+            return cache.delete_agent_spec(&previous);
+        }
+    }
+    cache.put_agent_spec(&spec)
 }
 
 #[tauri::command]
