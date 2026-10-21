@@ -70,7 +70,8 @@ export const ipc = {
   // agents
   listMcpServers: () => invoke<McpServer[]>("list_mcp_servers"),
   listAgentSpecs: () => invoke<AgentSpec[]>("list_agent_specs"),
-  saveAgentSpec: (spec: AgentSpec) => invoke<null>("save_agent_spec", { spec }),
+  saveAgentSpec: (spec: AgentSpec, previousName: string | null) =>
+    invoke<null>("save_agent_spec", { spec, previousName }),
   deleteAgentSpec: (name: string) => invoke<null>("delete_agent_spec", { name }),
   listAgentRuns: (repo: string, number: number) =>
     invoke<AgentRun[]>("list_agent_runs", { repo, number }),
