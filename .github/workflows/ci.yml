@@ -70,6 +70,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: rustfmt
         run: cargo fmt --all -- --check
+      # src-tauri declares tandem-cli as a sidecar, and Tauri's build
+      # script resolves it — so even `cargo clippy` needs it on disk.
+      - name: build the tandem-cli sidecar
+        run: |
+          set -euo pipefail
+          cargo build --release -p tandem-cli
+          mkdir -p src-tauri/binaries
+          cp target/release/tandem-cli \
+            "src-tauri/binaries/tandem-cli-$(rustc -vV | sed -n 's/^host: //p')"
+
       - name: clippy (zero warnings; unwrap/expect/panic denied)
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: tests

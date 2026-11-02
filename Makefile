@@ -64,7 +64,7 @@ build:
 
 # Matches AGENTS.md's "Verifying your work" bar exactly — read-only, so
 # a clean run here means a clean CI run.
-check:
+check: sidecar
 	cargo fmt --all -- --check;
 	cargo clippy --workspace --all-targets -- -D warnings;
 	cargo test --workspace;
