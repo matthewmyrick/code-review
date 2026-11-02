@@ -159,6 +159,31 @@ jobs:
       - name: stamp release version
         run: node scripts/set-version.mjs ${{ needs.version.outputs.version }}
 
+      # The CLI ships inside the app bundle as a Tauri sidecar, so it
+      # has to exist — named for this job's target triple — before the
+      # bundle is built. A missing sidecar fails the build outright,
+      # which is the right failure: shipping an app whose `tandem-cli`
+      # is silently absent would be worse.
+      - name: build the tandem-cli sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          args="${{ matrix.args }}"
+          if [[ "$args" == *--target* ]]; then
+            triple="${args##*--target }"
+            triple="${triple%% *}"
+            cargo build --release -p tandem-cli --target "$triple"
+            built="target/$triple/release/tandem-cli"
+          else
+            triple=$(rustc -vV | sed -n 's/^host: //p')
+            cargo build --release -p tandem-cli
+            built="target/release/tandem-cli"
+          fi
+          ext=""
+          [[ "$triple" == *windows* ]] && ext=".exe"
+          mkdir -p src-tauri/binaries
+          cp "${built}${ext}" "src-tauri/binaries/tandem-cli-${triple}${ext}"
+
       - name: build + upload release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -194,18 +219,26 @@ jobs:
           case "${{ matrix.name }}" in
             macos-arm)
               cp target/aarch64-apple-darwin/release/bundle/dmg/*.dmg \
-                "$stage/Tandem-macos-arm64.dmg" ;;
+                "$stage/Tandem-macos-arm64.dmg"
+              cp src-tauri/binaries/tandem-cli-aarch64-apple-darwin \
+                "$stage/tandem-cli-macos-arm64" ;;
             macos-intel)
               cp target/x86_64-apple-darwin/release/bundle/dmg/*.dmg \
-                "$stage/Tandem-macos-x64.dmg" ;;
+                "$stage/Tandem-macos-x64.dmg"
+              cp src-tauri/binaries/tandem-cli-x86_64-apple-darwin \
+                "$stage/tandem-cli-macos-x64" ;;
             windows)
               cp target/release/bundle/nsis/*-setup.exe \
-                "$stage/Tandem-windows-x64-setup.exe" ;;
+                "$stage/Tandem-windows-x64-setup.exe"
+              cp src-tauri/binaries/tandem-cli-*.exe \
+                "$stage/tandem-cli-windows-x64.exe" ;;
             linux)
               cp target/release/bundle/appimage/*.AppImage \
                 "$stage/Tandem-linux-x86_64.AppImage"
               cp target/release/bundle/deb/*.deb \
-                "$stage/Tandem-linux-amd64.deb" ;;
+                "$stage/Tandem-linux-amd64.deb"
+              cp src-tauri/binaries/tandem-cli-x86_64-unknown-linux-gnu \
+                "$stage/tandem-cli-linux-x86_64" ;;
           esac
           gh release upload "$TAG" "$stage"/* --clobber
 

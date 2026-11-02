@@ -21,6 +21,10 @@ cask "tandem" do
 
   app "Tandem.app"
 
+  # The read-only CLI ships inside the bundle; this is what puts it on
+  # PATH, so `tandem-cli` tracks whatever version of the app you have.
+  binary "#{appdir}/Tandem.app/Contents/MacOS/tandem-cli"
+
   # Not notarized yet — clear quarantine so first launch works.
   postflight do
     system_command "/usr/bin/xattr",
