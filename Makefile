@@ -34,10 +34,18 @@ install:
 # `cargo tauri dev` is always a debug build, which AppDirs::resolve()
 # (src-tauri/src/settings.rs) and the window title both key off of to
 # keep dev data/identity separate from the installed release app.
-dev:
+# Tauri refuses to start if a declared sidecar is missing, so the CLI
+# is built for this host before any tauri command runs.
+sidecar:
+	triple=$$(rustc -vV | sed -n 's/^host: //p'); \
+	cargo build --release -p tandem-cli; \
+	mkdir -p src-tauri/binaries; \
+	cp target/release/tandem-cli "src-tauri/binaries/tandem-cli-$$triple";
+
+dev: sidecar
 	$(PNPM) tauri dev;
 
-dev-bg:
+dev-bg: sidecar
 	nohup $(PNPM) tauri dev > .tandem-dev.log 2>&1 & echo "started — tail -f .tandem-dev.log";
 
 fmt:
@@ -56,7 +64,7 @@ build:
 
 # Matches AGENTS.md's "Verifying your work" bar exactly — read-only, so
 # a clean run here means a clean CI run.
-check:
+check: sidecar
 	cargo fmt --all -- --check;
 	cargo clippy --workspace --all-targets -- -D warnings;
 	cargo test --workspace;

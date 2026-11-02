@@ -155,3 +155,14 @@ have no write path. **v2 moves agent execution into Docker with a squid
 proxy** so each agent can only reach the endpoints you allowlist. The
 `network_allowlist` field already exists on every agent spec; see
 [docs/SANDBOXING.md](docs/SANDBOXING.md) for the plan.
+
+## Reading the data from elsewhere
+
+Tandem's store is a plain SQLite file, and `tandem-cli` ships with the
+app to read it from a script or an agent:
+
+```bash
+tandem-cli comments --repo owner/name --pr 123 --threads | jq .
+```
+
+See [docs/CLI.md](docs/CLI.md).
