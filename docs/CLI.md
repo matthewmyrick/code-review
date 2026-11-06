@@ -64,9 +64,49 @@ tandem-cli runs --limit 200 \
   | jq -r 'map(select(.purpose == "pr review")) | map("\(.repo_slug)#\(.pr_number)") | unique[]'
 ```
 
+## Driving Tandem from a scheduled job
+
+The point of this pair is that **an outside process decides what needs
+reviewing, and Tandem decides how to review it** — with the agents,
+prompts and conventions you have configured. Nothing out there starts
+an agent itself.
+
+```bash
+# what is waiting on me that nothing has reviewed yet?
+tandem-cli queue
+
+# ask Tandem to review one
+tandem-cli review --repo owner/name --pr 123 --by agentd
+```
+
+A whole cron job is those two lines:
+
+```bash
+tandem-cli queue | jq -r '.[] | "\(.repo.owner)/\(.repo.name) \(.number)"' |
+  while read -r repo number; do
+    tandem-cli review --repo "$repo" --pr "$number" --by agentd
+  done
+```
+
+`queue` is the review-request inbox minus anything an agent has already
+finished reviewing and anything already queued, so running it twice in
+a row does not review the same PR twice. `--all` ignores the queued
+filter. `--agent <name>` picks an agent; otherwise Tandem uses its
+first configured one.
+
+`review` records a request and returns immediately. Tandem picks it up
+within ~20 seconds while it is running, syncs the PR if it has never
+been opened, and starts a normal review run — the same one the review
+button starts. Requests made while Tandem is closed are picked up when
+it next opens.
+
+This is the one command that writes, and it writes only to the queue
+table. Everything else stays read-only.
+
 ## Notes
 
-- **Don't write to the database from outside.** Nothing stops you, but
+- **Don't write review data from outside.** The queue above is the
+  seam built for it; everything else is Tandem's. Nothing stops you, but
   Tandem holds its own connection and emits events when data changes;
   an outside write lands silently and the app won't know. Something
   that needs to push data _in_ belongs behind a Tauri command.

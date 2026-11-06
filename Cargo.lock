@@ -4110,10 +4110,12 @@ dependencies = [
 name = "tandem-cli"
 version = "0.0.1"
 dependencies = [
+ "chrono",
  "clap",
  "dirs 5.0.1",
  "rusqlite",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]

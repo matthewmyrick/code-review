@@ -134,3 +134,86 @@ pub fn runs(
         ),
     }
 }
+
+/// What's waiting on you that nothing has reviewed yet. "Reviewed"
+/// means a finished `pr review` run exists for it — the same thing the
+/// review-status list means by its green badge.
+pub fn queue(conn: &Connection, include_queued: bool) -> Result<Value, String> {
+    let requests = collect(
+        conn,
+        "SELECT json FROM review_requests ORDER BY fetched_at DESC, repo, number",
+        &[],
+    )?;
+    let mut out = Vec::new();
+    for pr in requests.as_array().cloned().unwrap_or_default() {
+        let repo = pr
+            .get("repo")
+            .map(|r| {
+                format!(
+                    "{}/{}",
+                    r.get("owner").and_then(Value::as_str).unwrap_or_default(),
+                    r.get("name").and_then(Value::as_str).unwrap_or_default()
+                )
+            })
+            .unwrap_or_default();
+        let number = pr.get("number").and_then(Value::as_u64).unwrap_or_default();
+
+        let reviewed: u32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM agent_runs
+                 WHERE repo = ?1 AND pr_number = ?2
+                   AND json_extract(json, '$.purpose') = 'pr review'
+                   AND json_extract(json, '$.status') NOT IN ('starting', 'running')",
+                rusqlite::params![&repo, number],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if reviewed > 0 {
+            continue;
+        }
+        // A request already queued isn't idle — asking twice would
+        // start two reviews of the same PR.
+        if !include_queued {
+            let queued: u32 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM review_jobs WHERE repo = ?1 AND number = ?2
+                       AND (started_at IS NULL OR error IS NULL)",
+                    rusqlite::params![&repo, number],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            if queued > 0 {
+                continue;
+            }
+        }
+        out.push(pr);
+    }
+    Ok(Value::Array(out))
+}
+
+/// Record a review request. Opened read-write on purpose and only for
+/// this: the queue is an inbox for outside processes, not review data.
+pub fn request_review(
+    db: &Path,
+    repo: &str,
+    number: u64,
+    agent: Option<&str>,
+    by: &str,
+) -> Result<Value, String> {
+    let conn = Connection::open(db).map_err(|e| format!("can't open {}: {e}", db.display()))?;
+    let id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO review_jobs (id, repo, number, agent, requested_by, requested_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![id, repo, number, agent, by, chrono::Utc::now().to_rfc3339()],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({
+        "queued": true,
+        "id": id,
+        "repo": repo,
+        "pr": number,
+        "agent": agent,
+        "note": "Tandem starts this within ~20s while it is running",
+    }))
+}
