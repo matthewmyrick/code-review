@@ -14,3 +14,20 @@ for (const path of ["src-tauri/tauri.conf.json", "package.json"]) {
   writeFileSync(path, JSON.stringify(json, null, 2) + "\n");
   console.log(`${path} -> ${version}`);
 }
+
+// The Rust side too, or a shipped `tandem-cli --version` reports the
+// workspace placeholder forever and can't tell you whether it's current.
+{
+  const path = "Cargo.toml";
+  const toml = readFileSync(path, "utf8");
+  const stamped = toml.replace(
+    /(\[workspace\.package\][\s\S]*?\nversion = ")[^"]*(")/,
+    `$1${version}$2`,
+  );
+  if (stamped === toml) {
+    console.error(`${path}: couldn't find [workspace.package] version`);
+    process.exit(1);
+  }
+  writeFileSync(path, stamped);
+  console.log(`${path} -> ${version}`);
+}

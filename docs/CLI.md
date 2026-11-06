@@ -103,6 +103,27 @@ it next opens.
 This is the one command that writes, and it writes only to the queue
 table. Everything else stays read-only.
 
+## Staying current
+
+```bash
+tandem-cli update --check   # what you have, what's out, whether you're behind
+tandem-cli update           # do whatever updating means for this install
+```
+
+What `update` does depends on how this copy got here, because the CLI
+usually isn't its own installable thing:
+
+| Installed as                        | `update` does                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| inside `Tandem.app`, via Homebrew   | `brew upgrade --cask tandem`                                                                             |
+| inside `Tandem.app`, some other way | tells you to use the app's own updater — a CLI shouldn't swap an app bundle out from under a running app |
+| standalone binary                   | downloads the matching asset and replaces itself                                                         |
+
+The version it reports is the release it shipped in. A build made
+outside the release pipeline carries the workspace placeholder and
+reads as "behind" — by design: claiming you're current when we can't
+tell is worse.
+
 ## Notes
 
 - **Don't write review data from outside.** The queue above is the

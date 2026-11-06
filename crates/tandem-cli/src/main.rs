@@ -12,6 +12,7 @@ use clap::{Parser, Subcommand};
 use rusqlite::{Connection, OpenFlags};
 
 mod query;
+mod update;
 
 #[derive(Parser)]
 #[command(
@@ -84,6 +85,12 @@ enum Command {
         #[arg(long, default_value = "tandem-cli")]
         by: String,
     },
+    /// Check for a newer Tandem, or install it.
+    Update {
+        /// Report versions and stop.
+        #[arg(long)]
+        check: bool,
+    },
     /// Agent runs, newest first.
     Runs {
         #[arg(long)]
@@ -123,6 +130,17 @@ fn main() {
 }
 
 fn run(cli: &Cli) -> Result<(), String> {
+    // Updating touches the network and this binary, never the store.
+    if let Command::Update { check } = cli.command {
+        let value = if check {
+            update::check()?
+        } else {
+            update::perform()?
+        };
+        query::print(&value, cli.pretty);
+        return Ok(());
+    }
+
     let db = resolve_db(cli)?;
     if matches!(cli.command, Command::Paths) {
         return query::paths(&db, cli.pretty);
@@ -154,7 +172,7 @@ fn run(cli: &Cli) -> Result<(), String> {
 
     let value = match &cli.command {
         Command::Paths => unreachable!("handled above"),
-        Command::Review { .. } => unreachable!("handled above"),
+        Command::Review { .. } | Command::Update { .. } => unreachable!("handled above"),
         Command::Queue { all } => query::queue(&conn, *all)?,
         Command::Prs { repo, limit } => query::prs(&conn, repo.as_deref(), *limit)?,
         Command::Comments { repo, pr, threads } => query::comments(&conn, repo, *pr, *threads)?,
