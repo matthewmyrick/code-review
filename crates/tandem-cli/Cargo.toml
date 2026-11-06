@@ -10,7 +10,9 @@ name = "tandem-cli"
 path = "src/main.rs"
 
 [dependencies]
+chrono = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 dirs = { workspace = true }
 rusqlite = { workspace = true }
 serde_json = { workspace = true }
+uuid = { workspace = true }
